@@ -11,7 +11,7 @@ hardware.
 
 ## Status
 
-Early. `doctor`, `list` and `export` work; import is next. See
+Phase 1 complete: read, export, import, remove, backup and restore all work. See
 `../docs/phase-1-core-cli.md` for the plan and `../docs/format.md` for the save
 format record.
 
@@ -22,7 +22,13 @@ awrbc doctor                      find save data and report what is readable
 awrbc list                        list the custom maps in a save
 awrbc export 3 -o map.json        write one map out as JSON
 awrbc export --all -o ./maps/     write them all out
+awrbc import map.json             add a map from JSON
+awrbc remove 3                    delete a map
+awrbc backup                      snapshot the save
+awrbc restore [name]              list snapshots, or roll one back
 ```
+
+`import` and `remove` take `--dry-run` and `--force`.
 
 Flags: `--save-dir` (Ryujinx folder, JKSV dump, or a maps file), `--profile`,
 `--json`. Export also takes `--author` and `--keep-creator`.
@@ -31,7 +37,12 @@ Flags: `--save-dir` (Ryujinx folder, JKSV dump, or a maps file), `--profile`,
 name, which for many people is their real name; `--keep-creator` opts in.
 
 Export is advisory: an unplayable map still exports, with its findings printed.
-Publishing to the archive is where validation blocks.
+Import blocks on validation errors unless you pass `--force`.
+
+**Every write takes a backup first**, into a user data directory (override with
+`AWRBC_BACKUP_DIR`). Writes are serialized fully in memory and then swapped into
+place, so a partial save is never left behind. Import also refuses while the game
+is running, because the title flushes its own copy over external edits.
 
 Run from a checkout with `python -m awrbc.cli <command>`.
 

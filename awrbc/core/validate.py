@@ -80,9 +80,13 @@ def check(m: Map) -> Report:
         if t.team is not None and not -1 <= t.team <= 4:
             r.add("cell.team", ERROR, "team %r is out of range" % t.team,
                   "cells[%d,%d]" % (x, y))
-        if t.team is not None and t.type not in CAPTURABLE:
+        # team -1 means "neutral" and the game writes it on plenty of
+        # non-capturable terrain (silos, pipe seams, Black Hole structures).
+        # Only an actual owner implies a capturable property.
+        if t.team is not None and t.team >= 0 and t.type not in CAPTURABLE:
             r.add("cell.ownership", ERROR,
-                  "terrain %d cannot be owned" % t.type, "cells[%d,%d]" % (x, y))
+                  "terrain %d cannot be owned by a team" % t.type,
+                  "cells[%d,%d]" % (x, y))
     for value in sorted(unknown_tiles):
         r.add("terrain.unknown", WARNING,
               "terrain value %d is not in the known table" % value, "terrain")

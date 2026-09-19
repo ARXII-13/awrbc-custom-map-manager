@@ -1,8 +1,6 @@
-"""Read a maps file into domain objects.
+"""Read and write the maps file.
 
-Only the read path lives here for now; writing arrives with M3.
-
-Two things about this format bite hard and are handled explicitly below — see
+Two things about this format bite hard and are handled explicitly — see
 docs/format.md for the full record:
 
 * The tile and unit arrays are **rank-2 ``[cols, rows]``**, so the flat stream
@@ -10,14 +8,26 @@ docs/format.md for the full record:
   parses and still round-trips, so this is easy to get wrong silently.
 * ``CustomMaps`` and ``CustomMapMetadata`` are **parallel arrays in different
   orders**. Metadata is keyed by ``LevelSaveData.Name``, never by position.
+
+Nothing here writes to disk without passing :func:`check_document` first.
 """
-from . import nrbf
-from .errors import SaveUnreadable, UnsupportedSaveVersion
+import collections
+import os
+
+from . import derive, nrbf
+from .builder import Copier, Factory, Ids, NoTemplate, Types
+from .errors import AwrbcError, MapNotFound, SaveUnreadable, UnsupportedSaveVersion
 from .model import Coord, Map, SaveDocument, Tile, Unit
+from .nrbf import Rec
 
 #: Save layouts this build understands. Refuse anything else rather than guess.
 SUPPORTED_VERSIONS = (0,)
 
+#: The game allocates the file in powers of two, smallest 16 KiB.
+MIN_FILE_SIZE = 16384
+
+
+# --------------------------------------------------------------------- read
 
 def _enum(v):
     """Unwrap an enum record ({'$type': 'TileType', 'value__': n}) to its int."""
@@ -32,7 +42,7 @@ def _coord(v):
     if not isinstance(v, dict):
         return None
     x, y = v.get("X", 0), v.get("Y", 0)
-    # The game writes null instead of (0,0) on some tiles; treat both as absent.
+    # The game writes null instead of (0,0) on some tiles; both mean absent.
     return None if (x == 0 and y == 0) else Coord(x, y)
 
 
@@ -81,7 +91,6 @@ def read(path: str) -> SaveDocument:
     if version not in SUPPORTED_VERSIONS:
         raise UnsupportedSaveVersion(version, SUPPORTED_VERSIONS)
 
-    # Metadata is keyed by slot, NOT by array position.
     by_slot = {}
     for md in root.get("CustomMapMetadata", []) or []:
         if isinstance(md, dict):
@@ -106,8 +115,7 @@ def read(path: str) -> SaveDocument:
             name=entry.get("Name") or "",
             creator=entry.get("Creator") or "",
             slot=slot or "",
-            cols=cols,
-            rows=rows,
+            cols=cols, rows=rows,
             fog=bool(lvl.get("HasFogOfWar", False)),
             water_color=lvl.get("m_WaterColorIndex", 0),
             tiles=_reshape(tiles_flat, cols, rows, _tile),
@@ -115,3 +123,309 @@ def read(path: str) -> SaveDocument:
         ))
 
     return SaveDocument(maps=maps, save_version=version, path=path, raw=parser)
+
+
+# ---------------------------------------------------------------- invariants
+
+def _walk(records):
+    seen = set()
+    out = []
+
+    def go(r):
+        if not isinstance(r, Rec) or id(r) in seen:
+            return
+        seen.add(id(r))
+        out.append(r)
+        if r.rt in (1, 4, 5):
+            for v in r.d["values"]:
+                go(v)
+        elif r.rt in (7, 16, 17):
+            for it in r.d["items"]:
+                go(it)
+
+    for r in records:
+        go(r)
+    return out
+
+
+def check_document(parser) -> list:
+    """Every invariant that, if broken, makes the game show zero custom maps.
+
+    Returns a list of problems; empty means safe to write. Cheap, and it has
+    caught every class of corruption this project has produced.
+    """
+    problems = []
+    records = _walk(parser.records)
+
+    ids = [r.d["oid"] for r in records if r.d.get("oid") is not None]
+    duplicate = [k for k, n in collections.Counter(ids).items() if n > 1]
+    if duplicate:
+        problems.append("object ids defined more than once: %s" % duplicate[:6])
+
+    # BinaryFormatter registers objects by ABSOLUTE value: n and -n collide.
+    positive = {i for i in ids if i > 0}
+    negated = {abs(i) for i in ids if i < 0}
+    clash = sorted(positive & negated)
+    if clash:
+        problems.append(
+            "object id collides with the negation of another (BinaryFormatter "
+            "registers by absolute value): %s" % clash[:6])
+
+    defined = set(ids)
+    dangling = {r.d["idref"] for r in records if r.rt == 9} - defined
+    if dangling:
+        problems.append("references to undefined objects: %s" % sorted(dangling)[:6])
+
+    for r in records:
+        if r.rt == 7:
+            want = 1
+            for length in r.d["lens"]:
+                want *= length
+            got = 0
+            for it in r.d["items"]:
+                got += it.d["count"] if isinstance(it, Rec) and it.rt in (13, 14) else 1
+            if want != got:
+                problems.append("array %s declares %d elements but holds %d"
+                                % (r.d.get("oid"), want, got))
+    return problems
+
+
+# --------------------------------------------------------------------- write
+
+def _root(parser):
+    return parser.objects[parser.header.d["root"]]
+
+
+def _member(rec, name):
+    return rec.d["values"][rec.d["mnames"].index(name)]
+
+
+def _deref(parser, extra, v):
+    if isinstance(v, Rec) and v.rt == 9:
+        return extra.get(v.d["idref"]) or parser.objects[v.d["idref"]]
+    return v
+
+
+def _text(parser, extra, rec, member):
+    target = _deref(parser, extra, _member(rec, member))
+    return target.d["val"] if isinstance(target, Rec) else target
+
+
+def _set_text(parser, extra, rec, member, value):
+    target = _deref(parser, extra, _member(rec, member))
+    target.d["val"] = value
+
+
+def _set_prim(rec, member, value):
+    rec.d["values"][rec.d["mnames"].index(member)] = value
+
+
+def _set_enum(parser, extra, rec, member, value):
+    target = _deref(parser, extra, _member(rec, member))
+    _set_prim(target, "value__", value)
+
+
+def _find_unit_template(parser):
+    for r in _walk(parser.records):
+        if r.rt in (1, 4, 5) and r.d.get("name") == "SerializableUnit" and r.d["values"]:
+            return r
+    return None
+
+
+def add_map(doc: SaveDocument, m: Map, name: str = None) -> str:
+    """Inject ``m`` as a new custom map. Returns its slot index.
+
+    Needs the save to already hold one map, whose LevelSaveData supplies the
+    shapes of the always-empty AIWaypoints / MagmaTargets / TransportedUnits
+    members. The tile and unit grids are constructed, not copied.
+    """
+    parser = doc.raw
+    types = Types(parser)
+    types.require("SerializableTile", "TileType", "TileFlags", "TeamID",
+                  "AW.Coordinates")
+
+    root = _root(parser)
+    maps_arr = _deref(parser, {}, _member(root, "CustomMaps"))
+    meta_arr = _deref(parser, {}, _member(root, "CustomMapMetadata"))
+    if not maps_arr.d["items"]:
+        raise NoTemplate(
+            "this save holds no custom maps to model a new one on.\n"
+            "Create one map in the game's Design Room first, then import.")
+
+    src_map = _deref(parser, {}, maps_arr.d["items"][0])
+    src_lvl = _deref(parser, {}, _member(src_map, "LevelSaveData"))
+    src_slot = _text(parser, {}, src_lvl, "Name")
+    src_meta = None
+    for it in meta_arr.d["items"]:
+        md = _deref(parser, {}, it)
+        if _text(parser, {}, md, "Name") == src_slot:
+            src_meta = md
+            break
+    if src_meta is None:
+        raise SaveUnreadable("no metadata entry for slot %r" % src_slot)
+
+    unit_template = _find_unit_template(parser) if any(
+        u is not None for _, _, u in m.iter_units()) else None
+    if unit_template is None and any(True for _ in m.iter_units()):
+        raise NoTemplate(
+            "this map places units, but the save has no existing unit to model "
+            "them on. Place one unit in any map in the Design Room first.")
+
+    ids = Ids(parser)
+    factory = Factory(types, ids)
+    chassis = Copier(parser, ids)
+    new_map = chassis.copy(src_map)
+    new_meta = chassis.copy(src_meta)
+    made = list(chassis.extra) + [new_map, new_meta]
+    extra = {r.d["oid"]: r for r in made if r.d.get("oid") is not None}
+
+    new_lvl = None
+    for r in made:
+        if r.d.get("name") == "LevelSaveData":
+            new_lvl = r
+    if new_lvl is None:
+        raise SaveUnreadable("could not locate the copied LevelSaveData")
+
+    # --- construct the grids -------------------------------------------------
+    tile_records, tile_items = [], []
+    unit_records, unit_items = [], []
+    for x in range(m.cols):
+        for y in range(m.rows):
+            rec = factory.tile(m.tiles[x][y])
+            tile_records.append(rec)
+            tile_items.append(Rec(9, idref=rec.d["oid"]))
+
+            u = m.units[x][y]
+            if u is None:
+                unit_items.append(Rec(10))
+                continue
+            copier = Copier(parser, ids)
+            urec = copier.copy(unit_template)
+            ulocal = {r.d["oid"]: r for r in copier.extra if r.d.get("oid") is not None}
+            _set_enum(parser, ulocal, urec, "type", u.type)
+            _set_enum(parser, ulocal, urec, "teamID", u.team)
+            for field, value in (("hp", u.hp), ("gas", u.gas), ("ammo", u.ammo)):
+                _set_prim(urec, field, Rec(8, pt=8, val=value))
+            for field, value in (("movedThisTurn", u.moved_this_turn),
+                                 ("isCapturing", u.is_capturing),
+                                 ("isDiving", u.is_diving),
+                                 ("isPredeployed", u.is_predeployed)):
+                _set_prim(urec, field, bool(value))
+            unit_records.extend(copier.extra)
+            unit_records.append(urec)
+            unit_items.append(Rec(9, idref=urec.d["oid"]))
+
+    tiles_arr = _deref(parser, extra, _member(new_lvl, "SerializableTiles"))
+    units_arr = _deref(parser, extra, _member(new_lvl, "SerializableUnits"))
+    tiles_arr.d["lens"] = [m.cols, m.rows]
+    tiles_arr.d["items"] = tile_items
+    units_arr.d["lens"] = [m.cols, m.rows]
+    units_arr.d["items"] = unit_items
+
+    # --- identity and metadata ----------------------------------------------
+    used = []
+    for it in maps_arr.d["items"]:
+        lvl = _deref(parser, extra, _member(_deref(parser, extra, it), "LevelSaveData"))
+        try:
+            used.append(int(_text(parser, extra, lvl, "Name")))
+        except (TypeError, ValueError):
+            pass
+    slot = str(max(used) + 1 if used else 0)
+
+    _set_text(parser, extra, new_map, "Name", name or m.name or "Imported")
+    _set_text(parser, extra, new_lvl, "Name", slot)
+    _set_text(parser, extra, new_meta, "Name", slot)
+    _set_prim(new_lvl, "HasFogOfWar", bool(m.fog))
+    _set_prim(new_lvl, "m_WaterColorIndex", m.water_color)
+
+    meta = derive.metadata(m)
+    for field, value in meta.items():
+        if field == "TeamsPlaying":
+            _set_enum(parser, extra, new_meta, "TeamsPlaying", value)
+        else:
+            _set_prim(new_meta, field, value)
+
+    # --- splice --------------------------------------------------------------
+    made = made + tile_records + unit_records
+    end = parser.records.pop()
+    if end.rt != 11:
+        parser.records.append(end)
+        raise SaveUnreadable("document does not end with MessageEnd")
+    parser.records += made + [end]
+
+    maps_arr.d["lens"][0] += 1
+    maps_arr.d["items"].append(Rec(9, idref=new_map.d["oid"]))
+    meta_arr.d["lens"][0] += 1
+    meta_arr.d["items"].append(Rec(9, idref=new_meta.d["oid"]))
+
+    problems = check_document(parser)
+    if problems:
+        raise AwrbcError("refusing to build an inconsistent save:\n  %s"
+                         % "\n  ".join(problems))
+
+    # Keep the domain view in step with the record tree.
+    m.slot = slot
+    m.name = name or m.name or "Imported"
+    doc.maps.append(m)
+    return slot
+
+
+def remove_map(doc: SaveDocument, index: int) -> str:
+    """Drop a map and its paired metadata entry. Returns the freed slot."""
+    parser = doc.raw
+    root = _root(parser)
+    maps_arr = _deref(parser, {}, _member(root, "CustomMaps"))
+    meta_arr = _deref(parser, {}, _member(root, "CustomMapMetadata"))
+    if not 0 <= index < len(maps_arr.d["items"]):
+        raise MapNotFound("no map at index %d" % index)
+
+    target = _deref(parser, {}, maps_arr.d["items"][index])
+    lvl = _deref(parser, {}, _member(target, "LevelSaveData"))
+    slot = _text(parser, {}, lvl, "Name")
+
+    del maps_arr.d["items"][index]
+    maps_arr.d["lens"][0] -= 1
+    for j, it in enumerate(list(meta_arr.d["items"])):
+        if _text(parser, {}, _deref(parser, {}, it), "Name") == slot:
+            del meta_arr.d["items"][j]
+            meta_arr.d["lens"][0] -= 1
+            break
+
+    problems = check_document(parser)
+    if problems:
+        raise AwrbcError("refusing to build an inconsistent save:\n  %s"
+                         % "\n  ".join(problems))
+    del doc.maps[index]
+    return slot
+
+
+def _file_size_for(stream_length, existing):
+    size = max(MIN_FILE_SIZE, existing or 0)
+    while size < stream_length:
+        size *= 2
+    return size
+
+
+def serialize(doc: SaveDocument, existing_size: int = None) -> bytes:
+    """The bytes for this document, padded the way the game pads."""
+    problems = check_document(doc.raw)
+    if problems:
+        raise AwrbcError("refusing to serialize an inconsistent save:\n  %s"
+                         % "\n  ".join(problems))
+    stream = nrbf.write(doc.raw)
+    return stream + b"\0" * (_file_size_for(len(stream), existing_size) - len(stream))
+
+
+def write(doc: SaveDocument, path: str = None) -> int:
+    """Write the document. Serializes fully in memory first, then replaces.
+
+    Never leaves a partially written save behind.
+    """
+    path = path or doc.path
+    existing = os.path.getsize(path) if os.path.exists(path) else None
+    data = serialize(doc, existing)
+    tmp = path + ".awrbc-tmp"
+    with open(tmp, "wb") as fh:
+        fh.write(data)
+    os.replace(tmp, path)
+    return len(data)

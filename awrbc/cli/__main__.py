@@ -8,10 +8,12 @@ import argparse
 import json
 import os
 import re
+import subprocess
 import sys
 
-from ..core import locate, savefile, schema, validate
-from ..core.errors import AwrbcError, MapNotFound, SaveNotFound
+from ..core import backup, locate, savefile, schema, validate
+from ..core.errors import (AwrbcError, MapNotFound, SaveInUse, SaveNotFound,
+                           ValidationFailed)
 
 EXIT_OK = 0
 EXIT_USAGE = 1
@@ -31,6 +33,22 @@ def _resolve(args):
         have = ", ".join(str(c.profile) for c in candidates)
         raise SaveNotFound("no profile %r; found: %s" % (args.profile, have))
     return chosen, candidates
+
+
+def _game_running():
+    """Is the title running? It flushes its own copy over external writes.
+
+    Only a loaded game holds the save; the emulator sitting open with no title
+    is fine, so this must not refuse merely because Ryujinx is on screen.
+    """
+    if os.environ.get("AWRBC_SKIP_PROCESS_CHECK"):
+        return False
+    try:
+        out = subprocess.run(["tasklist"], capture_output=True, text=True,
+                             timeout=10).stdout.lower()
+    except Exception:                               # noqa: BLE001
+        return False
+    return "ryujinx.exe" in out
 
 
 def cmd_doctor(args, out):
@@ -180,19 +198,127 @@ def cmd_export(args, out):
     return EXIT_OK
 
 
-def _common():
-    """Global flags, shared so they work before OR after the subcommand."""
+def cmd_import(args, out):
+    chosen, _ = _resolve(args)
+    with open(args.file, encoding="utf-8") as fh:
+        doc_json = json.load(fh)
+
+    m = schema.from_json(doc_json)
+    report = validate.check(m)
+    if report.errors and not args.force:
+        for f in report.errors:
+            sys.stderr.write("error: %-18s %s\n" % (f.code, f.message))
+        raise ValidationFailed(report)
+
+    if _game_running() and not args.force:
+        raise SaveInUse(
+            "the emulator appears to be running. Close the game first, or pass "
+            "--force if no title is loaded.")
+
+    doc = savefile.read(chosen.path)
+    slot = savefile.add_map(doc, m, name=args.name)
+    data = savefile.serialize(doc, os.path.getsize(chosen.path))
+
+    if args.dry_run:
+        if args.json:
+            json.dump({"dryRun": True, "slot": slot, "bytes": len(data),
+                       "name": args.name or m.name}, out, indent=2)
+            out.write("\n")
+        else:
+            out.write("dry run: would add %r as slot %s (%s bytes)\n"
+                      % (args.name or m.name, slot, format(len(data), ",")))
+        return EXIT_OK
+
+    snap = backup.snapshot(chosen.path)
+    written = savefile.write(doc, chosen.path)
+
+    if args.json:
+        json.dump({"slot": slot, "bytes": written, "backup": snap.path,
+                   "name": args.name or m.name,
+                   "warnings": [vars(f) for f in report.warnings]}, out, indent=2)
+        out.write("\n")
+        return EXIT_OK
+
+    out.write("imported %r as slot %s\n" % (args.name or m.name, slot))
+    for f in report.warnings:
+        out.write("  warning %-18s %s\n" % (f.code, f.message))
+    out.write("  save    %s (%s bytes)\n" % (chosen.path, format(written, ",")))
+    out.write("  backup  %s\n" % snap.path)
+    return EXIT_OK
+
+
+def cmd_remove(args, out):
+    chosen, _ = _resolve(args)
+    if _game_running() and not args.force:
+        raise SaveInUse("the emulator appears to be running; close the game first")
+    doc = savefile.read(chosen.path)
+    if not 0 <= args.index < len(doc.maps):
+        raise MapNotFound("no map at index %d; the save holds %d"
+                          % (args.index, len(doc.maps)))
+    name = doc.maps[args.index].name
+    slot = savefile.remove_map(doc, args.index)
+    if args.dry_run:
+        out.write("dry run: would remove %r (slot %s)\n" % (name, slot))
+        return EXIT_OK
+    snap = backup.snapshot(chosen.path)
+    savefile.write(doc, chosen.path)
+    out.write("removed %r (slot %s)\n  backup %s\n" % (name, slot, snap.path))
+    return EXIT_OK
+
+
+def cmd_backup(args, out):
+    chosen, _ = _resolve(args)
+    snap = backup.snapshot(chosen.path)
+    out.write("%s\n" % snap.path)
+    return EXIT_OK
+
+
+def cmd_restore(args, out):
+    chosen, _ = _resolve(args)
+    snaps = backup.snapshots(chosen.path)
+    if not snaps:
+        out.write("no snapshots for %s\n" % chosen.path)
+        return EXIT_OK
+    if args.name is None:
+        out.write("snapshots for %s\n\n" % chosen.path)
+        for s in snaps:
+            out.write("  %-28s %s bytes\n" % (s.name, format(s.size, ",")))
+        out.write("\nawrbc restore <name> to roll back\n")
+        return EXIT_OK
+    match = [s for s in snaps if s.name == args.name or s.taken == args.name]
+    if not match:
+        raise MapNotFound("no snapshot named %r" % args.name)
+    if _game_running() and not args.force:
+        raise SaveInUse("the emulator appears to be running; close the game first")
+    backup.snapshot(chosen.path)        # snapshot the current state too
+    n = backup.restore(match[0].path, chosen.path)
+    out.write("restored %s (%s bytes)\n" % (match[0].name, format(n, ",")))
+    return EXIT_OK
+
+
+def _common(suppress):
+    """Global flags, accepted before OR after the subcommand.
+
+    The subcommand copies use SUPPRESS: with a real default, an unset flag on the
+    subparser silently overwrites the value already parsed from before the
+    subcommand. That bug sent a write to the wrong save file.
+    """
     c = argparse.ArgumentParser(add_help=False)
-    c.add_argument("--save-dir", help="Ryujinx data folder, JKSV dump, or maps file")
-    c.add_argument("--profile", help="profile id when a save has several")
-    c.add_argument("--json", action="store_true", help="emit structured output")
+    default = argparse.SUPPRESS if suppress else None
+    c.add_argument("--save-dir", default=default,
+                   help="Ryujinx data folder, JKSV dump, or maps file")
+    c.add_argument("--profile", default=default,
+                   help="profile id when a save has several")
+    c.add_argument("--json", action="store_true",
+                   default=argparse.SUPPRESS if suppress else False,
+                   help="emit structured output")
     return c
 
 
 def build_parser():
-    common = _common()
+    common = _common(suppress=True)
     p = argparse.ArgumentParser(
-        prog="awrbc", parents=[common],
+        prog="awrbc", parents=[_common(suppress=False)],
         description="Custom map tools for Advance Wars 1+2: Re-Boot Camp. "
                     "Not affiliated with Nintendo or WayForward.")
     sub = p.add_subparsers(dest="command")
@@ -209,6 +335,26 @@ def build_parser():
     ex.add_argument("--author", help="author name to publish")
     ex.add_argument("--keep-creator", action="store_true",
                     help="publish the console profile name (often a real name)")
+
+    im = sub.add_parser("import", parents=[common],
+                        help="add a map from JSON into the save")
+    im.add_argument("file", help="map JSON file")
+    im.add_argument("--name", help="name to give the map in game")
+    im.add_argument("--dry-run", action="store_true", help="build but do not write")
+    im.add_argument("--force", action="store_true",
+                    help="import despite validation errors or a running emulator")
+
+    rm = sub.add_parser("remove", parents=[common], help="delete a map")
+    rm.add_argument("index", type=int, help="map index from `list`")
+    rm.add_argument("--dry-run", action="store_true")
+    rm.add_argument("--force", action="store_true")
+
+    sub.add_parser("backup", parents=[common], help="snapshot the save")
+
+    rs = sub.add_parser("restore", parents=[common],
+                        help="list snapshots, or roll back to one")
+    rs.add_argument("name", nargs="?", help="snapshot name from `restore`")
+    rs.add_argument("--force", action="store_true")
     return p
 
 
@@ -220,7 +366,9 @@ def main(argv=None, out=None):
         parser.print_help(out)
         return EXIT_USAGE
 
-    handlers = {"doctor": cmd_doctor, "list": cmd_list, "export": cmd_export}
+    handlers = {"doctor": cmd_doctor, "list": cmd_list, "export": cmd_export,
+                "import": cmd_import, "remove": cmd_remove,
+                "backup": cmd_backup, "restore": cmd_restore}
     try:
         return handlers[args.command](args, out)
     except AwrbcError as exc:
