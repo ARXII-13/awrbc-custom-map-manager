@@ -11,19 +11,27 @@ hardware.
 
 ## Status
 
-Early. `doctor` and `list` work; export and import are next. See
+Early. `doctor`, `list` and `export` work; import is next. See
 `../docs/phase-1-core-cli.md` for the plan and `../docs/format.md` for the save
 format record.
 
 ## Usage
 
 ```
-awrbc doctor                 find save data and report what is readable
-awrbc list                   list the custom maps in a save
+awrbc doctor                      find save data and report what is readable
+awrbc list                        list the custom maps in a save
+awrbc export 3 -o map.json        write one map out as JSON
+awrbc export --all -o ./maps/     write them all out
 ```
 
 Flags: `--save-dir` (Ryujinx folder, JKSV dump, or a maps file), `--profile`,
-`--json`.
+`--json`. Export also takes `--author` and `--keep-creator`.
+
+**The creator name is scrubbed by default.** The save stores the console profile
+name, which for many people is their real name; `--keep-creator` opts in.
+
+Export is advisory: an unplayable map still exports, with its findings printed.
+Publishing to the archive is where validation blocks.
 
 Run from a checkout with `python -m awrbc.cli <command>`.
 
