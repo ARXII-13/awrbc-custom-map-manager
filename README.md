@@ -70,8 +70,34 @@ powershell -File tools/bfcheck.ps1 path/to/maps
 ## Tests
 
 ```
-python -m unittest discover -s tests
+python -m unittest discover -s . -p "test_*.py"
 ```
 
-Save-backed tests are skipped unless `AWRBC_TEST_SAVE` points at a maps file.
-Real saves are never committed — they carry creator names and game-format data.
+Runs anywhere with no save present: `tests/fixture.py` builds a complete, valid
+save from `tests/fixtures/typetable.json`, which holds **only** the game's class
+definitions — member names and types, no map content and no creator names. Real
+saves are never committed.
+
+Point `AWRBC_TEST_SAVE` at a maps file to additionally run everything against
+the genuine article. Tests always work on a throwaway copy.
+
+On Windows the suite also runs every save it writes through the real
+BinaryFormatter, so the failure mode that shows the player zero custom maps is
+caught automatically rather than by remembering to check.
+
+Regenerate the type table from a save with:
+
+```
+python tools/extract_types.py <maps-file> tests/fixtures/typetable.json
+```
+
+## Known limitations
+
+- `import` needs the target save to already hold one custom map, whose
+  LevelSaveData supplies the shapes of the always-empty AIWaypoints /
+  MagmaTargets / TransportedUnits members.
+- Importing a map that places units additionally needs the save to contain at
+  least one unit somewhere, to model them on.
+- `AIWaypoints`, `MagmaTargets` and transport contents are not represented in
+  the map JSON. A map using any of them is refused rather than silently
+  flattened.

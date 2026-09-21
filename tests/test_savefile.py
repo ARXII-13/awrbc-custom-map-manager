@@ -12,10 +12,7 @@ import unittest
 from awrbc.core import locate, savefile
 from awrbc.core.errors import SaveUnreadable
 
-REAL_SAVE = os.environ.get("AWRBC_TEST_SAVE")
-needs_save = unittest.skipUnless(
-    REAL_SAVE and os.path.isfile(REAL_SAVE),
-    "set AWRBC_TEST_SAVE to a maps file to run save-backed tests")
+from .support import a_save
 
 
 class Locate(unittest.TestCase):
@@ -61,12 +58,17 @@ class Reading(unittest.TestCase):
                 savefile.read(p)
 
 
-@needs_save
-class AgainstRealSave(unittest.TestCase):
-    """Opt-in: exercises the reader against an actual save."""
+class AgainstASave(unittest.TestCase):
+    """Exercises the reader against a fixture, or the real save if provided."""
 
     def setUp(self):
-        self.doc = savefile.read(REAL_SAVE)
+        self.tmp = tempfile.mkdtemp()
+        self.path, self.kind = a_save(self.tmp)
+        self.doc = savefile.read(self.path)
+
+    def tearDown(self):
+        import shutil
+        shutil.rmtree(self.tmp, ignore_errors=True)
 
     def test_version_is_supported(self):
         self.assertIn(self.doc.save_version, savefile.SUPPORTED_VERSIONS)
@@ -81,8 +83,9 @@ class AgainstRealSave(unittest.TestCase):
     def test_codec_round_trips_byte_for_byte(self):
         """The reader must not perturb the document it parsed."""
         from awrbc.core import nrbf
-        raw = open(REAL_SAVE, "rb").read()
-        parser = nrbf.load(REAL_SAVE)
+        with open(self.path, "rb") as fh:
+            raw = fh.read()
+        parser = nrbf.load(self.path)
         out = nrbf.write(parser)
         self.assertEqual(out, raw[:len(out)])
 

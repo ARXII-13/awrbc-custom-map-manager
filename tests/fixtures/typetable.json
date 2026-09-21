@@ -1,0 +1,634 @@
+{
+ "arrays": {
+  "AW.UserGeneratedContent.CustomMapMetadata": {
+   "at": 0,
+   "bt": 4,
+   "ex": [
+    "AW.UserMapMetadata",
+    2
+   ],
+   "rank": 1
+  },
+  "AW.UserGeneratedContent.CustomMapSets": {
+   "at": 0,
+   "bt": 4,
+   "ex": [
+    "AW.CustomMapSet",
+    2
+   ],
+   "rank": 1
+  },
+  "AW.UserGeneratedContent.CustomMaps": {
+   "at": 0,
+   "bt": 4,
+   "ex": [
+    "AW.CustomMap",
+    2
+   ],
+   "rank": 1
+  },
+  "LevelSaveData.AIWaypoints": {
+   "at": 0,
+   "bt": 4,
+   "ex": [
+    "AIWaypoint",
+    2
+   ],
+   "rank": 1
+  },
+  "LevelSaveData.SerializableTiles": {
+   "at": 2,
+   "bt": 4,
+   "ex": [
+    "SerializableTile",
+    2
+   ],
+   "rank": 2
+  },
+  "LevelSaveData.SerializableUnits": {
+   "at": 2,
+   "bt": 4,
+   "ex": [
+    "SerializableUnit",
+    2
+   ],
+   "rank": 2
+  },
+  "MagmaTargets.EvenDayTargets": {
+   "at": 0,
+   "bt": 4,
+   "ex": [
+    "AW.Coordinates",
+    2
+   ],
+   "rank": 1
+  },
+  "MagmaTargets.OddDayTargets": {
+   "at": 0,
+   "bt": 4,
+   "ex": [
+    "AW.Coordinates",
+    2
+   ],
+   "rank": 1
+  },
+  "System.Collections.Generic.List`1[[SerializableUnit, Assembly-CSharp, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null]]._items": {
+   "at": 0,
+   "bt": 4,
+   "ex": [
+    "SerializableUnit",
+    2
+   ],
+   "rank": 1
+  }
+ },
+ "classes": {
+  "AW.Coordinates": {
+   "members": [
+    "X",
+    "Y"
+   ],
+   "types": [
+    [
+     0,
+     8
+    ],
+    [
+     0,
+     8
+    ]
+   ]
+  },
+  "AW.CustomMap": {
+   "members": [
+    "LevelSaveData",
+    "Creator",
+    "Name",
+    "IsNew",
+    "IsDownload",
+    "LastCursorPosition",
+    "LastTileType",
+    "LastUnitType",
+    "LastTeamID"
+   ],
+   "types": [
+    [
+     4,
+     [
+      "LevelSaveData",
+      2
+     ]
+    ],
+    [
+     1,
+     null
+    ],
+    [
+     1,
+     null
+    ],
+    [
+     0,
+     1
+    ],
+    [
+     0,
+     1
+    ],
+    [
+     4,
+     [
+      "AW.Coordinates",
+      2
+     ]
+    ],
+    [
+     4,
+     [
+      "TileType",
+      2
+     ]
+    ],
+    [
+     3,
+     "System.Nullable`1[[UnitType, Assembly-CSharp, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null]]"
+    ],
+    [
+     4,
+     [
+      "TeamID",
+      2
+     ]
+    ]
+   ]
+  },
+  "AW.PreDeployedBehavior": {
+   "members": [
+    "value__"
+   ],
+   "types": [
+    [
+     0,
+     8
+    ]
+   ]
+  },
+  "AW.UserGeneratedContent": {
+   "members": [
+    "CustomMaps",
+    "CustomMapSets",
+    "CustomMapMetadata",
+    "CurrentSaveVersionNumber"
+   ],
+   "types": [
+    [
+     4,
+     [
+      "AW.CustomMap[]",
+      2
+     ]
+    ],
+    [
+     4,
+     [
+      "AW.CustomMapSet[]",
+      2
+     ]
+    ],
+    [
+     4,
+     [
+      "AW.UserMapMetadata[]",
+      2
+     ]
+    ],
+    [
+     0,
+     8
+    ]
+   ]
+  },
+  "AW.UserMapMetadata": {
+   "members": [
+    "Name",
+    "TeamsPlaying",
+    "NumCols",
+    "NumRows",
+    "NumHQs",
+    "NumCities",
+    "NumBases",
+    "NumAirports",
+    "NumSeaports",
+    "NumSilos",
+    "NumPipeSeams",
+    "NumVersusProperties",
+    "MaxInitiallyOwnedVersusProperties",
+    "NumSurplusTiles"
+   ],
+   "types": [
+    [
+     1,
+     null
+    ],
+    [
+     4,
+     [
+      "TeamIDFlag",
+      2
+     ]
+    ],
+    [
+     0,
+     2
+    ],
+    [
+     0,
+     2
+    ],
+    [
+     0,
+     2
+    ],
+    [
+     0,
+     2
+    ],
+    [
+     0,
+     2
+    ],
+    [
+     0,
+     2
+    ],
+    [
+     0,
+     2
+    ],
+    [
+     0,
+     2
+    ],
+    [
+     0,
+     2
+    ],
+    [
+     0,
+     2
+    ],
+    [
+     0,
+     2
+    ],
+    [
+     0,
+     2
+    ]
+   ]
+  },
+  "LevelSaveData": {
+   "members": [
+    "Name",
+    "SerializableTiles",
+    "SerializableUnits",
+    "TransportedUnits",
+    "HasFogOfWar",
+    "AIWaypoints",
+    "MagmaTargets",
+    "m_WaterColorIndex"
+   ],
+   "types": [
+    [
+     1,
+     null
+    ],
+    [
+     4,
+     [
+      "SerializableTile[,]",
+      2
+     ]
+    ],
+    [
+     4,
+     [
+      "SerializableUnit[,]",
+      2
+     ]
+    ],
+    [
+     3,
+     "System.Collections.Generic.List`1[[SerializableUnit, Assembly-CSharp, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null]]"
+    ],
+    [
+     0,
+     1
+    ],
+    [
+     4,
+     [
+      "AIWaypoint[]",
+      2
+     ]
+    ],
+    [
+     4,
+     [
+      "MagmaTargets",
+      2
+     ]
+    ],
+    [
+     0,
+     8
+    ]
+   ]
+  },
+  "MagmaTargets": {
+   "members": [
+    "OddDayTargets",
+    "EvenDayTargets"
+   ],
+   "types": [
+    [
+     4,
+     [
+      "AW.Coordinates[]",
+      2
+     ]
+    ],
+    [
+     4,
+     [
+      "AW.Coordinates[]",
+      2
+     ]
+    ]
+   ]
+  },
+  "SerializableTile": {
+   "members": [
+    "type",
+    "flags",
+    "teamID",
+    "capturePoints",
+    "hp",
+    "offsetFromPrimaryTile",
+    "hasLaunched"
+   ],
+   "types": [
+    [
+     4,
+     [
+      "TileType",
+      2
+     ]
+    ],
+    [
+     4,
+     [
+      "TileFlags",
+      2
+     ]
+    ],
+    [
+     4,
+     [
+      "TeamID",
+      2
+     ]
+    ],
+    [
+     0,
+     8
+    ],
+    [
+     0,
+     8
+    ],
+    [
+     4,
+     [
+      "AW.Coordinates",
+      2
+     ]
+    ],
+    [
+     0,
+     1
+    ]
+   ]
+  },
+  "SerializableUnit": {
+   "members": [
+    "type",
+    "teamID",
+    "movedThisTurn",
+    "flashing",
+    "isCapturing",
+    "isDiving",
+    "isPredeployed",
+    "hp",
+    "gas",
+    "ammo",
+    "deployedThisTurn",
+    "preDeployedBehavior",
+    "aiID",
+    "aiStartingWaypointID",
+    "startCoordinates",
+    "transportID",
+    "loadedUnits",
+    "visibleTransportUnits"
+   ],
+   "types": [
+    [
+     4,
+     [
+      "UnitType",
+      2
+     ]
+    ],
+    [
+     4,
+     [
+      "TeamID",
+      2
+     ]
+    ],
+    [
+     0,
+     1
+    ],
+    [
+     0,
+     1
+    ],
+    [
+     0,
+     1
+    ],
+    [
+     0,
+     1
+    ],
+    [
+     0,
+     1
+    ],
+    [
+     3,
+     "System.Int32"
+    ],
+    [
+     3,
+     "System.Int32"
+    ],
+    [
+     3,
+     "System.Int32"
+    ],
+    [
+     0,
+     1
+    ],
+    [
+     4,
+     [
+      "AW.PreDeployedBehavior",
+      2
+     ]
+    ],
+    [
+     1,
+     null
+    ],
+    [
+     1,
+     null
+    ],
+    [
+     4,
+     [
+      "AW.Coordinates",
+      2
+     ]
+    ],
+    [
+     0,
+     8
+    ],
+    [
+     3,
+     "System.Collections.Generic.List`1[[System.Int32, mscorlib, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089]]"
+    ],
+    [
+     3,
+     "System.Collections.Generic.List`1[[System.Int32, mscorlib, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089]]"
+    ]
+   ]
+  },
+  "System.Collections.Generic.List`1[[SerializableUnit, Assembly-CSharp, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null]]": {
+   "members": [
+    "_items",
+    "_size",
+    "_version"
+   ],
+   "types": [
+    [
+     4,
+     [
+      "SerializableUnit[]",
+      2
+     ]
+    ],
+    [
+     0,
+     8
+    ],
+    [
+     0,
+     8
+    ]
+   ]
+  },
+  "System.Collections.Generic.List`1[[System.Int32, mscorlib, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089]]": {
+   "members": [
+    "_items",
+    "_size",
+    "_version"
+   ],
+   "types": [
+    [
+     7,
+     8
+    ],
+    [
+     0,
+     8
+    ],
+    [
+     0,
+     8
+    ]
+   ]
+  },
+  "TeamID": {
+   "members": [
+    "value__"
+   ],
+   "types": [
+    [
+     0,
+     8
+    ]
+   ]
+  },
+  "TeamIDFlag": {
+   "members": [
+    "value__"
+   ],
+   "types": [
+    [
+     0,
+     2
+    ]
+   ]
+  },
+  "TileFlags": {
+   "members": [
+    "value__"
+   ],
+   "types": [
+    [
+     0,
+     15
+    ]
+   ]
+  },
+  "TileType": {
+   "members": [
+    "value__"
+   ],
+   "types": [
+    [
+     0,
+     8
+    ]
+   ]
+  },
+  "UnitType": {
+   "members": [
+    "value__"
+   ],
+   "types": [
+    [
+     0,
+     8
+    ]
+   ]
+  }
+ },
+ "library": "Assembly-CSharp, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null",
+ "saveVersion": 0
+}

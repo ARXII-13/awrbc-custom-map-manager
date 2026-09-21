@@ -11,10 +11,7 @@ import unittest
 from awrbc.core import backup, savefile, schema
 from awrbc.core.nrbf import Rec
 
-REAL_SAVE = os.environ.get("AWRBC_TEST_SAVE")
-needs_save = unittest.skipUnless(
-    REAL_SAVE and os.path.isfile(REAL_SAVE),
-    "set AWRBC_TEST_SAVE to a maps file to run save-backed tests")
+from .support import BinaryFormatterMixin, a_save
 
 
 class Fake:
@@ -89,14 +86,16 @@ class Backups(unittest.TestCase):
                             os.path.dirname(self.save))
 
 
-@needs_save
-class SaveRoundTrip(unittest.TestCase):
-    """export -> import must reproduce the map exactly."""
+class SaveRoundTrip(BinaryFormatterMixin, unittest.TestCase):
+    """export -> import must reproduce the map exactly.
+
+    Runs against a generated fixture by default, and against the genuine save
+    when AWRBC_TEST_SAVE points at one. Always on a throwaway copy.
+    """
 
     def setUp(self):
         self.tmp = tempfile.mkdtemp()
-        self.save = os.path.join(self.tmp, "maps")
-        shutil.copy2(REAL_SAVE, self.save)
+        self.save, self.kind = a_save(self.tmp)
 
     def tearDown(self):
         shutil.rmtree(self.tmp, ignore_errors=True)
@@ -113,6 +112,8 @@ class SaveRoundTrip(unittest.TestCase):
         self.assertEqual(len(after.maps), before + 1)
         # add_map must keep the domain view in step with the record tree
         self.assertEqual(len(doc.maps), before + 1)
+        # The gate that matters: would the game actually load this?
+        self.assertLoadsInBinaryFormatter(self.save)
         return original, schema.build_document(after.maps[-1])
 
     def test_terrain_only_map_survives(self):
@@ -129,7 +130,7 @@ class SaveRoundTrip(unittest.TestCase):
         index = next((i for i, m in enumerate(doc.maps)
                       if sum(1 for _ in m.iter_units()) > 5), None)
         if index is None:
-            self.skipTest("no map with units in this save")
+            self.skipTest("no map with units in this save (fixtures have none)")
         before, after = self._round_trip(index)
         self.assertEqual(before["id"], after["id"])
         self.assertEqual(before["units"], after["units"])
@@ -142,11 +143,32 @@ class SaveRoundTrip(unittest.TestCase):
     def test_remove_drops_map_and_metadata_together(self):
         doc = savefile.read(self.save)
         before = len(doc.maps)
+        if before < 2:
+            savefile.add_map(doc, doc.maps[0], name="spare")
+            savefile.write(doc, self.save)
+            doc = savefile.read(self.save)
+            before = len(doc.maps)
         savefile.remove_map(doc, before - 1)
         savefile.write(doc, self.save)
         after = savefile.read(self.save)
         self.assertEqual(len(after.maps), before - 1)
         self.assertEqual(savefile.check_document(after.raw), [])
+        self.assertLoadsInBinaryFormatter(self.save)
+
+    def test_an_id_colliding_with_its_negation_is_caught_before_writing(self):
+        """The bug that cost a week, guarded end to end.
+
+        Hand-build the collision the old allocator produced and confirm the
+        write path refuses it rather than handing the game an empty map list.
+        """
+        doc = savefile.read(self.save)
+        ids = [r.d["oid"] for r in savefile._walk(doc.raw.records)
+               if r.d.get("oid") is not None]
+        victim = next(r for r in savefile._walk(doc.raw.records)
+                      if r.rt == 6 and r.d.get("oid", 0) > 0)
+        victim.d["oid"] = -next(i for i in ids if i > 0)
+        with self.assertRaises(Exception):
+            savefile.serialize(doc)
 
     def test_write_never_shrinks_below_the_existing_file(self):
         doc = savefile.read(self.save)
