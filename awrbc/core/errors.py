@@ -24,6 +24,23 @@ class SaveUnreadable(AwrbcError):
     exit_code = 3
 
 
+class WrongGame(AwrbcError):
+    """The file parses, but it is not this game's save.
+
+    Separate from SaveUnreadable so the message can say what was actually
+    found rather than blaming the file for being corrupt.
+    """
+
+    exit_code = 3
+
+    def __init__(self, identity, path=None):
+        self.identity = identity
+        self.path = path
+        detail = identity.reason or "unrecognised layout"
+        where = " (%s)" % path if path else ""
+        super().__init__("not an Advance Wars save%s: %s" % (where, detail))
+
+
 class UnsupportedSaveVersion(AwrbcError):
     """CurrentSaveVersionNumber is not one this build understands.
 

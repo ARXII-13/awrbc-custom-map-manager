@@ -173,3 +173,5 @@ class SaveDocument:
     save_version: int = 0
     path: Optional[str] = None
     raw: object = None
+    #: From the save's ExtraData when present; None for a bare SaveData dump.
+    title_id: Optional[int] = None

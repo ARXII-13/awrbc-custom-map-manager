@@ -11,7 +11,7 @@ import re
 import subprocess
 import sys
 
-from ..core import backup, locate, savefile, schema, validate
+from ..core import backup, identify, locate, savefile, schema, validate
 from ..core.errors import (AwrbcError, MapNotFound, SaveInUse, SaveNotFound,
                            ValidationFailed)
 
@@ -74,7 +74,10 @@ def cmd_doctor(args, out):
         try:
             doc = savefile.read(c.path)
             row.update(readable=True, save_version=doc.save_version,
-                       maps=len(doc.maps))
+                       maps=len(doc.maps),
+                       titleId=None if doc.title_id is None
+                       else "%016X" % doc.title_id,
+                       game=identify.TITLE_NAME)
         except AwrbcError as exc:
             row["error"] = str(exc)
         result["candidates"].append(row)
@@ -94,6 +97,9 @@ def cmd_doctor(args, out):
             "" if r["profile"] is None else ", profile %s" % r["profile"]))
         out.write("    size     %s bytes\n" % format(r["size"], ","))
         if r["readable"]:
+            out.write("    game     %s\n" % r["game"])
+            out.write("    title id %s\n"
+                      % (r["titleId"] or "not present (bare SaveData dump)"))
             out.write("    version  %s (supported)\n" % r["save_version"])
             out.write("    maps     %d\n" % r["maps"])
         else:

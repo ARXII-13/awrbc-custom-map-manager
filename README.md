@@ -91,6 +91,24 @@ Regenerate the type table from a save with:
 python tools/extract_types.py <maps-file> tests/fixtures/typetable.json
 ```
 
+## Is this the right save?
+
+Two independent signals confirm a file belongs to this game before anything
+reads or writes it:
+
+| Signal | Where | Availability |
+|---|---|---|
+| root class `AW.UserGeneratedContent` from `Assembly-CSharp` | inside the maps file | always |
+| title id `0100300012F2A000` | `ExtraData0`, three levels up | only with the full Ryujinx save tree |
+
+The root class is the primary check. A wrong title id rejects even when the root
+matches; a *missing* one proves nothing, because a JKSV dump of `SaveData` alone
+has no `ExtraData`.
+
+Pointing the tool at another title's save — or at this game's own `gameState`,
+which is also `Assembly-CSharp` NRBF — now says so plainly instead of
+complaining about an unsupported version number. `awrbc doctor` reports both.
+
 ## Known limitations
 
 - `import` needs the target save to already hold one custom map, whose

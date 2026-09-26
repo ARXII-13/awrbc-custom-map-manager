@@ -14,9 +14,10 @@ Nothing here writes to disk without passing :func:`check_document` first.
 import collections
 import os
 
-from . import derive, nrbf
+from . import derive, identify, nrbf
 from .builder import Copier, Factory, Ids, NoTemplate, Types
-from .errors import AwrbcError, MapNotFound, SaveUnreadable, UnsupportedSaveVersion
+from .errors import (AwrbcError, MapNotFound, SaveUnreadable,
+                     UnsupportedSaveVersion, WrongGame)
 from .model import Coord, Map, SaveDocument, Tile, Unit
 from .nrbf import Rec
 
@@ -83,8 +84,19 @@ def read(path: str) -> SaveDocument:
     """Parse a maps file. Raises SaveUnreadable or UnsupportedSaveVersion."""
     try:
         parser = nrbf.load(path)
-        root = parser.root()
     except Exception as exc:                       # noqa: BLE001 - want the cause
+        raise SaveUnreadable("could not parse %s: %s" % (path, exc)) from exc
+
+    # Confirm this is our game before reading anything into it. Otherwise a
+    # save from another title fails later with a misleading complaint about the
+    # version number.
+    who = identify.inspect(parser, path)
+    if not who.ok:
+        raise WrongGame(who, path)
+
+    try:
+        root = parser.root()
+    except Exception as exc:                       # noqa: BLE001
         raise SaveUnreadable("could not parse %s: %s" % (path, exc)) from exc
 
     version = root.get("CurrentSaveVersionNumber", None)
@@ -122,7 +134,8 @@ def read(path: str) -> SaveDocument:
             units=_reshape(units_flat, cols, rows, _unit),
         ))
 
-    return SaveDocument(maps=maps, save_version=version, path=path, raw=parser)
+    return SaveDocument(maps=maps, save_version=version, path=path, raw=parser,
+                        title_id=who.title_id)
 
 
 # ---------------------------------------------------------------- invariants
