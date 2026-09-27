@@ -27,3 +27,6 @@ backup-*/
 .vscode/
 .DS_Store
 Thumbs.db
+
+# Local map fixtures for developing the viewer; these are personal save data.
+web/samples/

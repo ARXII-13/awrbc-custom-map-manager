@@ -1,0 +1,272 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>AWRBC Map Viewer</title>
+<style>
+  :root {
+    --bg: #f4f4f2; --panel: #ffffff; --ink: #1c1c1e; --muted: #6b6b70;
+    --line: #dcdcd8; --accent: #3a6fb8; --ok-bg: #d8f0d8; --ok-fg: #1f5f1f;
+    --no-bg: #f6d8d8; --no-fg: #7a2020;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #17171a; --panel: #1f1f23; --ink: #e8e8ea; --muted: #9a9aa2;
+      --line: #32323a; --accent: #6b9de0; --ok-bg: #1f3f1f; --ok-fg: #9de09d;
+      --no-bg: #4a2020; --no-fg: #f0a0a0;
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg: #17171a; --panel: #1f1f23; --ink: #e8e8ea; --muted: #9a9aa2;
+    --line: #32323a; --accent: #6b9de0; --ok-bg: #1f3f1f; --ok-fg: #9de09d;
+    --no-bg: #4a2020; --no-fg: #f0a0a0;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--bg); color: var(--ink);
+    font: 14px/1.5 system-ui, -apple-system, "Segoe UI", sans-serif;
+    display: flex; height: 100vh; overflow: hidden;
+  }
+  #stage { flex: 1; position: relative; min-width: 0; }
+  canvas { display: block; width: 100%; height: 100%; cursor: grab; }
+  canvas.dragging { cursor: grabbing; }
+  aside {
+    width: 264px; flex: none; background: var(--panel);
+    border-left: 1px solid var(--line); padding: 16px; overflow-y: auto;
+  }
+  h1 { font-size: 15px; margin: 0 0 2px; }
+  h2 {
+    font-size: 11px; text-transform: uppercase; letter-spacing: .07em;
+    color: var(--muted); margin: 18px 0 6px; font-weight: 600;
+  }
+  .sub { color: var(--muted); font-size: 12px; margin-bottom: 6px; }
+  table { width: 100%; border-collapse: collapse; font-size: 12px; }
+  td { padding: 2px 0; }
+  td.n { text-align: right; font-variant-numeric: tabular-nums; color: var(--muted); }
+  .swatch {
+    width: 11px; height: 11px; border-radius: 2px; display: inline-block;
+    margin-right: 6px; vertical-align: -1px; border: 1px solid rgba(0,0,0,.25);
+  }
+  .pill { display: inline-block; padding: 1px 8px; border-radius: 99px; font-size: 11px; font-weight: 600; }
+  .ok { background: var(--ok-bg); color: var(--ok-fg); }
+  .no { background: var(--no-bg); color: var(--no-fg); }
+  #drop {
+    position: absolute; inset: 0; display: flex; align-items: center;
+    justify-content: center; flex-direction: column; gap: 10px;
+    background: var(--bg); color: var(--muted); text-align: center; padding: 24px;
+  }
+  #drop.hide { display: none; }
+  #drop.over { outline: 2px dashed var(--accent); outline-offset: -14px; }
+  button, label.btn {
+    font: inherit; padding: 6px 12px; border-radius: 7px; cursor: pointer;
+    border: 1px solid var(--line); background: var(--panel); color: var(--ink);
+  }
+  button:hover, label.btn:hover { border-color: var(--accent); }
+  #bar { position: absolute; left: 12px; top: 12px; display: flex; gap: 6px; }
+  #tip {
+    position: absolute; pointer-events: none; background: var(--panel);
+    border: 1px solid var(--line); border-radius: 6px; padding: 5px 9px;
+    font-size: 12px; white-space: nowrap; opacity: 0; transition: opacity .1s;
+    box-shadow: 0 3px 10px rgba(0,0,0,.18);
+  }
+  @media (max-width: 720px) {
+    body { flex-direction: column; }
+    aside { width: 100%; border-left: none; border-top: 1px solid var(--line); max-height: 40vh; }
+  }
+</style>
+</head>
+<body>
+<div id="stage">
+  <canvas id="c"></canvas>
+  <div id="bar" hidden>
+    <button id="fit">Fit</button>
+    <label class="btn">Open<input id="file2" type="file" accept=".json" hidden></label>
+  </div>
+  <div id="tip"></div>
+  <div id="drop">
+    <strong>Drop a map JSON here</strong>
+    <span>exported with <code>awrbc export</code></span>
+    <label class="btn">Choose a file<input id="file" type="file" accept=".json" hidden></label>
+  </div>
+</div>
+
+<aside>
+  <h1 id="name">No map loaded</h1>
+  <div class="sub" id="meta"></div>
+  <div id="valid"></div>
+  <h2>Armies</h2>
+  <table id="teams"><tbody></tbody></table>
+  <h2>Terrain</h2>
+  <table id="legend"><tbody></tbody></table>
+</aside>
+
+<script type="module">
+import { drawMap, fitTile, cellIndex } from "./render.js";
+import { UNITS, terrain, team } from "./terrain.js";
+
+const canvas = document.getElementById("c");
+const ctx = canvas.getContext("2d");
+const tip = document.getElementById("tip");
+let doc = null, size = 24, ox = 0, oy = 0, cells = new Map();
+
+// Everything below works in logical (CSS) pixels; the context carries a
+// device-pixel-ratio transform and the renderer is told the visible size.
+let logical = { width: 0, height: 0 };
+
+function resize() {
+  const r = canvas.getBoundingClientRect();
+  const dpr = window.devicePixelRatio || 1;
+  canvas.width = Math.round(r.width * dpr);
+  canvas.height = Math.round(r.height * dpr);
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  logical = { width: r.width, height: r.height };
+  draw();
+}
+
+function draw() {
+  ctx.save();
+  ctx.setTransform(1, 0, 0, 1, 0, 0);
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  ctx.restore();
+  if (!doc) return;
+  drawMap(ctx, doc, {
+    size, originX: ox, originY: oy, glyphs: true,
+    width: logical.width, height: logical.height,
+  });
+}
+
+function fit() {
+  if (!doc) return;
+  size = fitTile(doc, logical.width - 24, logical.height - 24);
+  ox = Math.floor((logical.width - size * doc.size.cols) / 2);
+  oy = Math.floor((logical.height - size * doc.size.rows) / 2);
+  draw();
+}
+
+function load(json) {
+  doc = json;
+  cells = cellIndex(doc);
+  document.getElementById("drop").classList.add("hide");
+  document.getElementById("bar").hidden = false;
+  document.getElementById("name").textContent = doc.name || "(unnamed)";
+  document.getElementById("meta").textContent =
+    doc.size.cols + " x " + doc.size.rows + " — by " + (doc.author || "unknown") +
+    (doc.fog ? " — fog" : "");
+
+  const d = doc.derived || {};
+  document.getElementById("valid").innerHTML = d.valid === undefined ? "" :
+    '<span class="pill ' + (d.valid ? "ok" : "no") + '">' +
+    (d.valid ? "playable" : "not playable") + "</span>";
+
+  const tb = document.querySelector("#teams tbody");
+  tb.innerHTML = "";
+  for (const [n, s] of Object.entries(d.perTeam || {})) {
+    const t = team(Number(n));
+    tb.insertAdjacentHTML("beforeend",
+      '<tr><td><span class="swatch" style="background:' + t.color + '"></span>' +
+      t.name + '</td><td class="n">' + s.units + " u</td>" +
+      '<td class="n">' + s.properties + " p</td></tr>");
+  }
+
+  const counts = new Map();
+  for (const row of doc.terrain) {
+    for (const id of row) counts.set(id, (counts.get(id) || 0) + 1);
+  }
+  const lg = document.querySelector("#legend tbody");
+  lg.innerHTML = "";
+  for (const [id, n] of [...counts].sort((a, b) => b[1] - a[1])) {
+    const i = terrain(id);
+    lg.insertAdjacentHTML("beforeend",
+      '<tr><td><span class="swatch" style="background:' + (i.color || "#b4b4b4") +
+      '"></span>' + i.name + '</td><td class="n">' + n + "</td></tr>");
+  }
+  fit();
+}
+
+function readFile(f) {
+  if (!f) return;
+  f.text().then((t) => {
+    try { load(JSON.parse(t)); }
+    catch (e) { alert("Not a map JSON: " + e.message); }
+  });
+}
+
+document.getElementById("file").onchange = (e) => readFile(e.target.files[0]);
+document.getElementById("file2").onchange = (e) => readFile(e.target.files[0]);
+document.getElementById("fit").onclick = fit;
+
+const drop = document.getElementById("drop");
+for (const ev of ["dragenter", "dragover"]) {
+  document.addEventListener(ev, (e) => { e.preventDefault(); drop.classList.add("over"); });
+}
+document.addEventListener("dragleave", () => drop.classList.remove("over"));
+document.addEventListener("drop", (e) => {
+  e.preventDefault();
+  drop.classList.remove("over");
+  readFile(e.dataTransfer.files[0]);
+});
+
+let drag = null;
+canvas.addEventListener("pointerdown", (e) => {
+  drag = { x: e.clientX, y: e.clientY, ox, oy };
+  canvas.classList.add("dragging");
+  canvas.setPointerCapture(e.pointerId);
+});
+canvas.addEventListener("pointerup", () => {
+  drag = null;
+  canvas.classList.remove("dragging");
+});
+canvas.addEventListener("pointermove", (e) => {
+  const r = canvas.getBoundingClientRect();
+  if (drag) {
+    ox = drag.ox + (e.clientX - drag.x);
+    oy = drag.oy + (e.clientY - drag.y);
+    draw();
+    return;
+  }
+  if (!doc) return;
+  const x = Math.floor((e.clientX - r.left - ox) / size);
+  const y = Math.floor((e.clientY - r.top - oy) / size);
+  if (x < 0 || y < 0 || x >= doc.size.cols || y >= doc.size.rows) {
+    tip.style.opacity = 0;
+    return;
+  }
+  const cell = cells.get(x + "," + y);
+  const unit = (doc.units || []).find((u) => u.x === x && u.y === y);
+  const bits = [terrain(doc.terrain[y][x]).name];
+  if (cell && cell.team !== undefined && cell.team >= 0) bits.push(team(cell.team).name);
+  if (unit) bits.push(UNITS[unit.type] + " (" + team(unit.team).name + ")");
+  tip.textContent = "(" + x + "," + y + ") " + bits.join(" · ");
+  tip.style.left = (e.clientX - r.left + 14) + "px";
+  tip.style.top = (e.clientY - r.top + 14) + "px";
+  tip.style.opacity = 1;
+});
+canvas.addEventListener("pointerleave", () => { tip.style.opacity = 0; });
+canvas.addEventListener("wheel", (e) => {
+  if (!doc) return;
+  e.preventDefault();
+  const r = canvas.getBoundingClientRect();
+  const mx = e.clientX - r.left, my = e.clientY - r.top;
+  const next = Math.max(3, Math.min(72, size * (e.deltaY < 0 ? 1.15 : 0.87)));
+  ox = mx - (mx - ox) * (next / size);
+  oy = my - (my - oy) * (next / size);
+  size = next;
+  draw();
+}, { passive: false });
+
+window.addEventListener("resize", resize);
+resize();
+
+// ?map=<url> loads directly. Phase 5 wants shareable links to a map; here it
+// also means the viewer can be opened straight onto a fixture.
+const wanted = new URLSearchParams(location.search).get("map");
+if (wanted) {
+  fetch(wanted)
+    .then((r) => { if (!r.ok) throw new Error(r.status + " " + r.statusText); return r.json(); })
+    .then(load)
+    .catch((e) => { document.getElementById("name").textContent = "Could not load: " + e.message; });
+}
+</script>
+</body>
+</html>
