@@ -138,6 +138,45 @@ class TeamsAndVariants(unittest.TestCase):
             self.assertTrue(all(v != 0 for v in row), row)
 
 
+class SchemaDerivesFlags(unittest.TestCase):
+    """A map JSON without flags must still produce a loadable map.
+
+    This is what lets an authoring tool stay out of the autotile business: it
+    writes terrain and ownership, and the rule lives in one place.
+    """
+
+    def _doc(self, terrain, cells=None):
+        return {
+            "schema": 1, "name": "t", "author": "t",
+            "size": {"cols": len(terrain[0]), "rows": len(terrain)},
+            "fog": False, "waterColor": 0,
+            "terrain": terrain, "cells": cells or [], "units": [],
+        }
+
+    def test_absent_flags_are_computed_not_zeroed(self):
+        m = schema.from_json(self._doc(grid(["===", "...", "..."])))
+        self.assertEqual(m.tiles[1][0].flags & 0x1E,
+                         (1 << A.WEST) | (1 << A.EAST))
+
+    def test_no_tile_is_left_at_zero(self):
+        m = schema.from_json(self._doc(grid([".s=r", "q.hp", "===="])))
+        for x in range(m.cols):
+            for y in range(m.rows):
+                self.assertNotEqual(m.tiles[x][y].flags, 0, (x, y))
+
+    def test_an_hq_gets_the_bit_for_its_owner(self):
+        doc = self._doc(grid(["q"]), cells=[{"x": 0, "y": 0, "team": 3}])
+        m = schema.from_json(doc)
+        self.assertTrue(m.tiles[0][0].flags & A.TEAM_BIT[3])
+
+    def test_supplied_flags_are_left_alone(self):
+        doc = self._doc(grid(["==", ".."]))
+        doc["flags"] = [[123, 124], [125, 126]]
+        m = schema.from_json(doc)
+        self.assertEqual(m.tiles[0][0].flags, 123)
+        self.assertEqual(m.tiles[1][0].flags, 124)
+
+
 class FidelityAgainstRealMaps(unittest.TestCase):
     """The rules must reproduce what the game itself wrote."""
 
@@ -147,6 +186,23 @@ class FidelityAgainstRealMaps(unittest.TestCase):
             self.skipTest("set AWRBC_TEST_SAVE to a real maps file")
         self.maps = [schema.build_document(m)
                      for m in savefile.read(path).maps]
+
+    def test_dropping_flags_and_recomputing_reproduces_the_mask(self):
+        """The editor will export maps with no flags at all; this is that path."""
+        structures = A.STRUCTURE_ANCHOR | A.STRUCTURE_BODY
+        total = same = 0
+        for d in self.maps:
+            stripped = {k: v for k, v in d.items() if k != "flags"}
+            m = schema.from_json(stripped)
+            for y, row in enumerate(d["flags"]):
+                for x, want in enumerate(row):
+                    if want & structures:
+                        continue
+                    total += 1
+                    same += (want & 0x1E) == (m.tiles[x][y].flags & 0x1E)
+        if total < 200:
+            self.skipTest("save too small to measure against")
+        self.assertGreater(same / total, 0.97, "%d/%d" % (same, total))
 
     def test_connection_mask_matches_the_game(self):
         structures = A.STRUCTURE_ANCHOR | A.STRUCTURE_BODY

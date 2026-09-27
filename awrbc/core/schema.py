@@ -16,6 +16,7 @@ Two shape notes:
 Values are raw game values. Friendly names are a presentation concern.
 """
 from .errors import SaveUnreadable
+from . import autotile
 from .model import Coord, Map, Tile, Unit
 
 SCHEMA_VERSION = 1
@@ -142,6 +143,8 @@ def from_json(doc: dict) -> Map:
     tiles = [[Tile(type=terrain[y][x],
                    flags=flags[y][x] if flags else 0)
               for y in range(rows)] for x in range(cols)]
+    # Flags are filled in below once ownership is known, because an HQ's flags
+    # depend on its team.
 
     for c in doc.get("cells") or []:
         x, y = c.get("x"), c.get("y")
@@ -171,6 +174,19 @@ def from_json(doc: dict) -> Map:
             is_diving=bool(u.get("diving", False)),
             is_predeployed=bool(u.get("predeployed", False)),
         )
+
+    if flags is None:
+        # Nothing supplied them, so derive them. Zero is not a safe default -
+        # it is a value no real map ever contains - and requiring an authoring
+        # tool to reimplement the autotile rule would mean two copies of it
+        # drifting apart. See autotile.py and docs/format.md.
+        owners = {(x, y): tiles[x][y].team
+                  for x in range(cols) for y in range(rows)
+                  if tiles[x][y].team is not None and tiles[x][y].team >= 0}
+        computed = autotile.compute(terrain, owners)
+        for x in range(cols):
+            for y in range(rows):
+                tiles[x][y].flags = computed[y][x]
 
     return Map(
         name=doc.get("name") or "",

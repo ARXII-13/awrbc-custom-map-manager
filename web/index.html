@@ -3,44 +3,63 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>AWRBC Map Viewer</title>
+<title>AWRBC Map Editor</title>
 <style>
   :root {
     --bg: #f4f4f2; --panel: #ffffff; --ink: #1c1c1e; --muted: #6b6b70;
-    --line: #dcdcd8; --accent: #3a6fb8; --ok-bg: #d8f0d8; --ok-fg: #1f5f1f;
-    --no-bg: #f6d8d8; --no-fg: #7a2020;
+    --line: #dcdcd8; --accent: #3a6fb8; --sel: #3a6fb8;
+    --ok-bg: #d8f0d8; --ok-fg: #1f5f1f; --no-bg: #f6d8d8; --no-fg: #7a2020;
   }
   @media (prefers-color-scheme: dark) {
     :root:not([data-theme="light"]) {
       --bg: #17171a; --panel: #1f1f23; --ink: #e8e8ea; --muted: #9a9aa2;
-      --line: #32323a; --accent: #6b9de0; --ok-bg: #1f3f1f; --ok-fg: #9de09d;
-      --no-bg: #4a2020; --no-fg: #f0a0a0;
+      --line: #32323a; --accent: #6b9de0; --sel: #6b9de0;
+      --ok-bg: #1f3f1f; --ok-fg: #9de09d; --no-bg: #4a2020; --no-fg: #f0a0a0;
     }
-  }
-  :root[data-theme="dark"] {
-    --bg: #17171a; --panel: #1f1f23; --ink: #e8e8ea; --muted: #9a9aa2;
-    --line: #32323a; --accent: #6b9de0; --ok-bg: #1f3f1f; --ok-fg: #9de09d;
-    --no-bg: #4a2020; --no-fg: #f0a0a0;
   }
   * { box-sizing: border-box; }
   body {
     margin: 0; background: var(--bg); color: var(--ink);
     font: 14px/1.5 system-ui, -apple-system, "Segoe UI", sans-serif;
-    display: flex; height: 100vh; overflow: hidden;
+    display: flex; flex-direction: column; height: 100vh; overflow: hidden;
   }
+  header {
+    flex: none; display: flex; gap: 6px; align-items: center; flex-wrap: wrap;
+    padding: 8px 12px; background: var(--panel); border-bottom: 1px solid var(--line);
+  }
+  #body { flex: 1; display: flex; min-height: 0; }
   #stage { flex: 1; position: relative; min-width: 0; }
-  canvas { display: block; width: 100%; height: 100%; cursor: grab; }
-  canvas.dragging { cursor: grabbing; }
+  canvas#c { display: block; width: 100%; height: 100%; cursor: crosshair; }
+  canvas#c.pan { cursor: grab; }
+  canvas#c.panning { cursor: grabbing; }
   aside {
-    width: 264px; flex: none; background: var(--panel);
-    border-left: 1px solid var(--line); padding: 16px; overflow-y: auto;
+    width: 268px; flex: none; background: var(--panel);
+    border-left: 1px solid var(--line); padding: 14px; overflow-y: auto;
   }
-  h1 { font-size: 15px; margin: 0 0 2px; }
   h2 {
     font-size: 11px; text-transform: uppercase; letter-spacing: .07em;
-    color: var(--muted); margin: 18px 0 6px; font-weight: 600;
+    color: var(--muted); margin: 16px 0 6px; font-weight: 600;
   }
-  .sub { color: var(--muted); font-size: 12px; margin-bottom: 6px; }
+  h2:first-child { margin-top: 0; }
+  .sub { color: var(--muted); font-size: 12px; }
+  button, label.btn, input[type=text] {
+    font: inherit; padding: 5px 10px; border-radius: 7px; cursor: pointer;
+    border: 1px solid var(--line); background: var(--panel); color: var(--ink);
+  }
+  input[type=text] { cursor: text; }
+  button:hover, label.btn:hover { border-color: var(--accent); }
+  button[aria-pressed="true"] { background: var(--sel); color: #fff; border-color: var(--sel); }
+  button:disabled { opacity: .4; cursor: default; }
+  .sep { width: 1px; align-self: stretch; background: var(--line); margin: 0 4px; }
+  .grid { display: grid; grid-template-columns: repeat(6, 1fr); gap: 4px; }
+  .cellbtn {
+    padding: 0; aspect-ratio: 1; border-radius: 5px; overflow: hidden;
+    display: grid; place-items: center; background: transparent;
+  }
+  .cellbtn canvas { display: block; width: 100%; height: 100%; }
+  .cellbtn[aria-pressed="true"] { outline: 2px solid var(--sel); outline-offset: 1px; }
+  .teams { display: flex; gap: 4px; flex-wrap: wrap; }
+  .teambtn { width: 30px; height: 26px; padding: 0; border-radius: 6px; }
   table { width: 100%; border-collapse: collapse; font-size: 12px; }
   td { padding: 2px 0; }
   td.n { text-align: right; font-variant-numeric: tabular-nums; color: var(--muted); }
@@ -51,70 +70,80 @@
   .pill { display: inline-block; padding: 1px 8px; border-radius: 99px; font-size: 11px; font-weight: 600; }
   .ok { background: var(--ok-bg); color: var(--ok-fg); }
   .no { background: var(--no-bg); color: var(--no-fg); }
-  #drop {
-    position: absolute; inset: 0; display: flex; align-items: center;
-    justify-content: center; flex-direction: column; gap: 10px;
-    background: var(--bg); color: var(--muted); text-align: center; padding: 24px;
-  }
-  #drop.hide { display: none; }
-  #drop.over { outline: 2px dashed var(--accent); outline-offset: -14px; }
-  button, label.btn {
-    font: inherit; padding: 6px 12px; border-radius: 7px; cursor: pointer;
-    border: 1px solid var(--line); background: var(--panel); color: var(--ink);
-  }
-  button:hover, label.btn:hover { border-color: var(--accent); }
-  #bar { position: absolute; left: 12px; top: 12px; display: flex; gap: 6px; }
+  #why { font-size: 12px; color: var(--muted); margin-top: 4px; }
   #tip {
     position: absolute; pointer-events: none; background: var(--panel);
     border: 1px solid var(--line); border-radius: 6px; padding: 5px 9px;
     font-size: 12px; white-space: nowrap; opacity: 0; transition: opacity .1s;
     box-shadow: 0 3px 10px rgba(0,0,0,.18);
   }
-  @media (max-width: 720px) {
-    body { flex-direction: column; }
-    aside { width: 100%; border-left: none; border-top: 1px solid var(--line); max-height: 40vh; }
+  @media (max-width: 760px) {
+    #body { flex-direction: column; }
+    aside { width: 100%; border-left: none; border-top: 1px solid var(--line); max-height: 45vh; }
   }
 </style>
 </head>
 <body>
-<div id="stage">
-  <canvas id="c"></canvas>
-  <div id="bar" hidden>
-    <button id="fit">Fit</button>
-    <label class="btn">Open<input id="file2" type="file" accept=".json" hidden></label>
-  </div>
-  <div id="tip"></div>
-  <div id="drop">
-    <strong>Drop a map JSON here</strong>
-    <span>exported with <code>awrbc export</code></span>
-    <label class="btn">Choose a file<input id="file" type="file" accept=".json" hidden></label>
-  </div>
-</div>
+<header>
+  <button id="new">New</button>
+  <label class="btn">Open<input id="file" type="file" accept=".json" hidden></label>
+  <button id="export">Export</button>
+  <span class="sep"></span>
+  <button data-tool="paint" aria-pressed="true" title="Paint terrain (B)">Paint</button>
+  <button data-tool="fill" aria-pressed="false" title="Flood fill (G)">Fill</button>
+  <button data-tool="unit" aria-pressed="false" title="Place unit (U)">Unit</button>
+  <button data-tool="owner" aria-pressed="false" title="Set owner (O)">Owner</button>
+  <button data-tool="erase" aria-pressed="false" title="Remove unit (E)">Erase</button>
+  <button data-tool="pan" aria-pressed="false" title="Pan (H, or hold Shift)">Pan</button>
+  <span class="sep"></span>
+  <button id="undo" disabled>Undo</button>
+  <button id="redo" disabled>Redo</button>
+  <button id="fit">Fit</button>
+</header>
 
-<aside>
-  <h1 id="name">No map loaded</h1>
-  <div class="sub" id="meta"></div>
-  <div id="valid"></div>
-  <div class="sub" id="pack" hidden></div>
-  <h2>Armies</h2>
-  <table id="teams"><tbody></tbody></table>
-  <h2>Terrain</h2>
-  <table id="legend"><tbody></tbody></table>
-</aside>
+<div id="body">
+  <div id="stage">
+    <canvas id="c"></canvas>
+    <div id="tip"></div>
+  </div>
+  <aside>
+    <h2>Map</h2>
+    <input type="text" id="name" style="width:100%" value="Untitled">
+    <div class="sub" id="meta" style="margin-top:4px"></div>
+    <div style="margin-top:6px"><span id="valid"></span></div>
+    <div id="why"></div>
+    <div class="sub" id="pack" hidden style="margin-top:4px"></div>
+
+    <h2>Army</h2>
+    <div class="teams" id="teams"></div>
+
+    <h2>Terrain</h2>
+    <div class="grid" id="palette"></div>
+
+    <h2>Units</h2>
+    <div class="grid" id="units"></div>
+
+    <h2>Armies on the map</h2>
+    <table id="stats"><tbody></tbody></table>
+  </aside>
+</div>
 
 <script type="module">
 import { drawMap, fitTile, cellIndex } from "./render.js";
-import { UNITS, terrain, team } from "./terrain.js";
-import { loadPack, hasPack } from "./sprites.js";
+import { UNITS, PALETTE, TEAMS, terrain, team } from "./terrain.js";
+import { TERRAIN_ICONS, PROPERTY_ICONS, UNIT_ICONS } from "./icons.js";
+import { loadPack } from "./sprites.js";
+import { createEditor, emptyMap, stats } from "./edit.js";
 
 const canvas = document.getElementById("c");
 const ctx = canvas.getContext("2d");
 const tip = document.getElementById("tip");
-let doc = null, size = 24, ox = 0, oy = 0, cells = new Map();
 
-// Everything below works in logical (CSS) pixels; the context carries a
-// device-pixel-ratio transform and the renderer is told the visible size.
+let doc = emptyMap(30, 20);
+let ed = null;
+let size = 24, ox = 0, oy = 0, cells = new Map();
 let logical = { width: 0, height: 0 };
+let tool = "paint", brushTerrain = 1, brushUnit = 9, brushTeam = 0;
 
 function resize() {
   const r = canvas.getBoundingClientRect();
@@ -131,7 +160,6 @@ function draw() {
   ctx.setTransform(1, 0, 0, 1, 0, 0);
   ctx.clearRect(0, 0, canvas.width, canvas.height);
   ctx.restore();
-  if (!doc) return;
   drawMap(ctx, doc, {
     size, originX: ox, originY: oy, glyphs: true,
     width: logical.width, height: logical.height,
@@ -139,148 +167,318 @@ function draw() {
 }
 
 function fit() {
-  if (!doc) return;
   size = fitTile(doc, logical.width - 24, logical.height - 24);
   ox = Math.floor((logical.width - size * doc.size.cols) / 2);
   oy = Math.floor((logical.height - size * doc.size.rows) / 2);
   draw();
 }
 
-function load(json) {
-  doc = json;
+/** Everything that has to follow a document change. */
+function refresh() {
   cells = cellIndex(doc);
-  document.getElementById("drop").classList.add("hide");
-  document.getElementById("bar").hidden = false;
-  document.getElementById("name").textContent = doc.name || "(unnamed)";
+  const s = stats(doc);
   document.getElementById("meta").textContent =
-    doc.size.cols + " x " + doc.size.rows + " — by " + (doc.author || "unknown") +
-    (doc.fog ? " — fog" : "");
+    doc.size.cols + " x " + doc.size.rows + " — " +
+    (doc.units || []).length + " units";
+  document.getElementById("valid").innerHTML =
+    '<span class="pill ' + (s.valid ? "ok" : "no") + '">' +
+    (s.valid ? "playable" : "not playable") + "</span>";
+  document.getElementById("why").textContent = s.valid ? "" : s.reasons.join("; ");
 
-  const d = doc.derived || {};
-  document.getElementById("valid").innerHTML = d.valid === undefined ? "" :
-    '<span class="pill ' + (d.valid ? "ok" : "no") + '">' +
-    (d.valid ? "playable" : "not playable") + "</span>";
-
-  const tb = document.querySelector("#teams tbody");
+  const tb = document.querySelector("#stats tbody");
   tb.innerHTML = "";
-  for (const [n, s] of Object.entries(d.perTeam || {})) {
-    const t = team(Number(n));
+  for (const n of s.teams) {
+    const t = team(n), q = s.perTeam[n];
     tb.insertAdjacentHTML("beforeend",
       '<tr><td><span class="swatch" style="background:' + t.color + '"></span>' +
-      t.name + '</td><td class="n">' + s.units + " u</td>" +
-      '<td class="n">' + s.properties + " p</td></tr>");
+      t.name + '</td><td class="n">' + q.units + " u</td>" +
+      '<td class="n">' + q.properties + " p</td></tr>");
   }
+  document.getElementById("undo").disabled = !ed.canUndo();
+  document.getElementById("redo").disabled = !ed.canRedo();
+  draw();
+}
 
-  const counts = new Map();
-  for (const row of doc.terrain) {
-    for (const id of row) counts.set(id, (counts.get(id) || 0) + 1);
-  }
-  const lg = document.querySelector("#legend tbody");
-  lg.innerHTML = "";
-  for (const [id, n] of [...counts].sort((a, b) => b[1] - a[1])) {
-    const i = terrain(id);
-    lg.insertAdjacentHTML("beforeend",
-      '<tr><td><span class="swatch" style="background:' + (i.color || "#b4b4b4") +
-      '"></span>' + i.name + '</td><td class="n">' + n + "</td></tr>");
-  }
+function load(json) {
+  doc = json;
+  ed = createEditor(doc, refresh);
+  document.getElementById("name").value = doc.name || "Untitled";
+  buildPalette();
+  refresh();
   fit();
 }
 
-function readFile(f) {
-  if (!f) return;
-  f.text().then((t) => {
-    try { load(JSON.parse(t)); }
-    catch (e) { alert("Not a map JSON: " + e.message); }
+// --- palette ---------------------------------------------------------------
+
+function swatch(kind, id) {
+  const S = 34;
+  const cv = document.createElement("canvas");
+  cv.width = cv.height = S;
+  const g = cv.getContext("2d");
+  const owner = team(brushTeam);
+  if (kind === "terrain") {
+    const info = terrain(id);
+    g.fillStyle = info.property ? owner.color : info.color;
+    g.fillRect(0, 0, S, S);
+    const icon = info.property ? PROPERTY_ICONS[id] : TERRAIN_ICONS[id];
+    if (icon) {
+      icon(g, 0, 0, S, info.property ? "rgba(255,255,255,.93)" : "rgba(0,0,0,.52)");
+    } else if (info.glyph) {
+      g.fillStyle = "rgba(0,0,0,.5)";
+      g.font = "bold 17px system-ui, sans-serif";
+      g.textAlign = "center";
+      g.textBaseline = "middle";
+      g.fillText(info.glyph, S / 2, S / 2);
+    }
+  } else {
+    g.fillStyle = brushTeam < 0 ? TEAMS[0].color : owner.color;
+    g.fillRect(0, 0, S, S);
+    const icon = UNIT_ICONS[id];
+    if (icon) icon(g, S * 0.1, S * 0.1, S * 0.8, "rgba(255,255,255,.95)");
+  }
+  return cv;
+}
+
+function cellButton(kind, id, label, active, onPick) {
+  const b = document.createElement("button");
+  b.className = "cellbtn";
+  b.title = label;
+  b.setAttribute("aria-pressed", String(active));
+  b.appendChild(swatch(kind, id));
+  b.onclick = onPick;
+  return b;
+}
+
+function buildPalette() {
+  const pal = document.getElementById("palette");
+  pal.innerHTML = "";
+  for (const id of PALETTE) {
+    pal.appendChild(cellButton("terrain", id, terrain(id).name,
+      id === brushTerrain && tool !== "unit",
+      () => { brushTerrain = id; setTool("paint"); }));
+  }
+
+  const ul = document.getElementById("units");
+  ul.innerHTML = "";
+  for (const id of Object.keys(UNITS).map(Number)) {
+    ul.appendChild(cellButton("unit", id, UNITS[id],
+      id === brushUnit && tool === "unit",
+      () => { brushUnit = id; setTool("unit"); }));
+  }
+
+  const tl = document.getElementById("teams");
+  tl.innerHTML = "";
+  TEAMS.forEach((t, i) => {
+    const b = document.createElement("button");
+    b.className = "teambtn";
+    b.style.background = t.color;
+    b.title = t.name + " (" + (i + 1) + ")";
+    b.setAttribute("aria-pressed", String(i === brushTeam));
+    b.onclick = () => { brushTeam = i; buildPalette(); };
+    tl.appendChild(b);
   });
+  const n = document.createElement("button");
+  n.className = "teambtn";
+  n.style.background = "#b4b4b4";
+  n.title = "Neutral";
+  n.setAttribute("aria-pressed", String(brushTeam === -1));
+  n.onclick = () => { brushTeam = -1; buildPalette(); };
+  tl.appendChild(n);
 }
 
-document.getElementById("file").onchange = (e) => readFile(e.target.files[0]);
-document.getElementById("file2").onchange = (e) => readFile(e.target.files[0]);
-document.getElementById("fit").onclick = fit;
-
-const drop = document.getElementById("drop");
-for (const ev of ["dragenter", "dragover"]) {
-  document.addEventListener(ev, (e) => { e.preventDefault(); drop.classList.add("over"); });
+function setTool(t) {
+  tool = t;
+  for (const b of document.querySelectorAll("[data-tool]")) {
+    b.setAttribute("aria-pressed", String(b.dataset.tool === t));
+  }
+  canvas.classList.toggle("pan", t === "pan");
+  buildPalette();
 }
-document.addEventListener("dragleave", () => drop.classList.remove("over"));
-document.addEventListener("drop", (e) => {
-  e.preventDefault();
-  drop.classList.remove("over");
-  readFile(e.dataTransfer.files[0]);
-});
+
+// --- interaction -----------------------------------------------------------
+
+function tileAt(e) {
+  const r = canvas.getBoundingClientRect();
+  return {
+    x: Math.floor((e.clientX - r.left - ox) / size),
+    y: Math.floor((e.clientY - r.top - oy) / size),
+    lx: e.clientX - r.left,
+    ly: e.clientY - r.top,
+  };
+}
+
+function applyAt(x, y) {
+  switch (tool) {
+    case "paint": return ed.paint(x, y, brushTerrain, brushTeam);
+    case "fill":  return ed.fill(x, y, brushTerrain, brushTeam);
+    case "unit":  return ed.placeUnit(x, y, brushUnit, brushTeam < 0 ? 0 : brushTeam);
+    case "owner": return ed.setTeam(x, y, brushTeam);
+    case "erase": return ed.removeUnit(x, y);
+    default:      return false;
+  }
+}
 
 let drag = null;
+
 canvas.addEventListener("pointerdown", (e) => {
-  drag = { x: e.clientX, y: e.clientY, ox, oy };
-  canvas.classList.add("dragging");
   canvas.setPointerCapture(e.pointerId);
+  if (tool === "pan" || e.button === 1 || e.button === 2 || e.shiftKey) {
+    drag = { mode: "pan", x: e.clientX, y: e.clientY, ox, oy };
+    canvas.classList.add("panning");
+    return;
+  }
+  const p = tileAt(e);
+  drag = { mode: "edit", last: p.x + "," + p.y };
+  ed.begin();
+  if (applyAt(p.x, p.y)) draw();
 });
-canvas.addEventListener("pointerup", () => {
-  drag = null;
-  canvas.classList.remove("dragging");
-});
+
 canvas.addEventListener("pointermove", (e) => {
-  const r = canvas.getBoundingClientRect();
-  if (drag) {
+  const p = tileAt(e);
+  if (drag && drag.mode === "pan") {
     ox = drag.ox + (e.clientX - drag.x);
     oy = drag.oy + (e.clientY - drag.y);
     draw();
     return;
   }
-  if (!doc) return;
-  const x = Math.floor((e.clientX - r.left - ox) / size);
-  const y = Math.floor((e.clientY - r.top - oy) / size);
-  if (x < 0 || y < 0 || x >= doc.size.cols || y >= doc.size.rows) {
+  // Fill is a single action; dragging it would flood repeatedly.
+  if (drag && drag.mode === "edit" && tool !== "fill") {
+    const key = p.x + "," + p.y;
+    if (key !== drag.last) {
+      drag.last = key;
+      if (applyAt(p.x, p.y)) draw();
+    }
+    return;
+  }
+  if (p.x < 0 || p.y < 0 || p.x >= doc.size.cols || p.y >= doc.size.rows) {
     tip.style.opacity = 0;
     return;
   }
-  const cell = cells.get(x + "," + y);
-  const unit = (doc.units || []).find((u) => u.x === x && u.y === y);
-  const bits = [terrain(doc.terrain[y][x]).name];
+  const cell = cells.get(p.x + "," + p.y);
+  const unit = (doc.units || []).find((u) => u.x === p.x && u.y === p.y);
+  const bits = [terrain(doc.terrain[p.y][p.x]).name];
   if (cell && cell.team !== undefined && cell.team >= 0) bits.push(team(cell.team).name);
   if (unit) bits.push(UNITS[unit.type] + " (" + team(unit.team).name + ")");
-  tip.textContent = "(" + x + "," + y + ") " + bits.join(" · ");
-  tip.style.left = (e.clientX - r.left + 14) + "px";
-  tip.style.top = (e.clientY - r.top + 14) + "px";
+  tip.textContent = "(" + p.x + "," + p.y + ") " + bits.join(" · ");
+  tip.style.left = (p.lx + 14) + "px";
+  tip.style.top = (p.ly + 14) + "px";
   tip.style.opacity = 1;
 });
+
+function endDrag() {
+  if (drag && drag.mode === "edit") ed.commit();
+  drag = null;
+  canvas.classList.remove("panning");
+}
+canvas.addEventListener("pointerup", endDrag);
+canvas.addEventListener("pointercancel", endDrag);
 canvas.addEventListener("pointerleave", () => { tip.style.opacity = 0; });
+canvas.addEventListener("contextmenu", (e) => e.preventDefault());
+
 canvas.addEventListener("wheel", (e) => {
-  if (!doc) return;
   e.preventDefault();
   const r = canvas.getBoundingClientRect();
   const mx = e.clientX - r.left, my = e.clientY - r.top;
-  const next = Math.max(3, Math.min(72, size * (e.deltaY < 0 ? 1.15 : 0.87)));
+  const next = Math.max(4, Math.min(72, size * (e.deltaY < 0 ? 1.15 : 0.87)));
   ox = mx - (mx - ox) * (next / size);
   oy = my - (my - oy) * (next / size);
   size = next;
   draw();
 }, { passive: false });
 
-window.addEventListener("resize", resize);
-resize();
+// --- chrome ----------------------------------------------------------------
 
-// A sprite pack in ./sprites/ overrides the drawn icons. Optional and local:
-// see sprites/README.md. Loading is awaited before the first draw so a pack
-// never shows up half a frame late.
+for (const b of document.querySelectorAll("[data-tool]")) {
+  b.onclick = () => setTool(b.dataset.tool);
+}
+document.getElementById("undo").onclick = () => ed.undo();
+document.getElementById("redo").onclick = () => ed.redo();
+document.getElementById("fit").onclick = fit;
+document.getElementById("name").oninput = (e) => { doc.name = e.target.value; };
+
+document.getElementById("new").onclick = () => {
+  const answer = prompt(
+    "Size as COLSxROWS.\n\nThe in-game editor caps at 30x20. Larger maps play " +
+    "fine but can only be edited here.", "30x20");
+  if (!answer) return;
+  const m = /^\s*(\d+)\s*[x,\s]\s*(\d+)\s*$/i.exec(answer);
+  if (!m) { alert("Could not read that size."); return; }
+  load(emptyMap(Number(m[1]), Number(m[2]), "Untitled"));
+};
+
+document.getElementById("file").onchange = (e) => {
+  const f = e.target.files[0];
+  if (!f) return;
+  f.text().then((t) => {
+    try { load(JSON.parse(t)); }
+    catch (err) { alert("Not a map JSON: " + err.message); }
+  });
+};
+
+document.getElementById("export").onclick = () => {
+  // Flags are omitted on purpose: `awrbc import` derives them from terrain, so
+  // the autotile rule stays in one place. See edit.js.
+  const out = {
+    schema: 1,
+    name: doc.name || "Untitled",
+    author: doc.author || "anonymous",
+    size: doc.size,
+    fog: !!doc.fog,
+    waterColor: doc.waterColor || 0,
+    terrain: doc.terrain,
+    cells: doc.cells,
+    units: doc.units,
+  };
+  const blob = new Blob([JSON.stringify(out, null, 1)], { type: "application/json" });
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(blob);
+  a.download = (doc.name || "map").replace(/[^\w.-]+/g, "_") + ".json";
+  a.click();
+  URL.revokeObjectURL(a.href);
+};
+
+addEventListener("keydown", (e) => {
+  if (e.target.tagName === "INPUT") return;
+  const k = e.key.toLowerCase();
+  if ((e.ctrlKey || e.metaKey) && k === "z") {
+    e.preventDefault();
+    if (e.shiftKey) ed.redo(); else ed.undo();
+  } else if ((e.ctrlKey || e.metaKey) && k === "y") {
+    e.preventDefault();
+    ed.redo();
+  } else if (k === "b") setTool("paint");
+  else if (k === "g") setTool("fill");
+  else if (k === "u") setTool("unit");
+  else if (k === "o") setTool("owner");
+  else if (k === "e") setTool("erase");
+  else if (k === "h") setTool("pan");
+  else if (k >= "1" && k <= "5") { brushTeam = Number(k) - 1; buildPalette(); }
+});
+
+window.addEventListener("resize", resize);
+setTool("paint");
+resize();
+load(doc);
+
 const packReady = loadPack().then((ok) => {
   if (ok) {
     const tag = document.getElementById("pack");
     tag.textContent = "sprite pack active";
     tag.hidden = false;
   }
+  buildPalette();
   draw();
-  return ok;
 });
 
-// ?map=<url> loads directly. Phase 5 wants shareable links to a map; here it
-// also means the viewer can be opened straight onto a fixture.
 const wanted = new URLSearchParams(location.search).get("map");
 if (wanted) {
-  packReady.then(() => fetch(wanted))
+  packReady
+    .then(() => fetch(wanted))
     .then((r) => { if (!r.ok) throw new Error(r.status + " " + r.statusText); return r.json(); })
     .then(load)
-    .catch((e) => { document.getElementById("name").textContent = "Could not load: " + e.message; });
+    .catch((e) => {
+      document.getElementById("why").textContent = "Could not load: " + e.message;
+    });
 }
 </script>
 </body>

@@ -62,6 +62,27 @@ export const UNIT_ABBR = {
 
 export const HP_SCALE = 1000000;
 
+// Mirrors awrbc/core/model.py, which is authoritative.
+export const PRODUCTION = new Set([2048, 4096, 8192]);
+export const CAPTURABLE = new Set([512, 1024, 2048, 4096, 8192, 134217728]);
+
+// Fuel and ammo a freshly placed unit gets. Observed directly in saves - see
+// docs/id-tables.md, where they doubled as the evidence for the unit names.
+export const UNIT_STATS = {
+  1:  { gas: 60, ammo: 9 }, 2:  { gas: 70, ammo: 0 }, 3:  { gas: 50, ammo: 9 },
+  4:  { gas: 99, ammo: 6 }, 5:  { gas: 99, ammo: 9 }, 6:  { gas: 99, ammo: 9 },
+  7:  { gas: 99, ammo: 9 }, 8:  { gas: 99, ammo: 9 }, 9:  { gas: 99, ammo: 0 },
+  10: { gas: 99, ammo: 0 }, 11: { gas: 70, ammo: 3 }, 12: { gas: 50, ammo: 8 },
+  13: { gas: 50, ammo: 6 }, 14: { gas: 80, ammo: 0 }, 15: { gas: 50, ammo: 6 },
+  16: { gas: 60, ammo: 6 }, 17: { gas: 70, ammo: 9 }, 18: { gas: 99, ammo: 0 },
+  19: { gas: 99, ammo: 9 },
+};
+
+/** Terrain offered in the palette, in a sensible authoring order. */
+export const PALETTE = [1, 8, 4, 128, 256, 16, 32, 2, 64,
+                        512, 1024, 2048, 4096, 8192, 134217728,
+                        32768, 65536, 33554432];
+
 export function team(n) {
   return (n === null || n === undefined || n < 0) ? NEUTRAL : (TEAMS[n] || NEUTRAL);
 }
