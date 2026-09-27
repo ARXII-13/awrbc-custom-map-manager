@@ -73,8 +73,8 @@ function drawTile(ctx, doc, cells, x, y, px, py, size, opts) {
   const owner = team(cell ? cell.team : null);
 
   // Fill first, always. Sprite packs commonly draw terrain as a transparent
-  // overlay meant to sit on grass - Toen's trees and rock are exactly that -
-  // so blitting onto a cleared canvas leaves black holes.
+  // overlay meant to sit on a base tile, and blitting one onto a cleared
+  // canvas leaves black holes where the sprite is transparent.
   if (info.property) {
     // A property is drawn in its owner's colour; that ownership is most of
     // what makes a map readable at a glance.

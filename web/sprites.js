@@ -1,9 +1,8 @@
 // Sprite packs.
 //
-// Two tiers. `assets/` holds packs that ship with the repository and must be
-// properly licensed; `sprites/` is a local, gitignored override for whatever
-// the person running it wants to use. The local one wins when present - see
-// sprites/README.md for the manifest format and for why that boundary exists.
+// A pack in `sprites/` overrides the drawn icons. That directory is gitignored
+// and never published - see sprites/README.md for the manifest format and for
+// why that boundary exists. The repository itself ships no third-party art.
 //
 // Loading is best-effort by design: no pack, a broken manifest or a missing
 // image all fall through to the drawn icons rather than failing the page.
@@ -58,13 +57,12 @@ function loadImage(src) {
 }
 
 /**
- * Load the first pack that resolves, in order of preference.
+ * Load the first pack that resolves.
  *
- * The local `sprites/` override comes first so that whatever someone drops in
- * beats the bundled default. Resolves to true when a usable pack was found;
- * never rejects, because having no pack at all is a normal state.
+ * Resolves to true when a usable pack was found; never rejects, because having
+ * no pack at all is a normal state.
  */
-export async function loadPack(bases = ['sprites/', 'assets/toen/']) {
+export async function loadPack(bases = ['sprites/']) {
   for (const base of [].concat(bases)) {
     if (await loadFrom(base)) return true;
   }

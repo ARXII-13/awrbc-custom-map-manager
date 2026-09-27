@@ -9,7 +9,7 @@
 export const TERRAIN = {
   1:         { name: 'Plains',       color: '#a9cf75' },
   2:         { name: 'Sea',          color: '#4577bd' },
-  // `base` is what gets filled before a sprite is blitted. Packs usually draw
+  // `base` is what gets filled before a sprite is blitted. Packs often draw
   // trees and rock as transparent overlays meant to sit on grass.
   4:         { name: 'Mountain',     color: '#9b8259', base: '#a9cf75', glyph: '^' },
   8:         { name: 'Woods',        color: '#5d9647', base: '#a9cf75', glyph: '*' },
