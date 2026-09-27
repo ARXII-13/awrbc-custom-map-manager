@@ -29,17 +29,31 @@ python -m awrbc export --name ALL --out ALL.json
 | | |
 |---|---|
 | `terrain.js` | Terrain, team and unit tables. Data only - no drawing, no DOM. |
+| `icons.js` | Terrain, property and unit icons, drawn procedurally. |
 | `render.js` | The renderer. Pure: a 2D context plus a map document. |
 | `index.html` | The viewer shell - loading, pan, zoom, hover, stats. |
 
 `render.js` is deliberately free of editing state so the archive's thumbnail
 generator can use it unchanged; `thumbnail(doc, w, h)` is there for that.
 
-## Colours are not the game's
+## No game assets, ever
 
-Every colour here is chosen, not sampled from the game's art. That is what keeps
-the renderer - and anything built on it - publishable. Do not replace these with
-ripped sprites.
+Every colour and every icon here is original. None of it is sampled, traced or
+ripped from Advance Wars, on the GBA or the Switch. That is not a style choice -
+it is the whole reason this project can publish an archive and a website at all,
+and it is the first thing somebody will be tempted to "improve".
+
+If richer art is wanted later, the options are commissioning original work or
+using a permissively licensed set (game-icons.net is CC BY 3.0, for instance,
+which only needs attribution). Ripping the games is not one of them, whatever
+other Advance Wars sites do.
+
+Icons are drawn in a 0..1 box and scaled, so they stay sharp anywhere between a
+13px tile and a 72px one. A 16x16 sprite sheet could not do that.
+
+`inkFor()` in `render.js` picks icon ink from the background's luma rather than
+always using white. Neutral properties are light grey and Yellow Comet is a
+light yellow; both washed out entirely with white icons.
 
 ## Known gaps
 
@@ -48,4 +62,7 @@ ripped sprites.
 - Multi-tile structures render tile-by-tile. They look right because each tile
   carries its own terrain id, but the viewer does not yet know they are one
   object - that matters for the editor, not for viewing.
+- Icons exist for terrain that needs one, all six property types, and all 19
+  units. Plain terrain (grass, sea, road, river) is deliberately bare - an icon
+  on every tile is noise.
 - Read-only. Painting, ownership and unit placement are the next slice.

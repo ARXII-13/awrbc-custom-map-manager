@@ -8,8 +8,29 @@
 // module owns that transpose, and nothing here needs to know about it.
 
 import { terrain, team, UNIT_ABBR, HP_SCALE } from './terrain.js';
+import { TERRAIN_ICONS, PROPERTY_ICONS, UNIT_ICONS } from './icons.js';
 
 const GRID_LINE = 'rgba(0,0,0,0.13)';
+
+// Below this a tile is a few pixels across and an icon is mud; flat colour
+// reads better, which is also what thumbnails want.
+const ICON_MIN = 13;
+const LABEL_MIN = 16;
+
+/**
+ * Ink that will actually be visible on `hex`.
+ *
+ * White-on-everything fails twice here: a neutral property is light grey, and
+ * Yellow Comet is a light yellow. Both washed out completely.
+ */
+function inkFor(hex, alpha = 0.95) {
+  const n = parseInt(hex.slice(1), 16);
+  const r = (n >> 16) & 255, g = (n >> 8) & 255, b = n & 255;
+  // Rec. 601 luma is good enough to choose between two inks.
+  const luma = (0.299 * r + 0.587 * g + 0.114 * b) / 255;
+  return luma > 0.62 ? 'rgba(22,22,26,' + alpha + ')'
+                     : 'rgba(255,255,255,' + alpha + ')';
+}
 
 /** Sparse `cells` as a lookup keyed by "x,y". */
 export function cellIndex(doc) {
@@ -56,8 +77,21 @@ function drawTile(ctx, doc, cells, x, y, px, py, size, opts) {
     ctx.fillRect(px, py, size, size);
   }
 
-  if (opts.glyphs && info.glyph && size >= 12) {
-    ctx.fillStyle = info.property ? 'rgba(255,255,255,0.92)' : 'rgba(0,0,0,0.5)';
+  if (!opts.glyphs || size < 12) return;
+
+  const icon = info.property ? PROPERTY_ICONS[id] : TERRAIN_ICONS[id];
+  const ink = info.property
+    ? inkFor(team(cell ? cell.team : null).color, 0.93)
+    : 'rgba(0,0,0,0.52)';
+  if (icon && size >= ICON_MIN) {
+    ctx.save();
+    icon(ctx, px, py, size, ink);
+    ctx.restore();
+    return;
+  }
+  // No icon for this terrain, or too small to draw one: fall back to a letter.
+  if (info.glyph) {
+    ctx.fillStyle = ink;
     ctx.font = 'bold ' + Math.round(size * 0.5) + 'px system-ui, sans-serif';
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
@@ -81,8 +115,14 @@ function drawUnit(ctx, unit, px, py, size) {
   ctx.lineWidth = Math.max(1, size / 24);
   ctx.stroke();
 
-  if (size >= 16) {
-    ctx.fillStyle = '#fff';
+  const icon = UNIT_ICONS[unit.type];
+  if (icon && size >= ICON_MIN) {
+    ctx.save();
+    // Inset so the silhouette sits inside the counter rather than on its edge.
+    icon(ctx, px + size * 0.12, py + size * 0.12, size * 0.76, inkFor(owner.color));
+    ctx.restore();
+  } else if (size >= LABEL_MIN) {
+    ctx.fillStyle = inkFor(owner.color);
     ctx.font = 'bold ' + Math.round(size * 0.34) + 'px system-ui, sans-serif';
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
