@@ -9,11 +9,13 @@
 export const TERRAIN = {
   1:         { name: 'Plains',       color: '#a9cf75' },
   2:         { name: 'Sea',          color: '#4577bd' },
-  4:         { name: 'Mountain',     color: '#9b8259', glyph: '^' },
-  8:         { name: 'Woods',        color: '#5d9647', glyph: '*' },
+  // `base` is what gets filled before a sprite is blitted. Packs usually draw
+  // trees and rock as transparent overlays meant to sit on grass.
+  4:         { name: 'Mountain',     color: '#9b8259', base: '#a9cf75', glyph: '^' },
+  8:         { name: 'Woods',        color: '#5d9647', base: '#a9cf75', glyph: '*' },
   16:        { name: 'River',        color: '#72b4dd' },
   32:        { name: 'Shoal',        color: '#e6d6a0' },
-  64:        { name: 'Reef',         color: '#3c6ba3', glyph: 'o' },
+  64:        { name: 'Reef',         color: '#3c6ba3', base: '#4577bd', glyph: 'o' },
   128:       { name: 'Road',         color: '#cac4b2' },
   256:       { name: 'Bridge',       color: '#b5915f' },
   512:       { name: 'HQ',           property: true, glyph: 'H' },

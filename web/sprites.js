@@ -1,14 +1,15 @@
-// Optional sprite packs.
+// Sprite packs.
 //
-// The renderer draws its own icons (icons.js). A sprite pack overrides them
-// with images from a local `sprites/` directory, which is gitignored and never
-// published - see sprites/README.md for why that boundary exists and for the
-// manifest format.
+// Two tiers. `assets/` holds packs that ship with the repository and must be
+// properly licensed; `sprites/` is a local, gitignored override for whatever
+// the person running it wants to use. The local one wins when present - see
+// sprites/README.md for the manifest format and for why that boundary exists.
 //
 // Loading is best-effort by design: no pack, a broken manifest or a missing
 // image all fall through to the drawn icons rather than failing the page.
 
 let pack = null;
+let packName = null;
 
 /**
  * One drawable sprite, or null when the pack does not cover this id.
@@ -42,6 +43,11 @@ export function hasPack() {
   return pack !== null;
 }
 
+/** Which pack loaded, for the UI to name. */
+export function packLabel() {
+  return packName;
+}
+
 function loadImage(src) {
   return new Promise((resolve) => {
     const img = new Image();
@@ -52,12 +58,20 @@ function loadImage(src) {
 }
 
 /**
- * Look for `sprites/manifest.json` and load whatever it points at.
+ * Load the first pack that resolves, in order of preference.
  *
- * Resolves to true when a usable pack was found. Never rejects: a missing pack
- * is the normal case, not an error.
+ * The local `sprites/` override comes first so that whatever someone drops in
+ * beats the bundled default. Resolves to true when a usable pack was found;
+ * never rejects, because having no pack at all is a normal state.
  */
-export async function loadPack(base = 'sprites/') {
+export async function loadPack(bases = ['sprites/', 'assets/toen/']) {
+  for (const base of [].concat(bases)) {
+    if (await loadFrom(base)) return true;
+  }
+  return false;
+}
+
+async function loadFrom(base) {
   try {
     const res = await fetch(base + 'manifest.json', { cache: 'no-cache' });
     if (!res.ok) return false;
@@ -71,6 +85,7 @@ export async function loadPack(base = 'sprites/') {
     names.forEach((n, i) => { if (loaded[i]) images[n] = loaded[i]; });
     if (!Object.keys(images).length) return false;
 
+    packName = manifest.name || base.replace(/\/$/, '').split('/').pop();
     pack = {
       tile: manifest.tile || 16,
       images,
@@ -82,7 +97,7 @@ export async function loadPack(base = 'sprites/') {
     return true;
   } catch (e) {
     // A pack is optional; a broken one should not take the viewer down.
-    console.warn('sprite pack not loaded:', e.message);
+    console.warn('sprite pack ' + base + ' not loaded:', e.message);
     return false;
   }
 }

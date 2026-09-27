@@ -71,6 +71,20 @@ function drawTile(ctx, doc, cells, x, y, px, py, size, opts) {
   const cell = cells.get(x + ',' + y);
 
   const owner = team(cell ? cell.team : null);
+
+  // Fill first, always. Sprite packs commonly draw terrain as a transparent
+  // overlay meant to sit on grass - Toen's trees and rock are exactly that -
+  // so blitting onto a cleared canvas leaves black holes.
+  if (info.property) {
+    // A property is drawn in its owner's colour; that ownership is most of
+    // what makes a map readable at a glance.
+    ctx.fillStyle = owner.color;
+    ctx.fillRect(px, py, size, size);
+  } else {
+    ctx.fillStyle = info.base || info.color;
+    ctx.fillRect(px, py, size, size);
+  }
+
   const sprite = spriteFor(info.property ? 'property' : 'terrain', id,
                            cell ? cell.team : null);
   if (sprite) {
@@ -78,20 +92,11 @@ function drawTile(ctx, doc, cells, x, y, px, py, size, opts) {
     return;
   }
 
-  if (info.property) {
-    // A property is drawn in its owner's colour; that ownership is most of
-    // what makes a map readable at a glance.
-    ctx.fillStyle = owner.color;
-    ctx.fillRect(px, py, size, size);
+  if (info.property && id === 512 && size >= 10) {
     // HQs get a ring so they stand out from cities at thumbnail sizes.
-    if (id === 512 && size >= 10) {
-      ctx.strokeStyle = 'rgba(255,255,255,0.85)';
-      ctx.lineWidth = Math.max(1, size / 12);
-      ctx.strokeRect(px + size * 0.18, py + size * 0.18, size * 0.64, size * 0.64);
-    }
-  } else {
-    ctx.fillStyle = info.color;
-    ctx.fillRect(px, py, size, size);
+    ctx.strokeStyle = 'rgba(255,255,255,0.85)';
+    ctx.lineWidth = Math.max(1, size / 12);
+    ctx.strokeRect(px + size * 0.18, py + size * 0.18, size * 0.64, size * 0.64);
   }
 
   if (!opts.glyphs || size < 12) return;

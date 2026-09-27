@@ -1,0 +1,36 @@
+{
+  "_": "Toen's Medieval Strategy Sprite Pack, CC-BY 4.0. See LICENSE.txt and ../../CREDITS.md. Coordinates are [col, row] in 16px tiles.",
+  "tile": 16,
+  "defaultSheet": "toen",
+  "sheets": {
+    "toen": "tileset.png"
+  },
+  "terrain": {
+    "1": [
+      0,
+      0
+    ],
+    "8": [
+      5,
+      0
+    ],
+    "4": [
+      4,
+      1
+    ],
+    "2": [
+      1,
+      24
+    ],
+    "16": [
+      3,
+      24
+    ],
+    "64": [
+      6,
+      34
+    ]
+  },
+  "properties": {},
+  "units": {}
+}

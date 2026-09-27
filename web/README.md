@@ -10,8 +10,12 @@ ES modules need to be served over HTTP; opening `index.html` from disk will not
 work.
 
 ```bash
-cd web && python -m http.server 8731
+cd web && python serve.py
 ```
+
+Use `serve.py` rather than `python -m http.server`: it sends no-cache headers.
+Without them the browser holds on to ES modules, an edit appears to do nothing,
+and you debug code the page is not actually running.
 
 Then open <http://127.0.0.1:8731/>, and drop a map JSON on the page. To open one
 directly, pass its path:
@@ -37,6 +41,23 @@ python -m awrbc export --name ALL --out ALL.json
 
 `render.js` is deliberately free of editing state so the archive's thumbnail
 generator can use it unchanged; `thumbnail(doc, w, h)` is there for that.
+
+## Artwork
+
+Terrain uses **Toen's Medieval Strategy Sprite Pack** (CC BY 4.0), bundled in
+`assets/toen/`. It is medieval rather than modern military, but it is 16x16,
+purpose-built for an Advance Wars-style game, and properly licensed.
+
+Two things deliberately keep their drawn icons:
+
+- **Properties and units**, because they are filled with their owner's colour.
+  Ownership is the single most important thing to read on a map, and a
+  fixed-colour sprite would throw it away.
+- **Directional terrain** - road, bridge, shoal. `spriteFor` is keyed by terrain
+  id with no orientation, and Toen's roads are shaped pieces (straight, corner,
+  T, cross). A single tile used as a flat fill looks wrong.
+
+Attribution lives in [CREDITS.md](../CREDITS.md).
 
 ## No game assets, ever
 
