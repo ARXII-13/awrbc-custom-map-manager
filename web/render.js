@@ -73,24 +73,32 @@ function blit(ctx, sprite, px, py, size) {
  * a variant per junction and nothing here ever reaches a file.
  */
 const VISUAL_LINKS = {
-  128: new Set([128, 256]),          // road joins road and bridge
-  256: new Set([256, 128]),          // and a bridge joins back
+  // A road is named by the sides it joins: a crossroads is "N+E+S+W".
+  128: { links: new Set([128, 256]) },
+  // A bridge is named by the sides carrying its railings, which are the sides
+  // it does NOT join. A bridge running east-west has rails north and south and
+  // is "N+S"; reading it as a connection list turns every bridge ninety
+  // degrees, which is exactly what it looked like.
+  256: { links: new Set([256, 128]), rails: true },
 };
 
 function dirsFor(terrain, x, y, id) {
-  const links = VISUAL_LINKS[id];
-  if (!links) return '';
+  const rule = VISUAL_LINKS[id];
+  if (!rule) return '';
   const at = (dx, dy) => {
     const ny = y + dy, nx = x + dx;
     return (ny >= 0 && ny < terrain.length && nx >= 0 && nx < terrain[0].length)
       ? terrain[ny][nx] : null;
   };
-  const out = [];
-  if (links.has(at(0, -1))) out.push('N');
-  if (links.has(at(1, 0))) out.push('E');
-  if (links.has(at(0, 1))) out.push('S');
-  if (links.has(at(-1, 0))) out.push('W');
-  return out.join('+');
+  const joined = {
+    N: rule.links.has(at(0, -1)),
+    E: rule.links.has(at(1, 0)),
+    S: rule.links.has(at(0, 1)),
+    W: rule.links.has(at(-1, 0)),
+  };
+  return ['N', 'E', 'S', 'W']
+    .filter((d) => (rule.rails ? !joined[d] : joined[d]))
+    .join('+');
 }
 
 /** A stable per-tile choice, so decoration does not flicker between redraws. */
