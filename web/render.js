@@ -18,6 +18,9 @@ const GRID_LINE = 'rgba(0,0,0,0.13)';
 const ICON_MIN = 13;
 const LABEL_MIN = 16;
 
+/** Open ground, used as the layer under transparent terrain and buildings. */
+const GROUND = 1;
+
 /**
  * Ink that will actually be visible on `hex`.
  *
@@ -131,6 +134,13 @@ function drawTile(ctx, doc, cells, x, y, px, py, size, opts) {
     variant: variantFor(x, y),
   });
   if (sprite) {
+    // Buildings, woods and mountains are drawn as transparent art meant to sit
+    // on open ground, so lay the ground down first. Without it a building
+    // stands on a solid square of its owner's colour.
+    if (id !== GROUND) {
+      const under = spriteFor('terrain', GROUND, { variant: variantFor(x, y) });
+      if (under) blit(ctx, under, px, py, size);
+    }
     blit(ctx, sprite, px, py, size);
     return;
   }
