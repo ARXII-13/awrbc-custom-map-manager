@@ -348,6 +348,10 @@ def add_map(doc: SaveDocument, m: Map, name: str = None) -> str:
     _set_text(parser, extra, new_map, "Name", name or m.name or "Imported")
     _set_text(parser, extra, new_lvl, "Name", slot)
     _set_text(parser, extra, new_meta, "Name", slot)
+
+    # The game already has a first-class notion of a map that came from somebody
+    # else. An imported map is exactly that, whatever the chassis we cloned said.
+    _set_prim(new_map, "IsDownload", True)
     _set_prim(new_lvl, "HasFogOfWar", bool(m.fog))
     _set_prim(new_lvl, "m_WaterColorIndex", m.water_color)
 

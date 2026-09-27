@@ -33,6 +33,9 @@ awrbc restore [name]              list snapshots, or roll one back
 Flags: `--save-dir` (Ryujinx folder, JKSV dump, or a maps file), `--profile`,
 `--json`. Export also takes `--author` and `--keep-creator`.
 
+Imported maps are marked with the game's own `IsDownload` flag, which
+distinguishes a map that came from somebody else.
+
 **The creator name is scrubbed by default.** The save stores the console profile
 name, which for many people is their real name; `--keep-creator` opts in.
 

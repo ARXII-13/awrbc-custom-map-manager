@@ -170,6 +170,27 @@ class SaveRoundTrip(BinaryFormatterMixin, unittest.TestCase):
         with self.assertRaises(Exception):
             savefile.serialize(doc)
 
+    def test_imported_maps_are_marked_as_downloads(self):
+        """The game already distinguishes a map that came from somebody else."""
+        doc = savefile.read(self.save)
+        added = schema.from_json(schema.build_document(doc.maps[0]))
+        savefile.add_map(doc, added, name="DL")
+        savefile.write(doc, self.save)
+
+        flags = {}
+        for r in savefile._walk(savefile.read(self.save).raw.records):
+            if r.rt in (1, 4, 5) and r.d.get("name") == "AW.CustomMap" \
+                    and r.d.get("values"):
+                name = r.d["values"][r.d["mnames"].index("Name")]
+                parser = savefile.read(self.save).raw
+                name = (parser.objects[name.d["idref"]].d["val"]
+                        if name.rt == 9 else name.d["val"])
+                flags[name] = r.d["values"][r.d["mnames"].index("IsDownload")]
+        self.assertTrue(flags.get("DL"), "imported map should be a download")
+        others = [v for k, v in flags.items() if k != "DL"]
+        self.assertTrue(all(v is False for v in others),
+                        "existing maps must not be relabelled: %r" % flags)
+
     def test_write_never_shrinks_below_the_existing_file(self):
         doc = savefile.read(self.save)
         size = os.path.getsize(self.save)
