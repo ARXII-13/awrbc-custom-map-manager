@@ -1,8 +1,12 @@
 """Compute TileFlags from terrain.
 
-The game does not recompute flags when it loads a map - it renders what the
-save tells it to, and a map whose flags are all zero crashes Versus outright.
-So anything that authors a map has to author flags too. This module is that.
+Flags select sprites, and the game renders what the save tells it to rather
+than recomputing them. So anything that authors a map has to author flags too,
+or the map renders wrong. This module is that.
+
+(An earlier version of this docstring said zeroed flags crash Versus. That was
+retracted - the black screen was a Ryujinx input-config problem, not the map.
+See docs/format.md. Whether zero actually breaks anything is untested.)
 
 Four independent things share the one 32-bit field:
 
@@ -165,7 +169,10 @@ def _bridge_value(terrain, x, y):
 
 
 def _never_zero(value):
-    """Zeroed flags crash the game, so an unconnected tile still gets bit 0."""
+    """No observed tile is ever zero, so an unconnected one still gets bit 0.
+
+    A conservative default: it matches every real map and costs nothing.
+    """
     return value if value else PLAIN_BIT
 
 

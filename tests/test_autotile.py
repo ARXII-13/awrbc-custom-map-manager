@@ -1,7 +1,7 @@
 """Autotiling tests.
 
-A map whose flags are all zero crashes Versus, so the editor has to author
-them. These pin the rules derived in docs/format.md.
+Flags select sprites, so the editor has to author them or maps render wrong.
+These pin the rules derived in docs/format.md.
 
 The fidelity test needs real maps and is skipped without AWRBC_TEST_SAVE; the
 rule tests below run everywhere.
@@ -132,7 +132,7 @@ class TeamsAndVariants(unittest.TestCase):
         self.assertEqual(a, b)
 
     def test_nothing_ever_comes_out_zero(self):
-        """Zeroed flags crash the game; no tile may be left at zero."""
+        """No real map has a zero tile, so we never emit one either."""
         g = grid(['.s=rb', 'q.hp.', '=====', 'sssss'])
         for row in A.compute(g, teams={(0, 1): 0}):
             self.assertTrue(all(v != 0 for v in row), row)
