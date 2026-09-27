@@ -30,3 +30,8 @@ Thumbs.db
 
 # Local map fixtures for developing the viewer; these are personal save data.
 web/samples/
+
+# Sprite packs are local only; see web/sprites/README.md for why.
+web/sprites/*
+!web/sprites/README.md
+!web/sprites/manifest.example.json

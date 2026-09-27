@@ -95,6 +95,7 @@
   <h1 id="name">No map loaded</h1>
   <div class="sub" id="meta"></div>
   <div id="valid"></div>
+  <div class="sub" id="pack" hidden></div>
   <h2>Armies</h2>
   <table id="teams"><tbody></tbody></table>
   <h2>Terrain</h2>
@@ -104,6 +105,7 @@
 <script type="module">
 import { drawMap, fitTile, cellIndex } from "./render.js";
 import { UNITS, terrain, team } from "./terrain.js";
+import { loadPack, hasPack } from "./sprites.js";
 
 const canvas = document.getElementById("c");
 const ctx = canvas.getContext("2d");
@@ -258,11 +260,24 @@ canvas.addEventListener("wheel", (e) => {
 window.addEventListener("resize", resize);
 resize();
 
+// A sprite pack in ./sprites/ overrides the drawn icons. Optional and local:
+// see sprites/README.md. Loading is awaited before the first draw so a pack
+// never shows up half a frame late.
+const packReady = loadPack().then((ok) => {
+  if (ok) {
+    const tag = document.getElementById("pack");
+    tag.textContent = "sprite pack active";
+    tag.hidden = false;
+  }
+  draw();
+  return ok;
+});
+
 // ?map=<url> loads directly. Phase 5 wants shareable links to a map; here it
 // also means the viewer can be opened straight onto a fixture.
 const wanted = new URLSearchParams(location.search).get("map");
 if (wanted) {
-  fetch(wanted)
+  packReady.then(() => fetch(wanted))
     .then((r) => { if (!r.ok) throw new Error(r.status + " " + r.statusText); return r.json(); })
     .then(load)
     .catch((e) => { document.getElementById("name").textContent = "Could not load: " + e.message; });

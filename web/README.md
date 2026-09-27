@@ -30,6 +30,7 @@ python -m awrbc export --name ALL --out ALL.json
 |---|---|
 | `terrain.js` | Terrain, team and unit tables. Data only - no drawing, no DOM. |
 | `icons.js` | Terrain, property and unit icons, drawn procedurally. |
+| `sprites.js` | Optional sprite-pack loader; overrides the drawn icons. |
 | `render.js` | The renderer. Pure: a 2D context plus a map document. |
 | `index.html` | The viewer shell - loading, pan, zoom, hover, stats. |
 
@@ -43,10 +44,10 @@ ripped from Advance Wars, on the GBA or the Switch. That is not a style choice -
 it is the whole reason this project can publish an archive and a website at all,
 and it is the first thing somebody will be tempted to "improve".
 
-If richer art is wanted later, the options are commissioning original work or
-using a permissively licensed set (game-icons.net is CC BY 3.0, for instance,
-which only needs attribution). Ripping the games is not one of them, whatever
-other Advance Wars sites do.
+If you want different art on your own machine, drop a sprite pack into
+`web/sprites/` - it overrides the drawn icons per id, and it is gitignored so it
+never reaches the repository, the archive or the website. See
+`sprites/README.md`. That boundary is decision #37.
 
 Icons are drawn in a 0..1 box and scaled, so they stay sharp anywhere between a
 13px tile and a 72px one. A 16x16 sprite sheet could not do that.

@@ -9,6 +9,7 @@
 
 import { terrain, team, UNIT_ABBR, HP_SCALE } from './terrain.js';
 import { TERRAIN_ICONS, PROPERTY_ICONS, UNIT_ICONS } from './icons.js';
+import { spriteFor } from './sprites.js';
 
 const GRID_LINE = 'rgba(0,0,0,0.13)';
 
@@ -45,6 +46,15 @@ export function fitTile(doc, width, height, max = 64) {
   return Math.max(1, Math.min(max, Math.floor(width / cols), Math.floor(height / rows)));
 }
 
+/** Blit a pack sprite over a whole tile. Nearest-neighbour, so it stays crisp. */
+function blit(ctx, sprite, px, py, size) {
+  const smooth = ctx.imageSmoothingEnabled;
+  ctx.imageSmoothingEnabled = false;
+  ctx.drawImage(sprite.image, sprite.sx, sprite.sy, sprite.size, sprite.size,
+                Math.round(px), Math.round(py), Math.ceil(size), Math.ceil(size));
+  ctx.imageSmoothingEnabled = smooth;
+}
+
 function roundRect(ctx, x, y, w, h, r) {
   ctx.beginPath();
   ctx.moveTo(x + r, y);
@@ -60,10 +70,17 @@ function drawTile(ctx, doc, cells, x, y, px, py, size, opts) {
   const info = terrain(id);
   const cell = cells.get(x + ',' + y);
 
+  const owner = team(cell ? cell.team : null);
+  const sprite = spriteFor(info.property ? 'property' : 'terrain', id,
+                           cell ? cell.team : null);
+  if (sprite) {
+    blit(ctx, sprite, px, py, size);
+    return;
+  }
+
   if (info.property) {
     // A property is drawn in its owner's colour; that ownership is most of
     // what makes a map readable at a glance.
-    const owner = team(cell ? cell.team : null);
     ctx.fillStyle = owner.color;
     ctx.fillRect(px, py, size, size);
     // HQs get a ring so they stand out from cities at thumbnail sizes.
@@ -104,6 +121,13 @@ function drawUnit(ctx, unit, px, py, size) {
   const inset = size * 0.16;
   const w = size - inset * 2;
 
+  const sprite = spriteFor('unit', unit.type, unit.team);
+  if (sprite) {
+    blit(ctx, sprite, px, py, size);
+    drawHealth(ctx, unit, px, py, size, inset, w);
+    return;
+  }
+
   ctx.fillStyle = 'rgba(0,0,0,0.28)';
   roundRect(ctx, px + inset, py + inset + size * 0.06, w, w, w * 0.28);
   ctx.fill();
@@ -129,7 +153,11 @@ function drawUnit(ctx, unit, px, py, size) {
     ctx.fillText(UNIT_ABBR[unit.type] || '?', px + size / 2, py + size / 2);
   }
 
-  // Damaged units carry a bar; full-health ones stay clean.
+  drawHealth(ctx, unit, px, py, size, inset, w);
+}
+
+// Damaged units carry a bar; full-health ones stay clean.
+function drawHealth(ctx, unit, px, py, size, inset, w) {
   if (unit.hp !== undefined && unit.hp < 100 * HP_SCALE && size >= 12) {
     const frac = Math.max(0, unit.hp / (100 * HP_SCALE));
     const barY = py + size - inset * 0.9;
