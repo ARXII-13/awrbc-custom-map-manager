@@ -220,10 +220,14 @@ function swatch(kind, id) {
     const info = terrain(id);
     g.fillStyle = info.property ? owner.color : (info.base || info.color);
     g.fillRect(0, 0, S, S);
-    const sprite = spriteFor(info.property ? "property" : "terrain", id, brushTeam);
+    // Show the fully-connected variant in the palette; it reads best as a swatch.
+    const sprite = spriteFor(info.property ? "property" : "terrain", id,
+                             { team: brushTeam, dirs: "N+E+S+W", variant: 0 });
     if (sprite) {
       g.imageSmoothingEnabled = false;
-      g.drawImage(sprite.image, sprite.sx, sprite.sy, sprite.size, sprite.size, 0, 0, S, S);
+      const h = Math.round(S * sprite.tall);
+      g.drawImage(sprite.image, sprite.sx, sprite.sy, sprite.sw, sprite.sh,
+                  0, S - h, S, h);
       return cv;
     }
     const icon = info.property ? PROPERTY_ICONS[id] : TERRAIN_ICONS[id];
@@ -239,10 +243,10 @@ function swatch(kind, id) {
   } else {
     g.fillStyle = brushTeam < 0 ? TEAMS[0].color : owner.color;
     g.fillRect(0, 0, S, S);
-    const sprite = spriteFor("unit", id, brushTeam < 0 ? 0 : brushTeam);
+    const sprite = spriteFor("unit", id, { team: brushTeam < 0 ? 0 : brushTeam });
     if (sprite) {
       g.imageSmoothingEnabled = false;
-      g.drawImage(sprite.image, sprite.sx, sprite.sy, sprite.size, sprite.size, 0, 0, S, S);
+      g.drawImage(sprite.image, sprite.sx, sprite.sy, sprite.sw, sprite.sh, 0, 0, S, S);
       return cv;
     }
     const icon = UNIT_ICONS[id];

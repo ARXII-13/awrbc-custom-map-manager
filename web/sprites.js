@@ -13,10 +13,16 @@ let packName = null;
 /**
  * One drawable sprite, or null when the pack does not cover this id.
  *
- * `kind` is "terrain", "property" or "unit"; `team` is used only when the pack
- * supplies per-army art, which properties and units usually do.
+ * `kind` is "terrain", "property" or "unit". `pick` carries what the renderer
+ * knows about the tile: `team` for army-coloured art, `dirs` for terrain that
+ * has a variant per connection ("N+E+S+W"), and `variant` to choose between
+ * interchangeable decorations.
+ *
+ * The returned `tall` is how many tiles high the art is. Buildings and
+ * mountains are two, overhanging the tile above, which is what gives Advance
+ * Wars its look.
  */
-export function spriteFor(kind, id, team) {
+export function spriteFor(kind, id, pick = {}) {
   if (!pack) return null;
   const table = pack[kind];
   if (!table) return null;
@@ -24,18 +30,32 @@ export function spriteFor(kind, id, team) {
   let entry = table[id];
   if (!entry) return null;
 
-  // An entry is either [col, row] or a map of team -> [col, row]. "neutral"
-  // covers an unowned property.
-  if (!Array.isArray(entry)) {
-    const key = (team === null || team === undefined || team < 0) ? 'neutral' : String(team);
+  // An army-keyed entry: "0".."4", or "neutral" for an unowned property.
+  if (!Array.isArray(entry) && !entry.dirs && !entry.variants) {
+    const t = pick.team;
+    const key = (t === null || t === undefined || t < 0) ? 'neutral' : String(t);
     entry = entry[key] || entry.neutral || entry['0'];
-    if (!Array.isArray(entry)) return null;
   }
+  if (entry && entry.dirs) {
+    entry = entry.dirs[pick.dirs || ''] || entry.dirs[''] ||
+            entry.dirs[Object.keys(entry.dirs)[0]];
+  }
+  if (entry && entry.variants) {
+    const list = entry.variants;
+    entry = list[(pick.variant || 0) % list.length];
+  }
+  if (!Array.isArray(entry)) return null;
 
-  const sheet = pack.images[entry[2] || pack.defaultSheet];
+  const sheet = pack.sheets[entry[2] || pack.defaultSheet];
   if (!sheet) return null;
-  const tile = pack.tile;
-  return { image: sheet, sx: entry[0] * tile, sy: entry[1] * tile, size: tile };
+  return {
+    image: sheet.image,
+    sx: entry[0] * sheet.cw,
+    sy: entry[1] * sheet.ch,
+    sw: sheet.cw,
+    sh: sheet.ch,
+    tall: sheet.ch / sheet.cw,
+  };
 }
 
 export function hasPack() {
@@ -77,16 +97,25 @@ async function loadFrom(base) {
 
     const names = Object.keys(manifest.sheets || {});
     if (!names.length) return false;
-    const loaded = await Promise.all(names.map((n) => loadImage(base + manifest.sheets[n])));
+    // A sheet is either "file.png" or { file, cw, ch }; the second form lets
+    // one pack mix tile geometries, which any real tileset does.
+    const specs = names.map((n) => {
+      const v = manifest.sheets[n];
+      const tile = manifest.tile || 16;
+      return typeof v === 'string' ? { file: v, cw: tile, ch: tile } : v;
+    });
+    const loaded = await Promise.all(specs.map((sp) => loadImage(base + sp.file)));
 
-    const images = {};
-    names.forEach((n, i) => { if (loaded[i]) images[n] = loaded[i]; });
-    if (!Object.keys(images).length) return false;
+    const sheets = {};
+    names.forEach((n, i) => {
+      if (loaded[i]) sheets[n] = { image: loaded[i], cw: specs[i].cw, ch: specs[i].ch };
+    });
+    if (!Object.keys(sheets).length) return false;
 
     packName = manifest.name || base.replace(/\/$/, '').split('/').pop();
     pack = {
       tile: manifest.tile || 16,
-      images,
+      sheets,
       defaultSheet: manifest.defaultSheet || names[0],
       terrain: manifest.terrain || {},
       property: manifest.properties || {},

@@ -46,13 +46,53 @@ export function fitTile(doc, width, height, max = 64) {
   return Math.max(1, Math.min(max, Math.floor(width / cols), Math.floor(height / rows)));
 }
 
-/** Blit a pack sprite over a whole tile. Nearest-neighbour, so it stays crisp. */
+/**
+ * Blit a pack sprite, bottom-aligned to the tile.
+ *
+ * Art taller than one tile overhangs upward - buildings and mountains do -
+ * so the destination grows above `py` rather than below it.
+ */
 function blit(ctx, sprite, px, py, size) {
   const smooth = ctx.imageSmoothingEnabled;
   ctx.imageSmoothingEnabled = false;
-  ctx.drawImage(sprite.image, sprite.sx, sprite.sy, sprite.size, sprite.size,
-                Math.round(px), Math.round(py), Math.ceil(size), Math.ceil(size));
+  const h = Math.ceil(size * sprite.tall);
+  ctx.drawImage(sprite.image, sprite.sx, sprite.sy, sprite.sw, sprite.sh,
+                Math.round(px), Math.round(py + size - h),
+                Math.ceil(size), h);
   ctx.imageSmoothingEnabled = smooth;
+}
+
+/**
+ * Which sides a tile visually joins, as "N+E+S+W" in the order packs name it.
+ *
+ * Display only. The authoritative connection rule is autotile.py, which owns
+ * the flags actually written to a save; this exists so a sprite pack can offer
+ * a variant per junction and nothing here ever reaches a file.
+ */
+const VISUAL_LINKS = {
+  128: new Set([128, 256]),          // road joins road and bridge
+  256: new Set([256, 128]),          // and a bridge joins back
+};
+
+function dirsFor(terrain, x, y, id) {
+  const links = VISUAL_LINKS[id];
+  if (!links) return '';
+  const at = (dx, dy) => {
+    const ny = y + dy, nx = x + dx;
+    return (ny >= 0 && ny < terrain.length && nx >= 0 && nx < terrain[0].length)
+      ? terrain[ny][nx] : null;
+  };
+  const out = [];
+  if (links.has(at(0, -1))) out.push('N');
+  if (links.has(at(1, 0))) out.push('E');
+  if (links.has(at(0, 1))) out.push('S');
+  if (links.has(at(-1, 0))) out.push('W');
+  return out.join('+');
+}
+
+/** A stable per-tile choice, so decoration does not flicker between redraws. */
+function variantFor(x, y) {
+  return Math.abs((x * 73856093) ^ (y * 19349663)) % 997;
 }
 
 function roundRect(ctx, x, y, w, h, r) {
@@ -85,8 +125,11 @@ function drawTile(ctx, doc, cells, x, y, px, py, size, opts) {
     ctx.fillRect(px, py, size, size);
   }
 
-  const sprite = spriteFor(info.property ? 'property' : 'terrain', id,
-                           cell ? cell.team : null);
+  const sprite = spriteFor(info.property ? 'property' : 'terrain', id, {
+    team: cell ? cell.team : null,
+    dirs: dirsFor(doc.terrain, x, y, id),
+    variant: variantFor(x, y),
+  });
   if (sprite) {
     blit(ctx, sprite, px, py, size);
     return;
@@ -126,7 +169,7 @@ function drawUnit(ctx, unit, px, py, size) {
   const inset = size * 0.16;
   const w = size - inset * 2;
 
-  const sprite = spriteFor('unit', unit.type, unit.team);
+  const sprite = spriteFor('unit', unit.type, { team: unit.team });
   if (sprite) {
     blit(ctx, sprite, px, py, size);
     drawHealth(ctx, unit, px, py, size, inset, w);
@@ -198,7 +241,9 @@ export function drawMap(ctx, doc, opts = {}) {
   const x1 = Math.min(cols, Math.ceil((vw - ox) / size));
   const y1 = Math.min(rows, Math.ceil((vh - oy) / size));
 
-  for (let y = y0; y < y1; y++) {
+  // One row past the bottom, because two-tile art paints upward into view.
+  const yDraw = Math.min(rows, y1 + 1);
+  for (let y = y0; y < yDraw; y++) {
     for (let x = x0; x < x1; x++) {
       drawTile(ctx, doc, cells, x, y, ox + x * size, oy + y * size, size, opts);
     }
