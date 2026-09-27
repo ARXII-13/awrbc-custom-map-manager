@@ -28,8 +28,8 @@ from .model import (AIRPORT, BASE, CITY, COM_TOWER, HQ, SEAPORT)
 
 PLAINS = 1
 SEA = 2
-MOUNTAIN_OR_WOOD_A = 4
-MOUNTAIN_OR_WOOD_B = 8
+MOUNTAIN = 4
+WOODS = 8
 RIVER = 16
 SHOAL = 32
 REEF = 64
@@ -85,7 +85,7 @@ MINI_CANNON_VALUE = 4
 VARIANTS = tuple(1 << b for b in range(18, 26))
 VARIANTS_FOR = {
     PLAINS: VARIANTS,
-    MOUNTAIN_OR_WOOD_B: (0, 1 << 18, 1 << 19),
+    WOODS: (0, 1 << 18, 1 << 19),
     RIVER: (0, 1 << 18, 1 << 19),
 }
 

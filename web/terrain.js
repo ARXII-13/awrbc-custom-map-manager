@@ -9,8 +9,8 @@
 export const TERRAIN = {
   1:         { name: 'Plains',       color: '#a9cf75' },
   2:         { name: 'Sea',          color: '#4577bd' },
-  4:         { name: 'Mountain?',    color: '#9b8259', glyph: '^' },
-  8:         { name: 'Woods?',       color: '#5d9647', glyph: '*' },
+  4:         { name: 'Mountain',     color: '#9b8259', glyph: '^' },
+  8:         { name: 'Woods',        color: '#5d9647', glyph: '*' },
   16:        { name: 'River',        color: '#72b4dd' },
   32:        { name: 'Shoal',        color: '#e6d6a0' },
   64:        { name: 'Reef',         color: '#3c6ba3', glyph: 'o' },

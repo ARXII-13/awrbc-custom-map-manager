@@ -58,8 +58,6 @@ light yellow; both washed out entirely with white icons.
 
 ## Known gaps
 
-- Terrain `4` and `8` are mountain and woods in some order, shown as `Mountain?`
-  and `Woods?`. Neither autotiles, so only a look at a rendered map settles it.
 - Multi-tile structures render tile-by-tile. They look right because each tile
   carries its own terrain id, but the viewer does not yet know they are one
   object - that matters for the editor, not for viewing.
