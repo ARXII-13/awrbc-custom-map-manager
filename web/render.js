@@ -80,6 +80,9 @@ const VISUAL_LINKS = {
   // is "N+S"; reading it as a connection list turns every bridge ninety
   // degrees, which is exactly what it looked like.
   256: { links: new Set([256, 128]), rails: true },
+  // Pipes join pipes, seams and the structures they feed.
+  32768: { links: new Set([32768, 65536, 524288, 1048576, 2097152, 8388608]) },
+  65536: { links: new Set([32768, 65536]) },
 };
 
 function dirsFor(terrain, x, y, id) {
@@ -140,6 +143,9 @@ function drawTile(ctx, doc, cells, x, y, px, py, size, opts) {
     team: cell ? cell.team : null,
     dirs: dirsFor(doc.terrain, x, y, id),
     variant: variantFor(x, y),
+    // A multi-tile structure stores each tile's offset from its anchor; the
+    // art is sliced the same way, so the offset picks the piece.
+    part: cell && cell.offset ? cell.offset[0] + ',' + cell.offset[1] : '0,0',
   });
   if (sprite) {
     // Buildings, woods and mountains are drawn as transparent art meant to sit

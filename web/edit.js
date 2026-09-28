@@ -132,7 +132,8 @@ export function createEditor(doc, onChange) {
       if (!inside(x, y)) return false;
       const type = doc.terrain[y][x];
       const unit = doc.units.find((u) => u.x === x && u.y === y);
-      if (unit) unit.team = team;
+      // A unit cannot go neutral, so leave it alone rather than corrupt it.
+      if (unit && team !== null && team >= 0) unit.team = team;
       if (!CAPTURABLE.has(type)) return !!unit;
       const c = cellAt(x, y, true);
       c.team = team === null ? -1 : team;
@@ -141,7 +142,12 @@ export function createEditor(doc, onChange) {
     },
 
     placeUnit(x, y, type, team) {
-      if (!inside(x, y)) return false;
+      // Every unit belongs to an army. There is no neutral side to own one,
+      // and silently reassigning a neutral brush to Orange Star was worse
+      // than refusing.
+      if (!inside(x, y) || team === null || team === undefined || team < 0) {
+        return false;
+      }
       const stats = UNIT_STATS[type] || { gas: 99, ammo: 0 };
       const existing = doc.units.find((u) => u.x === x && u.y === y);
       const unit = existing || { x, y };
