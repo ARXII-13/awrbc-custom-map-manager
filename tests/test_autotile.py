@@ -177,6 +177,35 @@ class SchemaDerivesFlags(unittest.TestCase):
         self.assertEqual(m.tiles[1][0].flags, 124)
 
 
+class Structures(unittest.TestCase):
+    """Cannons record which way they aim, on their anchor tile.
+
+    Confirmed against real maps 2026-09-27: a Black Cannon anchor carries
+    0x40000000 plus a facing bit, its body tiles 0x20000000, and a one-tile
+    Mini Cannon just the facing.
+    """
+
+    def test_a_one_tile_cannon_is_only_its_facing(self):
+        self.assertEqual(A.structure_flags(A.MINI_CANNON, None, "W"),
+                         1 << A.WEST)
+
+    def test_an_anchor_carries_the_anchor_bit_and_the_facing(self):
+        self.assertEqual(A.structure_flags(A.BLACK_CANNON, None, "N"),
+                         A.STRUCTURE_ANCHOR | (1 << A.NORTH))
+
+    def test_a_body_tile_is_the_body_bit_alone(self):
+        self.assertEqual(A.structure_flags(A.BLACK_CANNON, (1, 2), "N"),
+                         A.STRUCTURE_BODY)
+
+    def test_facing_reads_back_from_flags(self):
+        for where in ("N", "W", "E", "S"):
+            flags = A.structure_flags(A.BLACK_CANNON, None, where)
+            self.assertEqual(A.facing_of(flags), where)
+
+    def test_ordinary_terrain_is_not_a_structure(self):
+        self.assertIsNone(A.structure_flags(1, None, None))
+
+
 class FidelityAgainstRealMaps(unittest.TestCase):
     """The rules must reproduce what the game itself wrote."""
 
@@ -186,6 +215,23 @@ class FidelityAgainstRealMaps(unittest.TestCase):
             self.skipTest("set AWRBC_TEST_SAVE to a real maps file")
         self.maps = [schema.build_document(m)
                      for m in savefile.read(path).maps]
+
+    def test_structure_tiles_reproduce_exactly_without_their_flags(self):
+        """Terrain, offset and facing are enough to rebuild a cannon."""
+        kinds = A.DIRECTIONAL
+        total = same = 0
+        for d in self.maps:
+            stripped = {k: v for k, v in d.items() if k != "flags"}
+            m = schema.from_json(stripped)
+            for y, row in enumerate(d["terrain"]):
+                for x, kind in enumerate(row):
+                    if kind not in kinds:
+                        continue
+                    total += 1
+                    same += d["flags"][y][x] == m.tiles[x][y].flags
+        if not total:
+            self.skipTest("no cannons in this save")
+        self.assertEqual(same, total, "%d/%d structure tiles exact" % (same, total))
 
     def test_dropping_flags_and_recomputing_reproduces_the_mask(self):
         """The editor will export maps with no flags at all; this is that path."""

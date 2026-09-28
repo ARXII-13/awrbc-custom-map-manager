@@ -123,6 +123,10 @@
 
     <h2 id="structhead">Structures</h2>
     <div class="grid" id="structures"></div>
+    <div id="facingwrap" hidden>
+      <div class="sub" style="margin-top:8px">Aims</div>
+      <div class="teams" id="facing"></div>
+    </div>
 
     <h2 id="unithead">Units</h2>
     <div class="grid" id="units"></div>
@@ -136,7 +140,7 @@
 <script type="module">
 import { drawMap, fitTile, cellIndex } from "./render.js";
 import { UNITS, TEAMS, TERRAIN_PALETTE, STRUCTURES, NEUTRAL_STRUCTURES,
-         terrain, team } from "./terrain.js";
+         DIRECTIONAL, terrain, team } from "./terrain.js";
 import { TERRAIN_ICONS, PROPERTY_ICONS, UNIT_ICONS } from "./icons.js";
 import { loadPack, packLabel, spriteFor } from "./sprites.js";
 import { createEditor, emptyMap, stats } from "./edit.js";
@@ -150,6 +154,7 @@ let ed = null;
 let size = 24, ox = 0, oy = 0, cells = new Map();
 let logical = { width: 0, height: 0 };
 let tool = "paint", brushTerrain = 1, brushUnit = 9, brushTeam = 0;
+let brushFacing = "N";
 
 function resize() {
   const r = canvas.getBoundingClientRect();
@@ -310,7 +315,28 @@ function buildPalette() {
     neutral ? "Units belong to an army. Pick one above." : "";
   document.getElementById("unithead").hidden = false;
 
+  buildFacing();
   buildTeams();
+}
+
+/** A cannon aims somewhere, so offer that only when one is selected. */
+function buildFacing() {
+  const wrap = document.getElementById("facingwrap");
+  const show = DIRECTIONAL.has(brushTerrain) && tool !== "unit";
+  wrap.hidden = !show;
+  if (!show) return;
+  const row = document.getElementById("facing");
+  row.innerHTML = "";
+  for (const [d, glyph] of [["N", "↑"], ["E", "→"],
+                            ["S", "↓"], ["W", "←"]]) {
+    const b = document.createElement("button");
+    b.className = "teambtn";
+    b.textContent = glyph;
+    b.title = "Aims " + d;
+    b.setAttribute("aria-pressed", String(d === brushFacing));
+    b.onclick = () => { brushFacing = d; buildPalette(); };
+    row.appendChild(b);
+  }
 }
 
 function buildTeams() {
@@ -354,8 +380,8 @@ function tileAt(e) {
 
 function applyAt(x, y) {
   switch (tool) {
-    case "paint": return ed.paint(x, y, brushTerrain, brushTeam);
-    case "fill":  return ed.fill(x, y, brushTerrain, brushTeam);
+    case "paint": return ed.paint(x, y, brushTerrain, brushTeam, brushFacing);
+    case "fill":  return ed.fill(x, y, brushTerrain, brushTeam, brushFacing);
     case "unit":  return ed.placeUnit(x, y, brushUnit, brushTeam);
     case "owner": return ed.setTeam(x, y, brushTeam);
     case "erase": return ed.removeUnit(x, y);

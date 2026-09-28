@@ -10,7 +10,8 @@
 // apart, and the editor does not need flags for anything - it renders from
 // terrain ids.
 
-import { TERRAIN, PRODUCTION, CAPTURABLE, UNIT_STATS, HP_SCALE } from './terrain.js';
+import { TERRAIN, PRODUCTION, CAPTURABLE, DIRECTIONAL, BREAKABLE_HP,
+         UNIT_STATS, HP_SCALE } from './terrain.js';
 
 const UNDO_LIMIT = 80;
 
@@ -92,16 +93,29 @@ export function createEditor(doc, onChange) {
       onChange();
     },
 
-    paint(x, y, type, team) {
+    paint(x, y, type, team, facing) {
       if (!inside(x, y) || doc.terrain[y][x] === type) {
-        // Still allow a re-owner of the same property type.
-        if (!inside(x, y) || !CAPTURABLE.has(type)) return false;
+        // Still allow re-owning, or re-aiming, the same thing.
+        if (!inside(x, y) || !(CAPTURABLE.has(type) || DIRECTIONAL.has(type))) {
+          return false;
+        }
       }
       doc.terrain[y][x] = type;
       if (CAPTURABLE.has(type)) {
         const c = cellAt(x, y, true);
         c.team = team === undefined || team === null ? -1 : team;
         if (c.capture === undefined) c.capture = 20;
+      } else if (DIRECTIONAL.has(type) || BREAKABLE_HP[type]) {
+        // A cannon records which way it aims, and a breakable structure its
+        // hit points. Both live on the cell, not in the terrain grid.
+        const c = cellAt(x, y, true);
+        c.team = -1;
+        delete c.capture;
+        delete c.offset;
+        if (DIRECTIONAL.has(type)) c.facing = facing || 'N';
+        else delete c.facing;
+        if (BREAKABLE_HP[type]) c.hp = BREAKABLE_HP[type];
+        else delete c.hp;
       } else {
         // Ownership and capture progress are meaningless on open terrain, and
         // leaving them behind is how a save ends up with an owned plain.
@@ -111,7 +125,7 @@ export function createEditor(doc, onChange) {
     },
 
     /** Flood fill the contiguous region of like terrain at (x, y). */
-    fill(x, y, type, team) {
+    fill(x, y, type, team, facing) {
       if (!inside(x, y)) return false;
       const from = doc.terrain[y][x];
       if (from === type) return false;
@@ -122,7 +136,7 @@ export function createEditor(doc, onChange) {
         const key = cx + ',' + cy;
         if (seen.has(key) || !inside(cx, cy) || doc.terrain[cy][cx] !== from) continue;
         seen.add(key);
-        this.paint(cx, cy, type, team);
+        this.paint(cx, cy, type, team, facing);
         queue.push([cx + 1, cy], [cx - 1, cy], [cx, cy + 1], [cx, cy - 1]);
       }
       return true;

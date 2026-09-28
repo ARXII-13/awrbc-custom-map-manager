@@ -104,6 +104,22 @@ function dirsFor(terrain, x, y, id) {
     .join('+');
 }
 
+/**
+ * Which way a structure aims.
+ *
+ * Only the anchor records it, so a body tile has to look the anchor up - it
+ * sits at (x, y) minus this tile's offset.
+ */
+function facingFor(doc, cells, x, y, id) {
+  const cell = cells.get(x + ',' + y);
+  if (cell && cell.facing) return cell.facing;
+  if (cell && cell.offset) {
+    const anchor = cells.get((x - cell.offset[0]) + ',' + (y - cell.offset[1]));
+    if (anchor && anchor.facing) return anchor.facing;
+  }
+  return 'N';
+}
+
 /** A stable per-tile choice, so decoration does not flicker between redraws. */
 function variantFor(x, y) {
   return Math.abs((x * 73856093) ^ (y * 19349663)) % 997;
@@ -146,6 +162,7 @@ function drawTile(ctx, doc, cells, x, y, px, py, size, opts) {
     // A multi-tile structure stores each tile's offset from its anchor; the
     // art is sliced the same way, so the offset picks the piece.
     part: cell && cell.offset ? cell.offset[0] + ',' + cell.offset[1] : '0,0',
+    facing: facingFor(doc, cells, x, y, id),
   });
   if (sprite) {
     // Buildings, woods and mountains are drawn as transparent art meant to sit

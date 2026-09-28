@@ -97,6 +97,44 @@ TEAM_BIT = {0: 1 << 12, 1: 1 << 13, 2: 1 << 14, 3: 1 << 15, 4: 1 << 16}
 STRUCTURE_ANCHOR = 1 << 30
 STRUCTURE_BODY = 1 << 29
 
+#: Structures that aim, and so record which way they face.
+DIRECTIONAL = frozenset([BLACK_CANNON, DEATH_RAY, MINI_CANNON])
+
+#: A facing, written on the anchor tile in the same bits the connection mask
+#: uses. Confirmed 2026-09-27: a Black Cannon anchor carries 0x40000002 (north)
+#: and a Mini Cannon 0x4 (west), while every body tile is 0x20000000 with the
+#: low bits clear.
+FACING_BIT = {"N": 1 << NORTH, "W": 1 << WEST, "E": 1 << EAST, "S": 1 << SOUTH}
+
+
+#: Structures that span more than one tile, and so mark an anchor and a body.
+MULTI_TILE = frozenset([BLACK_CANNON, DEATH_RAY])
+
+
+def facing_of(flags):
+    """The facing a structure's anchor records, or None for a default."""
+    for name, bit in FACING_BIT.items():
+        if flags & bit:
+            return name
+    return None
+
+
+def structure_flags(kind, offset, facing):
+    """Flags for one tile of a structure, or None if it is not one.
+
+    Observed on real maps: a 3x3 anchor is `0x40000000 | facing`, its body
+    tiles are `0x20000000` with the low bits clear, and a one-tile cannon is
+    just its facing bit. None of them carries the plain bit, so these cannot
+    go through the ordinary path.
+    """
+    if kind in MULTI_TILE:
+        if offset and (offset[0] or offset[1]):
+            return STRUCTURE_BODY
+        return STRUCTURE_ANCHOR | FACING_BIT.get(facing, 0)
+    if kind in DIRECTIONAL:
+        return FACING_BIT.get(facing, 0) or PLAIN_BIT
+    return None
+
 #: The bits this module claims to reproduce exactly. Everything else is
 #: decoration, and comparing it against a real save is meaningless.
 STRUCTURAL = 0x1F | 0x1F000 | STRUCTURE_ANCHOR | STRUCTURE_BODY

@@ -16,8 +16,8 @@ let packName = null;
  * `kind` is "terrain", "property" or "unit". `pick` carries what the renderer
  * knows about the tile: `team` for army-coloured art, `dirs` for terrain that
  * has a variant per connection ("N+E+S+W"), `variant` to choose between
- * interchangeable decorations, and `part` ("dx,dy") for one tile of a
- * multi-tile structure such as a Black Cannon.
+ * interchangeable decorations, `part` ("dx,dy") for one tile of a multi-tile
+ * structure such as a Black Cannon, and `facing` for a structure that aims.
  *
  * The returned `tall` is how many tiles high the art is. Buildings and
  * mountains are two, overhanging the tile above, which is what gives Advance
@@ -32,8 +32,14 @@ export function spriteFor(kind, id, pick = {}) {
   if (!entry) return null;
 
   if (entry && entry.parts) {
-    // One tile of a 3x3 structure, chosen by its offset from the anchor.
-    entry = entry.parts[pick.part || '0,0'] || entry.parts['0,0'];
+    // One tile of a structure, chosen by which way it aims and its offset from
+    // the anchor. A one-tile cannon uses the same key shape with offset 0,0.
+    const part = pick.part || '0,0';
+    entry = entry.parts[(pick.facing || 'N') + '|' + part] ||
+            entry.parts['N|' + part] ||
+            entry.parts[part] ||
+            entry.parts['N|0,0'] ||
+            entry.parts['0,0'];
   }
   // An army-keyed entry: "0".."4", or "neutral" for an unowned property.
   if (entry && !Array.isArray(entry) && !entry.dirs && !entry.variants) {

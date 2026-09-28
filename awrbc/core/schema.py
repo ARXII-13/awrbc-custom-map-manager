@@ -52,6 +52,13 @@ def to_json(m: Map, *, author: str = None, map_id: str = None) -> dict:
                 cell["offset"] = [t.offset.x, t.offset.y]
             if t.has_launched:
                 cell["launched"] = True
+            # A cannon aims somewhere, and only its anchor records that. Without
+            # it here, an editor cannot express the direction and derived flags
+            # would silently point every cannon the same way.
+            if t.type in autotile.DIRECTIONAL and not cell.get("offset"):
+                where = autotile.facing_of(t.flags)
+                if where:
+                    cell["facing"] = where
             if cell:
                 cells.append(dict(x=x, y=y, **cell))
 
@@ -158,6 +165,7 @@ def from_json(doc: dict) -> Map:
         off = c.get("offset")
         t.offset = Coord(off[0], off[1]) if off and (off[0] or off[1]) else None
         t.has_launched = bool(c.get("launched", False))
+        t.facing = c.get("facing")
 
     units = [[None for _ in range(rows)] for _ in range(cols)]
     for u in doc.get("units") or []:
@@ -186,7 +194,10 @@ def from_json(doc: dict) -> Map:
         computed = autotile.compute(terrain, owners)
         for x in range(cols):
             for y in range(rows):
-                tiles[x][y].flags = computed[y][x]
+                t = tiles[x][y]
+                offset = (t.offset.x, t.offset.y) if t.offset else None
+                built = autotile.structure_flags(t.type, offset, t.facing)
+                t.flags = computed[y][x] if built is None else built
 
     return Map(
         name=doc.get("name") or "",

@@ -98,6 +98,12 @@ export const STRUCTURES = [512, 1024, 2048, 4096, 8192, 134217728];
  */
 export const NEUTRAL_STRUCTURES = [32768, 65536, 33554432, 1048576, 2097152];
 
+/** Structures that aim, and so need a facing chosen when placed. */
+export const DIRECTIONAL = new Set([524288, 8388608, 1048576]);
+
+/** Breakable structures, which the game stores with full hit points. */
+export const BREAKABLE_HP = { 65536: 99, 1048576: 99, 2097152: 99 };
+
 export function team(n) {
   return (n === null || n === undefined || n < 0) ? NEUTRAL : (TEAMS[n] || NEUTRAL);
 }

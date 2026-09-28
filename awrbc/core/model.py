@@ -48,11 +48,17 @@ class Tile:
 
     ``flags`` is NOT purely cosmetic: bit 30 marks a structure's anchor and bit
     29 its body cells. Do not drop it.
+
+    ``facing`` is "N", "W", "E" or "S" on the anchor of a structure that aims -
+    a cannon or a death ray - and None everywhere else. It lives in the same
+    flag bits the connection mask uses, so it has to survive a round trip
+    independently of them.
     """
 
     type: int
     flags: int = 0
     team: Optional[int] = None
+    facing: Optional[str] = None
     capture_points: int = 0
     hp: int = 0
     offset: Optional[Coord] = None
