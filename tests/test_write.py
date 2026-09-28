@@ -191,6 +191,25 @@ class SaveRoundTrip(BinaryFormatterMixin, unittest.TestCase):
         self.assertTrue(all(v is False for v in others),
                         "existing maps must not be relabelled: %r" % flags)
 
+    def test_several_maps_can_be_added_before_writing(self):
+        """Ids seeds from the parser, so each add must register what it built.
+
+        Without that, the second add_map starts its counter over and hands out
+        ids that already exist - the same collision that empties the map list.
+        It only appears when two maps are added before a write.
+        """
+        doc = savefile.read(self.save)
+        before = len(doc.maps)
+        added = schema.from_json(schema.build_document(doc.maps[0]))
+        for name in ("M1", "M2", "M3"):
+            savefile.add_map(doc, added, name=name)
+        self.assertEqual(savefile.check_document(doc.raw), [])
+        savefile.write(doc, self.save)
+
+        after = savefile.read(self.save)
+        self.assertEqual(len(after.maps), before + 3)
+        self.assertLoadsInBinaryFormatter(self.save)
+
     def test_write_never_shrinks_below_the_existing_file(self):
         doc = savefile.read(self.save)
         size = os.path.getsize(self.save)

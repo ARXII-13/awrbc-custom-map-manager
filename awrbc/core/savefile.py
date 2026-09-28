@@ -370,6 +370,15 @@ def add_map(doc: SaveDocument, m: Map, name: str = None) -> str:
         raise SaveUnreadable("document does not end with MessageEnd")
     parser.records += made + [end]
 
+    # Register what we just built. `Ids` seeds its counter from parser.objects,
+    # so without this a second add_map on the same document starts over and
+    # hands out ids that already exist - the collision that empties the map
+    # list. It only showed up when two maps were added before writing.
+    for rec in _walk(made):
+        oid = rec.d.get("oid")
+        if oid is not None and rec.rt != 9:
+            parser.objects[oid] = rec
+
     maps_arr.d["lens"][0] += 1
     maps_arr.d["items"].append(Rec(9, idref=new_map.d["oid"]))
     meta_arr.d["lens"][0] += 1
