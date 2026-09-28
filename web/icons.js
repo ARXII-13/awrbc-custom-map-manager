@@ -26,9 +26,30 @@ function disc(ctx, s, x, y, cx, cy, r) {
   ctx.arc(x + cx * s, y + cy * s, r * s, 0, Math.PI * 2);
 }
 
+// A cannon is defined by where it points, so its icon has to say so. These
+// take the facing as a fifth argument; every other icon ignores it.
+function cannon(ctx, x, y, s, ink, facing, barrel) {
+  const turn = { N: -Math.PI / 2, E: 0, S: Math.PI / 2, W: Math.PI }[facing || 'N'];
+  ctx.save();
+  ctx.translate(x + s / 2, y + s / 2);
+  ctx.rotate(turn);
+  ctx.fillStyle = ink;
+  // Body, then a barrel along +x, which the rotation points the right way.
+  ctx.beginPath();
+  ctx.arc(0, 0, s * 0.26, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.fillRect(0, -s * barrel * 0.5, s * 0.46, s * barrel);
+  ctx.restore();
+}
+
 // --- terrain ---------------------------------------------------------------
 
 export const TERRAIN_ICONS = {
+  // Black Cannon (3x3), Death Ray (3x3) and Mini Cannon all aim.
+  524288(ctx, x, y, s, ink, facing) { cannon(ctx, x, y, s, ink, facing, 0.30); },
+  8388608(ctx, x, y, s, ink, facing) { cannon(ctx, x, y, s, ink, facing, 0.20); },
+  1048576(ctx, x, y, s, ink, facing) { cannon(ctx, x, y, s, ink, facing, 0.16); },
+
   // Mountain: two peaks with snow caps.
   4(ctx, x, y, s, ink) {
     ctx.fillStyle = ink;

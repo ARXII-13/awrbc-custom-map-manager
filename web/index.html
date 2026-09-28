@@ -232,8 +232,11 @@ function swatch(kind, id) {
     g.fillStyle = info.property ? owner.color : (info.base || info.color);
     g.fillRect(0, 0, S, S);
     // Show the fully-connected variant in the palette; it reads best as a swatch.
+    // Show the fully-connected variant, and the facing currently chosen - the
+    // whole point of picking a direction is seeing which way it will point.
     const sprite = spriteFor(info.property ? "property" : "terrain", id,
-                             { team: brushTeam, dirs: "N+E+S+W", variant: 0 });
+                             { team: brushTeam, dirs: "N+E+S+W", variant: 0,
+                               facing: brushFacing });
     if (sprite) {
       g.imageSmoothingEnabled = false;
       const h = Math.round(S * sprite.tall);
@@ -243,7 +246,9 @@ function swatch(kind, id) {
     }
     const icon = info.property ? PROPERTY_ICONS[id] : TERRAIN_ICONS[id];
     if (icon) {
-      icon(g, 0, 0, S, info.property ? "rgba(255,255,255,.93)" : "rgba(0,0,0,.52)");
+      icon(g, 0, 0, S,
+           info.property ? "rgba(255,255,255,.93)" : "rgba(0,0,0,.52)",
+           brushFacing);
     } else if (info.glyph) {
       g.fillStyle = "rgba(0,0,0,.5)";
       g.font = "bold 17px system-ui, sans-serif";

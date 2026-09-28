@@ -88,8 +88,14 @@ organised around.
 | **Units** | all 19 | hidden under neutral; a unit always belongs to an army |
 
 An **Aims** row appears under Structures when the selected one is a cannon,
-and sets which way it points. That is stored on the cell, and the flags the
-game wants are derived from it - see docs/format.md.
+and sets which way it points. The palette icon turns with it, so the swatch
+shows what you are about to place. That direction is stored on the cell, and
+the flags the game wants are derived from it - see docs/format.md.
+
+Road and bridge direction works the other way round: nothing is stored, and
+the renderer reads it off the neighbours each time it draws, so a road fixes
+itself when you paint beside it. A cannon cannot be derived that way - only
+the mapmaker knows where it should point.
 
 The 3x3 Black Cannon and Death Ray are not in the palette. Placing one means
 writing nine tiles with the right offsets, which the editor cannot do yet; a

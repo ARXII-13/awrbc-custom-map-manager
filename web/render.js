@@ -155,6 +155,7 @@ function drawTile(ctx, doc, cells, x, y, px, py, size, opts) {
     ctx.fillRect(px, py, size, size);
   }
 
+  const facing = facingFor(doc, cells, x, y, id);
   const sprite = spriteFor(info.property ? 'property' : 'terrain', id, {
     team: cell ? cell.team : null,
     dirs: dirsFor(doc.terrain, x, y, id),
@@ -162,7 +163,7 @@ function drawTile(ctx, doc, cells, x, y, px, py, size, opts) {
     // A multi-tile structure stores each tile's offset from its anchor; the
     // art is sliced the same way, so the offset picks the piece.
     part: cell && cell.offset ? cell.offset[0] + ',' + cell.offset[1] : '0,0',
-    facing: facingFor(doc, cells, x, y, id),
+    facing,
   });
   if (sprite) {
     // Buildings, woods and mountains are drawn as transparent art meant to sit
@@ -191,7 +192,7 @@ function drawTile(ctx, doc, cells, x, y, px, py, size, opts) {
     : 'rgba(0,0,0,0.52)';
   if (icon && size >= ICON_MIN) {
     ctx.save();
-    icon(ctx, px, py, size, ink);
+    icon(ctx, px, py, size, ink, facing);
     ctx.restore();
     return;
   }
