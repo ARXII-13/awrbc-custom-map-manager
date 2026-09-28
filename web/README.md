@@ -72,8 +72,24 @@ light yellow; both washed out entirely with white icons.
 | Erase | `E` | Remove a unit |
 | Pan | `H` | Or hold Shift, or use the middle/right button, from any tool |
 
-`1`-`5` pick an army. Ctrl+Z / Ctrl+Shift+Z undo and redo; a drag is one step.
-The wheel zooms about the cursor.
+`1`-`5` pick an army and `0` picks neutral. Ctrl+Z / Ctrl+Shift+Z undo and
+redo; a drag is one step. The wheel zooms about the cursor.
+
+## The palette is split by who can own a thing
+
+That is the question the sidebar exists to answer, so it is the thing it is
+organised around.
+
+| Section | Holds | Army picker |
+|---|---|---|
+| **Terrain** | plains, woods, mountain, road, bridge, river, shoal, sea, reef | does not apply - ground has no owner |
+| **Structures** | HQ, city, base, airport, seaport, com tower | the selected army owns what you place |
+| | plus pipe, seam, silo, mini cannon, laser | **only when neutral is selected** - these are never owned |
+| **Units** | all 19 | hidden under neutral; a unit always belongs to an army |
+
+The 3x3 Black Cannon and Death Ray are not in the palette. Placing one means
+writing nine tiles with the right offsets and structure bits, which the editor
+cannot do yet; a map that already contains them renders correctly.
 
 ## Flags are not the editor's job
 

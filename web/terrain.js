@@ -80,10 +80,23 @@ export const UNIT_STATS = {
   19: { gas: 99, ammo: 9 },
 };
 
-/** Terrain offered in the palette, in a sensible authoring order. */
-export const PALETTE = [1, 8, 4, 128, 256, 16, 32, 2, 64,
-                        512, 1024, 2048, 4096, 8192, 134217728,
-                        32768, 65536, 33554432];
+// The palette is split by who can own a thing, because that is the question
+// the sidebar was failing to answer.
+
+/** Ground. Never owned by anyone, so the army picker does not apply. */
+export const TERRAIN_PALETTE = [1, 8, 4, 128, 256, 16, 32, 2, 64];
+
+/** Structures any army can hold - and that can equally sit neutral. */
+export const STRUCTURES = [512, 1024, 2048, 4096, 8192, 134217728];
+
+/**
+ * Structures that are only ever neutral.
+ *
+ * The 3x3 Black Cannon and Death Ray are deliberately absent: placing one
+ * means writing nine tiles with the right offsets, and the editor cannot do
+ * that yet. They render correctly when a map already contains them.
+ */
+export const NEUTRAL_STRUCTURES = [32768, 65536, 33554432, 1048576, 2097152];
 
 export function team(n) {
   return (n === null || n === undefined || n < 0) ? NEUTRAL : (TEAMS[n] || NEUTRAL);

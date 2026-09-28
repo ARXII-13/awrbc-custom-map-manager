@@ -121,8 +121,12 @@
     <h2>Terrain</h2>
     <div class="grid" id="palette"></div>
 
-    <h2>Units</h2>
+    <h2 id="structhead">Structures</h2>
+    <div class="grid" id="structures"></div>
+
+    <h2 id="unithead">Units</h2>
     <div class="grid" id="units"></div>
+    <div class="sub" id="unitnote"></div>
 
     <h2>Armies on the map</h2>
     <table id="stats"><tbody></tbody></table>
@@ -131,7 +135,8 @@
 
 <script type="module">
 import { drawMap, fitTile, cellIndex } from "./render.js";
-import { UNITS, PALETTE, TEAMS, CAPTURABLE, terrain, team } from "./terrain.js";
+import { UNITS, TEAMS, TERRAIN_PALETTE, STRUCTURES, NEUTRAL_STRUCTURES,
+         terrain, team } from "./terrain.js";
 import { TERRAIN_ICONS, PROPERTY_ICONS, UNIT_ICONS } from "./icons.js";
 import { loadPack, packLabel, spriteFor } from "./sprites.js";
 import { createEditor, emptyMap, stats } from "./edit.js";
@@ -267,42 +272,48 @@ function cellButton(kind, id, label, active, onPick) {
 }
 
 function buildPalette() {
+  const neutral = brushTeam < 0;
+
+  // Ground: no owner, so the army picker plays no part here.
   const pal = document.getElementById("palette");
   pal.innerHTML = "";
-  for (const id of PALETTE) {
+  for (const id of TERRAIN_PALETTE) {
     pal.appendChild(cellButton("terrain", id, terrain(id).name,
       id === brushTerrain && tool !== "unit",
       () => { brushTerrain = id; setTool("paint"); }));
   }
 
+  // Structures: every army can hold these, and neutral additionally gets the
+  // ones that are only ever neutral - pipes, seams, silos, small cannons.
+  const list = neutral ? STRUCTURES.concat(NEUTRAL_STRUCTURES) : STRUCTURES;
+  const st = document.getElementById("structures");
+  st.innerHTML = "";
+  for (const id of list) {
+    st.appendChild(cellButton("terrain", id, terrain(id).name,
+      id === brushTerrain && tool !== "unit",
+      () => { brushTerrain = id; setTool("paint"); }));
+  }
+  document.getElementById("structhead").textContent =
+    neutral ? "Structures — neutral" : "Structures — " + team(brushTeam).name;
+
+  // Units always belong to an army, so neutral offers none.
   const ul = document.getElementById("units");
   ul.innerHTML = "";
-  for (const id of Object.keys(UNITS).map(Number)) {
-    ul.appendChild(cellButton("unit", id, UNITS[id],
-      id === brushUnit && tool === "unit",
-      () => { brushUnit = id; setTool("unit"); }));
+  if (!neutral) {
+    for (const id of Object.keys(UNITS).map(Number)) {
+      ul.appendChild(cellButton("unit", id, UNITS[id],
+        id === brushUnit && tool === "unit",
+        () => { brushUnit = id; setTool("unit"); }));
+    }
   }
+  document.getElementById("unitnote").textContent =
+    neutral ? "Units belong to an army. Pick one above." : "";
+  document.getElementById("unithead").hidden = false;
 
   buildTeams();
 }
 
-/**
- * What the army picker can offer right now.
- *
- * Neutral is a real owner for a property but not for a unit - no army, no
- * unit. And terrain that cannot be captured has no owner at all, so offering
- * one while painting pipe or a silo just invites a choice that does nothing.
- */
-function teamPickerState() {
-  if (tool === "unit") return { enabled: true, neutral: false };
-  if (tool === "owner" || tool === "erase") return { enabled: true, neutral: true };
-  return { enabled: CAPTURABLE.has(brushTerrain), neutral: true };
-}
-
 function buildTeams() {
-  const state = teamPickerState();
-  if (!state.neutral && brushTeam < 0) brushTeam = 0;
-
   const tl = document.getElementById("teams");
   tl.innerHTML = "";
   const add = (label, colour, value) => {
@@ -310,20 +321,17 @@ function buildTeams() {
     b.className = "teambtn";
     b.style.background = colour;
     b.title = label;
-    b.disabled = !state.enabled;
-    b.setAttribute("aria-pressed", String(value === brushTeam && state.enabled));
+    b.setAttribute("aria-pressed", String(value === brushTeam));
     b.onclick = () => { brushTeam = value; buildPalette(); };
     tl.appendChild(b);
   };
   TEAMS.forEach((t, i) => add(t.name + " (" + (i + 1) + ")", t.color, i));
-  if (state.neutral) add("Neutral", "#b4b4b4", -1);
-
-  const note = document.getElementById("teamnote");
-  note.textContent = state.enabled ? ""
-    : terrain(brushTerrain).name + " has no owner";
+  add("Neutral (0)", "#b4b4b4", -1);
+  document.getElementById("teamnote").textContent = "";
 }
 
 function setTool(t) {
+  if (t === "unit" && brushTeam < 0) brushTeam = 0;
   tool = t;
   for (const b of document.querySelectorAll("[data-tool]")) {
     b.setAttribute("aria-pressed", String(b.dataset.tool === t));
@@ -490,7 +498,7 @@ addEventListener("keydown", (e) => {
   else if (k === "e") setTool("erase");
   else if (k === "h") setTool("pan");
   else if (k >= "1" && k <= "5") { brushTeam = Number(k) - 1; buildPalette(); }
-  else if (k === "0" && teamPickerState().neutral) { brushTeam = -1; buildPalette(); }
+  else if (k === "0") { brushTeam = -1; buildPalette(); }
 });
 
 window.addEventListener("resize", resize);
