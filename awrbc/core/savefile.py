@@ -175,6 +175,8 @@ def check_document(parser) -> list:
     if duplicate:
         problems.append("object ids defined more than once: %s" % duplicate[:6])
 
+    problems.extend(_check_metadata(parser))
+
     # BinaryFormatter registers objects by ABSOLUTE value: n and -n collide.
     positive = {i for i in ids if i > 0}
     negated = {abs(i) for i in ids if i < 0}
@@ -217,6 +219,58 @@ def _deref(parser, extra, v):
     if isinstance(v, Rec) and v.rt == 9:
         return extra.get(v.d["idref"]) or parser.objects[v.d["idref"]]
     return v
+
+
+def _check_metadata(parser):
+    """Each slot must have exactly one metadata entry, and it must be honest.
+
+    The game looks a slot's metadata up by name and takes the first match. A
+    stale entry left by a removed map therefore wins over the real one, and if
+    it claims a bigger grid the game reads past the end of the tile array and
+    hangs - no crash, nothing logged. That cost several days to find, so it is
+    checked on every write.
+    """
+    problems = []
+    try:
+        root = _root(parser)
+        maps_arr = _deref(parser, {}, _member(root, "CustomMaps"))
+        meta_arr = _deref(parser, {}, _member(root, "CustomMapMetadata"))
+    except Exception:                                   # noqa: BLE001
+        return problems                                 # not our document
+
+    shape = {}
+    for it in maps_arr.d["items"] or []:
+        m = _deref(parser, {}, it)
+        if m is None or m.rt == 10:
+            continue
+        lvl = _deref(parser, {}, _member(m, "LevelSaveData"))
+        tiles = _deref(parser, {}, _member(lvl, "SerializableTiles"))
+        shape[_text(parser, {}, lvl, "Name")] = tuple(tiles.d["lens"])
+
+    seen = collections.Counter()
+    for it in meta_arr.d["items"] or []:
+        md = _deref(parser, {}, it)
+        if md is None or md.rt == 10:
+            continue
+        slot = _text(parser, {}, md, "Name")
+        seen[slot] += 1
+        if slot not in shape:
+            continue
+        get = lambda n: md.d["values"][md.d["mnames"].index(n)]
+        dims = (get("NumCols"), get("NumRows"))
+        if dims != shape[slot]:
+            problems.append(
+                "metadata for slot %s says %dx%d but its tile array is %dx%d"
+                % (slot, dims[0], dims[1], shape[slot][0], shape[slot][1]))
+
+    for slot, n in seen.items():
+        if n > 1:
+            problems.append("slot %s has %d metadata entries; the game reads "
+                            "the first and ignores the rest" % (slot, n))
+    for slot in shape:
+        if seen[slot] == 0:
+            problems.append("map in slot %s has no metadata entry" % slot)
+    return problems
 
 
 def _text(parser, extra, rec, member):
@@ -381,6 +435,12 @@ def add_map(doc: SaveDocument, m: Map, name: str = None) -> str:
 
     maps_arr.d["lens"][0] += 1
     maps_arr.d["items"].append(Rec(9, idref=new_map.d["oid"]))
+    # A freed slot can still carry metadata from whatever used to live there.
+    # Appending beside it leaves two entries for one slot, and the game reads
+    # the first - so a 30x20 map inherits a 40x30 entry and the game tries to
+    # read 1200 tiles out of a 600-tile array. That hangs it, with no crash and
+    # nothing logged. Drop anything already claiming this slot.
+    _drop_metadata_for(parser, meta_arr, slot)
     meta_arr.d["lens"][0] += 1
     meta_arr.d["items"].append(Rec(9, idref=new_meta.d["oid"]))
 
@@ -394,6 +454,24 @@ def add_map(doc: SaveDocument, m: Map, name: str = None) -> str:
     m.name = name or m.name or "Imported"
     doc.maps.append(m)
     return slot
+
+
+def _drop_metadata_for(parser, meta_arr, slot):
+    """Remove every metadata entry claiming `slot`.
+
+    Every, not the first: duplicates are exactly the failure this guards
+    against, and stopping early would leave one behind.
+    """
+    kept = []
+    for it in meta_arr.d["items"]:
+        md = _deref(parser, {}, it)
+        if md is not None and md.rt != 10 and _text(parser, {}, md, "Name") == slot:
+            continue
+        kept.append(it)
+    removed = len(meta_arr.d["items"]) - len(kept)
+    meta_arr.d["items"] = kept
+    meta_arr.d["lens"][0] -= removed
+    return removed
 
 
 def remove_map(doc: SaveDocument, index: int) -> str:
@@ -411,11 +489,7 @@ def remove_map(doc: SaveDocument, index: int) -> str:
 
     del maps_arr.d["items"][index]
     maps_arr.d["lens"][0] -= 1
-    for j, it in enumerate(list(meta_arr.d["items"])):
-        if _text(parser, {}, _deref(parser, {}, it), "Name") == slot:
-            del meta_arr.d["items"][j]
-            meta_arr.d["lens"][0] -= 1
-            break
+    _drop_metadata_for(parser, meta_arr, slot)
 
     problems = check_document(parser)
     if problems:

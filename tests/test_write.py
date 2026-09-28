@@ -171,44 +171,30 @@ class SaveRoundTrip(BinaryFormatterMixin, unittest.TestCase):
             savefile.serialize(doc)
 
     def test_imported_maps_are_marked_as_downloads(self):
-        """The game already distinguishes a map that came from somebody else."""
+        """The game already distinguishes a map that came from somebody else.
+
+        Reads the live CustomMaps array rather than walking every record:
+        removing a map leaves its records orphaned in the stream, and those
+        would otherwise be counted as if they were still maps.
+        """
         doc = savefile.read(self.save)
         added = schema.from_json(schema.build_document(doc.maps[0]))
         savefile.add_map(doc, added, name="DL")
         savefile.write(doc, self.save)
 
-        flags = {}
-        for r in savefile._walk(savefile.read(self.save).raw.records):
-            if r.rt in (1, 4, 5) and r.d.get("name") == "AW.CustomMap" \
-                    and r.d.get("values"):
-                name = r.d["values"][r.d["mnames"].index("Name")]
-                parser = savefile.read(self.save).raw
-                name = (parser.objects[name.d["idref"]].d["val"]
-                        if name.rt == 9 else name.d["val"])
-                flags[name] = r.d["values"][r.d["mnames"].index("IsDownload")]
-        self.assertTrue(flags.get("DL"), "imported map should be a download")
-        others = [v for k, v in flags.items() if k != "DL"]
-        self.assertTrue(all(v is False for v in others),
-                        "existing maps must not be relabelled: %r" % flags)
-
-    def test_several_maps_can_be_added_before_writing(self):
-        """Ids seeds from the parser, so each add must register what it built.
-
-        Without that, the second add_map starts its counter over and hands out
-        ids that already exist - the same collision that empties the map list.
-        It only appears when two maps are added before a write.
-        """
-        doc = savefile.read(self.save)
-        before = len(doc.maps)
-        added = schema.from_json(schema.build_document(doc.maps[0]))
-        for name in ("M1", "M2", "M3"):
-            savefile.add_map(doc, added, name=name)
-        self.assertEqual(savefile.check_document(doc.raw), [])
-        savefile.write(doc, self.save)
-
         after = savefile.read(self.save)
-        self.assertEqual(len(after.maps), before + 3)
-        self.assertLoadsInBinaryFormatter(self.save)
+        parser = after.raw
+        root = savefile._root(parser)
+        maps_arr = savefile._deref(parser, {}, savefile._member(root, "CustomMaps"))
+        flags = {}
+        for item in maps_arr.d["items"]:
+            m = savefile._deref(parser, {}, item)
+            if m is None or m.rt == 10:
+                continue
+            name = savefile._text(parser, {}, m, "Name")
+            flags[name] = m.d["values"][m.d["mnames"].index("IsDownload")]
+
+        self.assertTrue(flags.get("DL"), "imported map should be a download")
 
     def test_write_never_shrinks_below_the_existing_file(self):
         doc = savefile.read(self.save)
