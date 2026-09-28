@@ -75,6 +75,16 @@ light yellow; both washed out entirely with white icons.
 `1`-`5` pick an army and `0` picks neutral. Ctrl+Z / Ctrl+Shift+Z undo and
 redo; a drag is one step. The wheel zooms about the cursor.
 
+## Size
+
+The Map section carries the dimensions. Change them and press Resize: the
+top-left corner stays put, growing fills with plains, and shrinking discards
+whatever falls outside - it asks first when that would lose anything. Resize is
+a single undo step, dimensions included.
+
+Anything past 30x20 is flagged. Those maps play fine but the in-game editor
+will not open them, so this is the only place they can be edited.
+
 ## The palette is split by who can own a thing
 
 That is the question the sidebar exists to answer, so it is the thing it is
@@ -123,4 +133,4 @@ flags imports to a save the game's own deserializer accepts.
 - No multi-tile structures in the palette. A Black Cannon is nine tiles with
   offsets and structure bits, and the placement rule is not worked out yet.
 - No symmetry helpers or rectangle select yet.
-- Resize exists in `edit.js` but has no UI.
+

@@ -47,6 +47,9 @@
     border: 1px solid var(--line); background: var(--panel); color: var(--ink);
   }
   input[type=text] { cursor: text; }
+  input[type=number] { width: 62px; cursor: text; font-variant-numeric: tabular-nums; }
+  .row { display: flex; gap: 6px; align-items: center; margin-top: 6px; }
+  .row span { color: var(--muted); font-size: 12px; }
   button:hover, label.btn:hover { border-color: var(--accent); }
   button[aria-pressed="true"] { background: var(--sel); color: #fff; border-color: var(--sel); }
   button:disabled { opacity: .4; cursor: default; }
@@ -109,6 +112,13 @@
   <aside>
     <h2>Map</h2>
     <input type="text" id="name" style="width:100%" value="Untitled">
+    <div class="row">
+      <input type="number" id="cols" min="1" max="200" step="1">
+      <span>x</span>
+      <input type="number" id="rows" min="1" max="200" step="1">
+      <button id="resize">Resize</button>
+    </div>
+    <div class="sub" id="sizenote"></div>
     <div class="sub" id="meta" style="margin-top:4px"></div>
     <div style="margin-top:6px"><span id="valid"></span></div>
     <div id="why"></div>
@@ -191,6 +201,12 @@ function refresh() {
   document.getElementById("meta").textContent =
     doc.size.cols + " x " + doc.size.rows + " — " +
     (doc.units || []).length + " units";
+  document.getElementById("cols").value = doc.size.cols;
+  document.getElementById("rows").value = doc.size.rows;
+  document.getElementById("sizenote").textContent =
+    (doc.size.cols > 30 || doc.size.rows > 20)
+      ? "Beyond the in-game editor's 30x20; plays fine, editable only here."
+      : "";
   document.getElementById("valid").innerHTML =
     '<span class="pill ' + (s.valid ? "ok" : "no") + '">' +
     (s.valid ? "playable" : "not playable") + "</span>";
@@ -471,6 +487,28 @@ document.getElementById("undo").onclick = () => ed.undo();
 document.getElementById("redo").onclick = () => ed.redo();
 document.getElementById("fit").onclick = fit;
 document.getElementById("name").oninput = (e) => { doc.name = e.target.value; };
+
+document.getElementById("resize").onclick = () => {
+  const cols = Number(document.getElementById("cols").value);
+  const rows = Number(document.getElementById("rows").value);
+  if (!Number.isInteger(cols) || !Number.isInteger(rows) || cols < 1 || rows < 1) {
+    alert("Size must be two positive whole numbers.");
+    refresh();
+    return;
+  }
+  // Shrinking throws away whatever falls outside, so say so before doing it.
+  const lost = doc.terrain.reduce((n, row, y) => n + row.reduce((m, t, x) =>
+    m + ((x >= cols || y >= rows) && t !== 1 ? 1 : 0), 0), 0)
+    + (doc.units || []).filter((u) => u.x >= cols || u.y >= rows).length;
+  if (lost && !confirm(
+      "Shrinking to " + cols + " x " + rows + " discards " + lost +
+      " tile" + (lost === 1 ? "" : "s") + " and anything on them. Continue?")) {
+    refresh();
+    return;
+  }
+  if (ed.resize(cols, rows)) fit();
+  else refresh();
+};
 
 document.getElementById("new").onclick = () => {
   const answer = prompt(

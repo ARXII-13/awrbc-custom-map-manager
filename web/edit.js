@@ -30,11 +30,16 @@ export function createEditor(doc, onChange) {
   let pending = null;
 
   function snapshot() {
-    return JSON.stringify({ terrain: doc.terrain, cells: doc.cells, units: doc.units });
+    // `size` belongs here: undoing a resize has to put the dimensions back as
+    // well as the grid, or the two disagree and every lookup is off.
+    return JSON.stringify({
+      size: doc.size, terrain: doc.terrain, cells: doc.cells, units: doc.units,
+    });
   }
 
   function restore(s) {
     const o = JSON.parse(s);
+    doc.size = o.size;
     doc.terrain = o.terrain;
     doc.cells = o.cells;
     doc.units = o.units;
@@ -181,7 +186,17 @@ export function createEditor(doc, onChange) {
       return true;
     },
 
+    /**
+     * Change the grid size, keeping the top-left corner fixed.
+     *
+     * Growing fills with plains; shrinking drops whatever falls outside,
+     * including the cells and units on those tiles - leaving them behind is
+     * how a map ends up with a unit nobody can see.
+     */
     resize(cols, rows) {
+      if (!(cols > 0 && rows > 0)) return false;
+      if (cols === doc.size.cols && rows === doc.size.rows) return false;
+      begin();
       const old = doc.terrain;
       doc.terrain = Array.from({ length: rows }, (_, y) =>
         Array.from({ length: cols }, (_, x) =>
@@ -189,6 +204,8 @@ export function createEditor(doc, onChange) {
       doc.size = { cols, rows };
       doc.cells = doc.cells.filter((c) => c.x < cols && c.y < rows);
       doc.units = doc.units.filter((u) => u.x < cols && u.y < rows);
+      commit();
+      return true;
     },
   };
 }
