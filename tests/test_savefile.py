@@ -57,6 +57,29 @@ class Reading(unittest.TestCase):
             with self.assertRaises(SaveUnreadable):
                 savefile.read(p)
 
+    def test_a_short_unit_array_is_named_not_an_index_error(self):
+        """The unit array is one entry per tile. A short one used to fall
+        through to a bare IndexError with nothing naming the save."""
+        from awrbc.core import nrbf
+
+        with tempfile.TemporaryDirectory() as d:
+            p, _ = a_save(d)
+            parser = nrbf.load(p)
+            root = savefile._root(parser)
+            maps = savefile._deref(parser, {}, savefile._member(root, "CustomMaps"))
+            first = savefile._deref(parser, {}, maps.d["items"][0])
+            lvl = savefile._deref(parser, {}, savefile._member(first, "LevelSaveData"))
+            units = savefile._deref(parser, {},
+                                    savefile._member(lvl, "SerializableUnits"))
+            cols, rows = units.d["lens"]
+            units.d["lens"] = [cols, rows - 1]
+            del units.d["items"][-cols:]
+            with open(p, "wb") as fh:
+                fh.write(nrbf.write(parser))
+            with self.assertRaises(SaveUnreadable) as caught:
+                savefile.read(p)
+            self.assertIn("unit array", str(caught.exception))
+
 
 class AgainstASave(unittest.TestCase):
     """Exercises the reader against a fixture, or the real save if provided."""

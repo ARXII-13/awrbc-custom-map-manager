@@ -24,7 +24,7 @@ picking at random too.
 """
 import random
 
-from .model import (AIRPORT, BASE, CITY, COM_TOWER, HQ, SEAPORT)
+from .model import HQ, SEAPORT
 
 PLAINS = 1
 SEA = 2
@@ -78,9 +78,6 @@ SHORELINE = frozenset([SEA, SHOAL])
 #: bits along its axis, plus bit 0.
 BRIDGE_MIDDLE = {"h": 13, "v": 19}
 
-#: Observed on every mini cannon. One tile, fixed value, reason unknown.
-MINI_CANNON_VALUE = 4
-
 #: bits 18-25, the eight decorative alternatives observed on plains.
 VARIANTS = tuple(1 << b for b in range(18, 26))
 VARIANTS_FOR = {
@@ -132,7 +129,11 @@ def structure_flags(kind, offset, facing):
             return STRUCTURE_BODY
         return STRUCTURE_ANCHOR | FACING_BIT.get(facing, 0)
     if kind in DIRECTIONAL:
-        return FACING_BIT.get(facing, 0) or PLAIN_BIT
+        # Every one-tile cannon observed carries a facing bit - the pair on
+        # BLACK are both 0x4, west - so a missing facing means the caller did
+        # not record one rather than that the game writes none. North is the
+        # fallback, matching what the renderer assumes.
+        return FACING_BIT.get(facing or "N", 0)
     return None
 
 #: The bits this module claims to reproduce exactly. Everything else is
@@ -224,9 +225,6 @@ def flags_for(terrain, x, y, team=None, rng=random):
 
     if kind == BRIDGE:
         return _bridge_value(terrain, x, y)
-
-    if kind == MINI_CANNON:
-        return MINI_CANNON_VALUE
 
     if kind == SEAPORT:
         facing = _port_faces(terrain, x, y)

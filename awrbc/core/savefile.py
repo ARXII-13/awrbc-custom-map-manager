@@ -122,6 +122,13 @@ def read(path: str) -> SaveDocument:
             raise SaveUnreadable(
                 "map %r: metadata says %dx%d (%d cells) but the tile array holds %d"
                 % (entry.get("Name"), cols, rows, cols * rows, len(tiles_flat)))
+        # The unit array is the same grid, one entry per tile with nulls for the
+        # empty ones. Say so here; otherwise a short array surfaces as a bare
+        # IndexError out of _reshape with nothing pointing at the save.
+        if cols * rows != len(units_flat):
+            raise SaveUnreadable(
+                "map %r: %dx%d (%d cells) but the unit array holds %d"
+                % (entry.get("Name"), cols, rows, cols * rows, len(units_flat)))
 
         maps.append(Map(
             name=entry.get("Name") or "",
@@ -331,9 +338,10 @@ def add_map(doc: SaveDocument, m: Map, name: str = None) -> str:
     if src_meta is None:
         raise SaveUnreadable("no metadata entry for slot %r" % src_slot)
 
-    unit_template = _find_unit_template(parser) if any(
-        u is not None for _, _, u in m.iter_units()) else None
-    if unit_template is None and any(True for _ in m.iter_units()):
+    # iter_units already skips empty cells, so this is "does the map place any".
+    has_units = any(True for _ in m.iter_units())
+    unit_template = _find_unit_template(parser) if has_units else None
+    if has_units and unit_template is None:
         raise NoTemplate(
             "this map places units, but the save has no existing unit to model "
             "them on. Place one unit in any map in the Design Room first.")

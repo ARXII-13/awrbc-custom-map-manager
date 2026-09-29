@@ -166,7 +166,12 @@ class RealMapsStayValid(unittest.TestCase):
         import glob
         import json
         import os
-        paths = glob.glob(os.path.join("web", "samples", "*.json"))
+
+        from .support import REPO
+
+        # Anchored to the repo, not the working directory: a cwd-relative glob
+        # turns this guard into a silent skip depending on where it was run from.
+        paths = glob.glob(os.path.join(REPO, "web", "samples", "*.json"))
         if not paths:
             self.skipTest("no sample maps checked out")
         for path in paths:

@@ -173,6 +173,13 @@ export function createEditor(doc, onChange) {
       doc.terrain[y][x] = type;
       if (CAPTURABLE.has(type)) {
         const c = cellAt(x, y, true);
+        // The cell may be left over from whatever was here before. A property
+        // owns none of these, and a cannon's hit points surviving onto a city
+        // both writes nonsense into the save and changes the map's id.
+        delete c.hp;
+        delete c.facing;
+        delete c.offset;
+        delete c.launched;
         c.team = team === undefined || team === null ? -1 : team;
         if (c.capture === undefined) c.capture = 20;
       } else if (DIRECTIONAL.has(type) || BREAKABLE_HP[type]) {
@@ -182,6 +189,7 @@ export function createEditor(doc, onChange) {
         c.team = -1;
         delete c.capture;
         delete c.offset;
+        delete c.launched;
         if (DIRECTIONAL.has(type)) c.facing = facing || 'N';
         else delete c.facing;
         if (BREAKABLE_HP[type]) c.hp = BREAKABLE_HP[type];
@@ -236,7 +244,7 @@ export function createEditor(doc, onChange) {
       const existing = doc.units.find((u) => u.x === x && u.y === y);
       const unit = existing || { x, y };
       unit.type = type;
-      unit.team = team === null || team === undefined ? 0 : team;
+      unit.team = team;                 // the guard above already rejected none
       unit.hp = 100 * HP_SCALE;
       unit.gas = stats.gas;
       unit.ammo = stats.ammo;
@@ -260,8 +268,23 @@ export function createEditor(doc, onChange) {
      */
     resize(cols, rows) {
       if (!(cols > 0 && rows > 0)) return false;
+      if (cols > MAX_COLS || rows > MAX_ROWS) return false;
       if (cols === doc.size.cols && rows === doc.size.rows) return false;
       begin();
+      // A structure that no longer fits goes entirely. Truncating the grid
+      // would otherwise leave body tiles pointing at an anchor outside the
+      // map - the same broken object placeStructure refuses to create, and
+      // what validate.py reports as structure.incomplete.
+      for (let y = 0; y < doc.size.rows; y++) {
+        for (let x = 0; x < doc.size.cols; x++) {
+          if (!MULTI_TILE.has(doc.terrain[y][x])) continue;
+          const at = anchorOf(x, y);
+          if (!at) continue;
+          if (at[0] + STRUCTURE_SPAN > cols || at[1] + STRUCTURE_SPAN > rows) {
+            clearStructure(x, y);
+          }
+        }
+      }
       const old = doc.terrain;
       doc.terrain = Array.from({ length: rows }, (_, y) =>
         Array.from({ length: cols }, (_, x) =>
@@ -296,9 +319,16 @@ export function stats(doc) {
     if (type === 512) s.hq++;
     if (PRODUCTION.has(type)) s.production++;
   }
-  for (const u of doc.units || []) need(u.team).units++;
+  // Same filter as the cells above. A loaded JSON can carry a unit with no
+  // team - `Map.per_team` ignores those and `validate.py` reports them - and
+  // without this it became a perTeam["undefined"] bucket that reads back as
+  // NaN, so the loop below looked up nothing and threw.
+  for (const u of doc.units || []) {
+    if (u.team === undefined || u.team === null || u.team < 0) continue;
+    need(u.team).units++;
+  }
 
-  const teams = Object.keys(perTeam).map(Number).sort();
+  const teams = Object.keys(perTeam).map(Number).sort((a, b) => a - b);
   const reasons = [];
   const notes = [];
   for (const t of teams) {

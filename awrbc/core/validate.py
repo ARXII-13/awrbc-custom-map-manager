@@ -15,7 +15,7 @@ is correct.
 from dataclasses import dataclass, field
 
 from . import autotile
-from .model import CAPTURABLE, HQ, Map
+from .model import CAPTURABLE, Map
 
 ERROR = "error"
 WARNING = "warning"

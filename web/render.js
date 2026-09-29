@@ -110,7 +110,7 @@ function dirsFor(terrain, x, y, id) {
  * Only the anchor records it, so a body tile has to look the anchor up - it
  * sits at (x, y) minus this tile's offset.
  */
-function facingFor(doc, cells, x, y, id) {
+function facingFor(cells, x, y) {
   const cell = cells.get(x + ',' + y);
   if (cell && cell.facing) return cell.facing;
   if (cell && cell.offset) {
@@ -155,7 +155,7 @@ function drawTile(ctx, doc, cells, x, y, px, py, size, opts) {
     ctx.fillRect(px, py, size, size);
   }
 
-  const facing = facingFor(doc, cells, x, y, id);
+  const facing = facingFor(cells, x, y);
   const sprite = spriteFor(info.property ? 'property' : 'terrain', id, {
     team: cell ? cell.team : null,
     dirs: dirsFor(doc.terrain, x, y, id),
@@ -187,9 +187,7 @@ function drawTile(ctx, doc, cells, x, y, px, py, size, opts) {
   if (!opts.glyphs || size < 12) return;
 
   const icon = info.property ? PROPERTY_ICONS[id] : TERRAIN_ICONS[id];
-  const ink = info.property
-    ? inkFor(team(cell ? cell.team : null).color, 0.93)
-    : 'rgba(0,0,0,0.52)';
+  const ink = info.property ? inkFor(owner.color, 0.93) : 'rgba(0,0,0,0.52)';
   if (icon && size >= ICON_MIN) {
     ctx.save();
     icon(ctx, px, py, size, ink, facing);

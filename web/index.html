@@ -113,9 +113,9 @@
     <h2>Map</h2>
     <input type="text" id="name" style="width:100%" value="Untitled">
     <div class="row">
-      <input type="number" id="cols" min="1" max="200" step="1">
+      <input type="number" id="cols" min="1" step="1">
       <span>x</span>
-      <input type="number" id="rows" min="1" max="200" step="1">
+      <input type="number" id="rows" min="1" step="1">
       <button id="resize">Resize</button>
     </div>
     <div class="sub" id="sizenote"></div>
@@ -542,8 +542,9 @@ document.getElementById("name").oninput = (e) => { doc.name = e.target.value; };
 document.getElementById("resize").onclick = () => {
   const cols = Number(document.getElementById("cols").value);
   const rows = Number(document.getElementById("rows").value);
-  if (!Number.isInteger(cols) || !Number.isInteger(rows) || cols < 1 || rows < 1) {
-    alert("Size must be two positive whole numbers.");
+  if (!Number.isInteger(cols) || !Number.isInteger(rows) || cols < 1 || rows < 1
+      || cols > MAX_COLS || rows > MAX_ROWS) {
+    alert("Size must be between 1x1 and " + MAX_COLS + "x" + MAX_ROWS + ".");
     refresh();
     return;
   }

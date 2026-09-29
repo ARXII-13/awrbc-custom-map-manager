@@ -172,27 +172,3 @@ class Factory:
                 t.offset.x if t.offset else 0, t.offset.y if t.offset else 0),
             "hasLaunched": bool(t.has_launched),
         })
-
-
-def _member(rec, name):
-    return rec.d["values"][rec.d["mnames"].index(name)]
-
-
-def _set_member(rec, name, value):
-    rec.d["values"][rec.d["mnames"].index(name)] = value
-
-
-def _deref(parser, v):
-    return parser.objects[v.d["idref"]] if isinstance(v, Rec) and v.rt == 9 else v
-
-
-def _resolve(parser, extra_objects, v):
-    if isinstance(v, Rec) and v.rt == 9:
-        return extra_objects.get(v.d["idref"]) or parser.objects[v.d["idref"]]
-    return v
-
-
-def _slot_of(parser, objects, rec):
-    v = _member(rec, "Name")
-    target = _resolve(parser, objects, v)
-    return target.d["val"] if isinstance(target, Rec) else v

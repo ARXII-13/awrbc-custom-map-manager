@@ -17,15 +17,16 @@ Use `serve.py` rather than `python -m http.server`: it sends no-cache headers.
 Without them the browser holds on to ES modules, an edit appears to do nothing,
 and you debug code the page is not actually running.
 
-Then open <http://127.0.0.1:8731/>, and drop a map JSON on the page. To open one
-directly, pass its path:
+Then open <http://127.0.0.1:8731/> and use **Open** to pick a map JSON. (There is no
+drag-and-drop; it is a file picker.) To load one straight away, pass its path:
 
     http://127.0.0.1:8731/?map=samples/ALL.json
 
-Export a map to feed it:
+Export a map to feed it — the index comes from `list`:
 
 ```bash
-python -m awrbc export --name ALL --out ALL.json
+python -m awrbc list
+python -m awrbc export 0 -o ALL.json
 ```
 
 ## Files
@@ -82,8 +83,10 @@ top-left corner stays put, growing fills with plains, and shrinking discards
 whatever falls outside - it asks first when that would lose anything. Resize is
 a single undo step, dimensions included.
 
-Anything past 30x20 is flagged. Those maps play fine but the in-game editor
-will not open them, so this is the only place they can be edited.
+**64x64 is a hard ceiling** and New will not start a map bigger than that, because
+the CLI and the archive reject one. Between 30x20 and 64x64 the size is flagged as a
+note rather than an error: those maps play fine but the in-game editor will not open
+them, so this is the only place they can be edited.
 
 ## The palette is split by who can own a thing
 
@@ -149,13 +152,21 @@ flags imports to a save the game's own deserializer accepts.
 
 ## Known gaps
 
-- Multi-tile structures render tile-by-tile. They look right because each tile
-  carries its own terrain id, but the viewer does not yet know they are one
-  object - that matters for the editor, not for viewing.
+- **No symmetry helpers and no rectangle select.** Paint is per-tile with a drag
+  stroke, plus flood fill. Mirroring a quadrant is the single most useful thing
+  missing for anyone building a competitive map.
+- **Author, fog and water colour are not editable.** They round-trip faithfully
+  through an opened map, but nothing in the UI sets them, so a map created here is
+  always `anonymous`, fog off, water colour 0.
 - Icons exist for terrain that needs one, all six property types, and all 19
   units. Plain terrain (grass, sea, road, river) is deliberately bare - an icon
   on every tile is noise.
-- No multi-tile structures in the palette. A Black Cannon is nine tiles with
-  offsets and structure bits, and the placement rule is not worked out yet.
-- No symmetry helpers or rectangle select yet.
+- **Resize does not enforce the 64x64 limit.** The New prompt refuses a larger size,
+  and anything over shows as an error in the live check, but Resize will let you go
+  past it. The export is then a map the CLI will refuse to import.
+- A sprite pack does not have to be complete. The one in use here leaves out **pipes
+  and pipe seams**: their art is a colour mask that resolves through neither a biome
+  palette nor an army colour table, nobody worked out what selects their colours, and
+  raw mask values look worse than the drawn icons. They fall back to the grey drawn
+  ones, which is the mechanism working as intended.
 
