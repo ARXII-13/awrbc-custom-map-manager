@@ -206,6 +206,46 @@ class Structures(unittest.TestCase):
         self.assertIsNone(A.structure_flags(1, None, None))
 
 
+class OwnershipThatDoesNotExist(unittest.TestCase):
+    """A cannon can be assigned a team, and the game ignores it.
+
+    Verified in play 2026-09-28: cannons fire at every army and every army can
+    fire back, whoever the tile says owns them. The save keeps whatever is
+    written, so identity has to normalise it - otherwise two maps that play
+    identically hash differently and the archive sees two maps.
+    """
+
+    def _doc(self, cannon_team):
+        terrain = [[1] * 4 for _ in range(3)]
+        terrain[1][1] = 1048576
+        return {
+            "schema": 1, "name": "t", "author": "t",
+            "size": {"cols": 4, "rows": 3}, "fog": False, "waterColor": 0,
+            "terrain": terrain, "units": [],
+            "cells": [{"x": 1, "y": 1, "team": cannon_team, "hp": 99,
+                       "facing": "S"}],
+        }
+
+    def test_a_cannon_is_always_neutral_however_it_was_written(self):
+        for assigned in (0, 3, -1):
+            doc = schema.build_document(schema.from_json(self._doc(assigned)))
+            cell = next(c for c in doc["cells"] if c["x"] == 1 and c["y"] == 1)
+            self.assertEqual(cell["team"], -1, "team %r" % assigned)
+
+    def test_assigning_one_does_not_change_the_map_id(self):
+        ids = {schema.build_document(schema.from_json(self._doc(t)))["id"]
+               for t in (0, 1, 2, 3, 4, -1)}
+        self.assertEqual(len(ids), 1, ids)
+
+    def test_a_real_property_keeps_its_owner(self):
+        doc = self._doc(-1)
+        doc["terrain"][0][0] = 512
+        doc["cells"].append({"x": 0, "y": 0, "team": 2, "capture": 20})
+        built = schema.build_document(schema.from_json(doc))
+        hq = next(c for c in built["cells"] if c["x"] == 0 and c["y"] == 0)
+        self.assertEqual(hq["team"], 2)
+
+
 class FidelityAgainstRealMaps(unittest.TestCase):
     """The rules must reproduce what the game itself wrote."""
 

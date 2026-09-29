@@ -17,7 +17,7 @@ Values are raw game values. Friendly names are a presentation concern.
 """
 from .errors import SaveUnreadable
 from . import autotile
-from .model import Coord, Map, Tile, Unit
+from .model import CAPTURABLE, Coord, Map, Tile, Unit
 
 SCHEMA_VERSION = 1
 
@@ -41,7 +41,12 @@ def to_json(m: Map, *, author: str = None, map_id: str = None) -> dict:
             t = m.tiles[x][y]
             cell = {}
             if t.team is not None:
-                cell["team"] = t.team
+                # Only capturable terrain has a meaningful owner. The game will
+                # happily store a team on a cannon or a silo and then ignore it
+                # entirely - confirmed in play 2026-09-28 - so normalise it to
+                # neutral. Two maps that differ only there play identically and
+                # must not hash differently.
+                cell["team"] = t.team if t.type in CAPTURABLE else -1
             if t.capture_points:
                 cell["capture"] = t.capture_points
             if t.hp:
@@ -159,7 +164,8 @@ def from_json(doc: dict) -> Map:
                 and 0 <= x < cols and 0 <= y < rows):
             raise SchemaError("cell out of range: %r" % (c,))
         t = tiles[x][y]
-        t.team = c.get("team")
+        team = c.get("team")
+        t.team = team if (team is None or t.type in CAPTURABLE) else -1
         t.capture_points = c.get("capture", 0)
         t.hp = c.get("hp", 0)
         off = c.get("offset")
