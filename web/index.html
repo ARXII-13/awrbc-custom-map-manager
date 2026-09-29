@@ -563,11 +563,10 @@ document.getElementById("resize").onclick = () => {
 
 document.getElementById("new").onclick = () => {
   const answer = prompt(
-    "Size as COLSxROWS, up to " + MAX_COLS + "x" + MAX_ROWS + ".
-
-" +
+    "Size as COLSxROWS, up to " + MAX_COLS + "x" + MAX_ROWS + ".\n\n" +
     "The in-game editor caps at 30x20. Larger maps play fine but can only " +
     "be edited here.", "30x20");
+  if (!answer) return;
   const m = /^\s*(\d+)\s*[x,\s]\s*(\d+)\s*$/i.exec(answer);
   if (!m) { alert("Could not read that size."); return; }
   const cols = Number(m[1]), rows = Number(m[2]);
