@@ -103,9 +103,12 @@ organised around.
 | | plus pipe, seam, silo, mini cannon, laser | **only when neutral is selected** - these are never owned |
 | **Units** | all 19 | hidden under neutral; a unit always belongs to an army |
 
-Palette swatches show the whole object, assembled and scaled to fit - a 3x3
-structure is drawn from all nine of its tiles, not the one the sprite lookup
-returns, and a building is not cropped to its base.
+Palette swatches show the whole object, assembled and scaled to fit with a
+margin. A 3x3 structure is drawn from all nine of its tiles, not the one the
+sprite lookup returns; a building is not cropped to its base; and terrain that
+runs - road, bridge, pipe, seam - is shown as a short capped length rather than
+one tile, because a single tile of pipe fills its own bounds and reads as
+banding.
 
 An **Aims** row appears under Structures when the selected one is a cannon,
 and sets which way it points. The palette icon turns with it, so the swatch

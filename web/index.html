@@ -153,7 +153,7 @@
 <script type="module">
 import { drawMap, fitTile, cellIndex } from "./render.js";
 import { UNITS, TEAMS, TERRAIN_PALETTE, STRUCTURES, NEUTRAL_STRUCTURES,
-         DIRECTIONAL, MULTI_TILE, STRUCTURE_SPAN, MAX_COLS, MAX_ROWS,
+         DIRECTIONAL, MULTI_TILE, STRUCTURE_SPAN, RUNS, MAX_COLS, MAX_ROWS,
          terrain, team } from "./terrain.js";
 import { TERRAIN_ICONS, PROPERTY_ICONS, UNIT_ICONS } from "./icons.js";
 import { loadPack, packLabel, spriteFor } from "./sprites.js";
@@ -249,11 +249,28 @@ function load(json) {
  * Cannon shows a ninth of it, which reads as a grey smudge.
  */
 function assemble(kind, id, pick) {
-  const span = MULTI_TILE.has(id) ? STRUCTURE_SPAN : 1;
   const first = spriteFor(kind, id, { ...pick, part: "0,0" });
   if (!first) return null;
   const { sw, sh } = first;
   const lift = sh - sw;                     // how far the art overhangs upward
+
+  // Terrain that runs is shown as a short capped length. One tile of pipe
+  // fills its own bounds and reads as banding; three read as a pipe.
+  if (RUNS.has(id)) {
+    const keys = ["E", "E+W", "W"];
+    const cv = document.createElement("canvas");
+    cv.width = keys.length * sw;
+    cv.height = sh;
+    const g = cv.getContext("2d");
+    g.imageSmoothingEnabled = false;
+    keys.forEach((dirs, i) => {
+      const sp = spriteFor(kind, id, { ...pick, dirs });
+      if (sp) g.drawImage(sp.image, sp.sx, sp.sy, sp.sw, sp.sh, i * sw, 0, sw, sh);
+    });
+    return cv;
+  }
+
+  const span = MULTI_TILE.has(id) ? STRUCTURE_SPAN : 1;
   const cv = document.createElement("canvas");
   cv.width = span * sw;
   cv.height = span * sw + lift;
@@ -309,8 +326,11 @@ function swatch(kind, id) {
                        id, pick);
   if (art) {
     const box = contentBox(art) || { x: 0, y: 0, w: art.width, h: art.height };
-    // Fit the whole thing inside the swatch rather than cropping to the tile.
-    const scale = Math.min(S / box.w, S / box.h);
+    // Fit the whole thing inside the swatch rather than cropping to the tile,
+    // leaving a margin so art that fills its tile does not reach the edge and
+    // read as a texture swatch.
+    const pad = 2;
+    const scale = Math.min((S - pad * 2) / box.w, (S - pad * 2) / box.h);
     const w = Math.max(1, Math.round(box.w * scale));
     const h = Math.max(1, Math.round(box.h * scale));
     g.imageSmoothingEnabled = false;

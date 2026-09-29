@@ -73,6 +73,12 @@ export function hasPack() {
   return pack !== null;
 }
 
+/** Whether the pack varies this terrain by connection, i.e. it runs. */
+export function runsInPack(kind, id) {
+  const entry = pack && pack[kind] && pack[kind][id];
+  return !!(entry && entry.dirs);
+}
+
 /** Which pack loaded, for the UI to name. */
 export function packLabel() {
   return packName;

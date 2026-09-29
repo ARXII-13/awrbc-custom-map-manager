@@ -97,6 +97,15 @@ export const NEUTRAL_STRUCTURES = [32768, 65536, 33554432, 1048576, 2097152,
 export const DIRECTIONAL = new Set([524288, 8388608, 1048576]);
 
 /**
+ * Terrain that reads as a length rather than a tile: road, bridge, pipe, seam.
+ *
+ * One tile of these fills its own bounds, so a palette swatch of it is an
+ * ambiguous texture - a pipe becomes horizontal banding. Drawn as a short
+ * capped run instead, it is unmistakable.
+ */
+export const RUNS = new Set([128, 256, 32768, 65536]);
+
+/**
  * Structures that occupy a 3x3 block rather than one tile.
  *
  * All nine tiles carry the terrain id. The top-left is the anchor and holds
