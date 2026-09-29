@@ -153,7 +153,8 @@
 <script type="module">
 import { drawMap, fitTile, cellIndex } from "./render.js";
 import { UNITS, TEAMS, TERRAIN_PALETTE, STRUCTURES, NEUTRAL_STRUCTURES,
-         DIRECTIONAL, terrain, team } from "./terrain.js";
+         DIRECTIONAL, MULTI_TILE, STRUCTURE_SPAN,
+         terrain, team } from "./terrain.js";
 import { TERRAIN_ICONS, PROPERTY_ICONS, UNIT_ICONS } from "./icons.js";
 import { loadPack, packLabel, spriteFor } from "./sprites.js";
 import { createEditor, emptyMap, stats } from "./edit.js";
@@ -240,34 +241,88 @@ function load(json) {
 
 // --- palette ---------------------------------------------------------------
 
+/**
+ * Assemble a sprite at native size, including every tile of a 3x3 structure.
+ *
+ * A palette entry has to show the whole object. Drawing one cell of a Black
+ * Cannon shows a ninth of it, which reads as a grey smudge.
+ */
+function assemble(kind, id, pick) {
+  const span = MULTI_TILE.has(id) ? STRUCTURE_SPAN : 1;
+  const first = spriteFor(kind, id, { ...pick, part: "0,0" });
+  if (!first) return null;
+  const { sw, sh } = first;
+  const lift = sh - sw;                     // how far the art overhangs upward
+  const cv = document.createElement("canvas");
+  cv.width = span * sw;
+  cv.height = span * sw + lift;
+  const g = cv.getContext("2d");
+  g.imageSmoothingEnabled = false;
+  for (let dy = 0; dy < span; dy++) {
+    for (let dx = 0; dx < span; dx++) {
+      const sp = spriteFor(kind, id, { ...pick, part: dx + "," + dy });
+      if (!sp) continue;
+      g.drawImage(sp.image, sp.sx, sp.sy, sp.sw, sp.sh,
+                  dx * sw, lift + dy * sw + sw - sh, sw, sh);
+    }
+  }
+  return cv;
+}
+
+/** The non-empty area of a canvas, so a preview can fill its box. */
+function contentBox(cv) {
+  const g = cv.getContext("2d");
+  const { data } = g.getImageData(0, 0, cv.width, cv.height);
+  let x0 = cv.width, y0 = cv.height, x1 = -1, y1 = -1;
+  for (let y = 0; y < cv.height; y++) {
+    for (let x = 0; x < cv.width; x++) {
+      if (data[(y * cv.width + x) * 4 + 3] > 8) {
+        if (x < x0) x0 = x;
+        if (y < y0) y0 = y;
+        if (x > x1) x1 = x;
+        if (y > y1) y1 = y;
+      }
+    }
+  }
+  if (x1 < 0) return null;
+  return { x: x0, y: y0, w: x1 - x0 + 1, h: y1 - y0 + 1 };
+}
+
 function swatch(kind, id) {
   const S = 34;
   const cv = document.createElement("canvas");
   cv.width = cv.height = S;
   const g = cv.getContext("2d");
   const owner = team(brushTeam);
+  const info = kind === "terrain" ? terrain(id) : null;
+
+  g.fillStyle = kind === "unit"
+    ? (brushTeam < 0 ? TEAMS[0].color : owner.color)
+    : (info.property ? owner.color : (info.base || info.color));
+  g.fillRect(0, 0, S, S);
+
+  const pick = kind === "unit"
+    ? { team: brushTeam < 0 ? 0 : brushTeam }
+    : { team: brushTeam, dirs: "N+E+S+W", variant: 0, facing: brushFacing };
+  const art = assemble(kind === "terrain" && info.property ? "property" : kind,
+                       id, pick);
+  if (art) {
+    const box = contentBox(art) || { x: 0, y: 0, w: art.width, h: art.height };
+    // Fit the whole thing inside the swatch rather than cropping to the tile.
+    const scale = Math.min(S / box.w, S / box.h);
+    const w = Math.max(1, Math.round(box.w * scale));
+    const h = Math.max(1, Math.round(box.h * scale));
+    g.imageSmoothingEnabled = false;
+    g.drawImage(art, box.x, box.y, box.w, box.h,
+                Math.round((S - w) / 2), Math.round((S - h) / 2), w, h);
+    return cv;
+  }
+
+  // No pack: fall back to the drawn icons.
   if (kind === "terrain") {
-    const info = terrain(id);
-    g.fillStyle = info.property ? owner.color : (info.base || info.color);
-    g.fillRect(0, 0, S, S);
-    // Show the fully-connected variant in the palette; it reads best as a swatch.
-    // Show the fully-connected variant, and the facing currently chosen - the
-    // whole point of picking a direction is seeing which way it will point.
-    const sprite = spriteFor(info.property ? "property" : "terrain", id,
-                             { team: brushTeam, dirs: "N+E+S+W", variant: 0,
-                               facing: brushFacing });
-    if (sprite) {
-      g.imageSmoothingEnabled = false;
-      const h = Math.round(S * sprite.tall);
-      g.drawImage(sprite.image, sprite.sx, sprite.sy, sprite.sw, sprite.sh,
-                  0, S - h, S, h);
-      return cv;
-    }
     const icon = info.property ? PROPERTY_ICONS[id] : TERRAIN_ICONS[id];
     if (icon) {
-      icon(g, 0, 0, S,
-           info.property ? "rgba(255,255,255,.93)" : "rgba(0,0,0,.52)",
-           brushFacing);
+      icon(g, 0, 0, S, info.property ? "rgba(255,255,255,.93)" : "rgba(0,0,0,.52)");
     } else if (info.glyph) {
       g.fillStyle = "rgba(0,0,0,.5)";
       g.font = "bold 17px system-ui, sans-serif";
@@ -276,14 +331,6 @@ function swatch(kind, id) {
       g.fillText(info.glyph, S / 2, S / 2);
     }
   } else {
-    g.fillStyle = brushTeam < 0 ? TEAMS[0].color : owner.color;
-    g.fillRect(0, 0, S, S);
-    const sprite = spriteFor("unit", id, { team: brushTeam < 0 ? 0 : brushTeam });
-    if (sprite) {
-      g.imageSmoothingEnabled = false;
-      g.drawImage(sprite.image, sprite.sx, sprite.sy, sprite.sw, sprite.sh, 0, 0, S, S);
-      return cv;
-    }
     const icon = UNIT_ICONS[id];
     if (icon) icon(g, S * 0.1, S * 0.1, S * 0.8, "rgba(255,255,255,.95)");
   }

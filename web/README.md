@@ -97,6 +97,10 @@ organised around.
 | | plus pipe, seam, silo, mini cannon, laser | **only when neutral is selected** - these are never owned |
 | **Units** | all 19 | hidden under neutral; a unit always belongs to an army |
 
+Palette swatches show the whole object, assembled and scaled to fit - a 3x3
+structure is drawn from all nine of its tiles, not the one the sprite lookup
+returns, and a building is not cropped to its base.
+
 An **Aims** row appears under Structures when the selected one is a cannon,
 and sets which way it points. The palette icon turns with it, so the swatch
 shows what you are about to place. That direction is stored on the cell, and
