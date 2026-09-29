@@ -167,14 +167,12 @@ flags imports to a save the game's own deserializer accepts.
 - Icons exist for terrain that needs one, all six property types, and all 19
   units. Plain terrain (grass, sea, road, river) is deliberately bare - an icon
   on every tile is noise.
-- A sprite pack does not have to be complete. The one in use here leaves out **pipes
-  and pipe seams**: their art is a colour mask that resolves through neither a biome
-  palette nor an army colour table, nobody worked out what selects their colours, and
-  raw mask values came out blue and green. They fall back to the drawn icons, which
-  is the mechanism working as intended.
 - **Pipe and pipe seam are drawn from their connections**, so a run reads as a run.
   The icon is handed the same `N+E+S+W` set the sprite lookup uses, which is why a
-  corner bends and a seam shows its collar. A drawn icon can take the connection
-  set; before this they were the only terrain with neither an icon nor a sprite, and
-  rendered as a flat grey square.
+  corner bends and a seam shows its collar. Any terrain that runs rather than sits
+  can use that.
+- Pipe art in a sprite pack may need its own resolver. The pack built by
+  `sprites/build_terrain.py` carries one: pipeline sprites encode their shade in the
+  red channel alone and match no colour table or biome palette, so the builder maps
+  that index onto a metal ramp it defines itself. Their shapes, our colours.
 
