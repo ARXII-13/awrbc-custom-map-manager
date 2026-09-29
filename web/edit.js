@@ -12,7 +12,7 @@
 
 import { TERRAIN, PRODUCTION, CAPTURABLE, DIRECTIONAL, BREAKABLE_HP,
          MULTI_TILE, STRUCTURE_SPAN, STRUCTURE_HP_AT, MAX_UNITS_PER_TEAM,
-         IN_GAME_EDITOR_COLS, IN_GAME_EDITOR_ROWS,
+         MAX_COLS, MAX_ROWS, IN_GAME_EDITOR_COLS, IN_GAME_EDITOR_ROWS,
          UNIT_STATS, HP_SCALE } from './terrain.js';
 
 const UNDO_LIMIT = 80;
@@ -311,6 +311,9 @@ export function stats(doc) {
     }
   }
   if (teams.length < 2) reasons.push('needs at least two armies');
+  if (doc.size.cols > MAX_COLS || doc.size.rows > MAX_ROWS) {
+    reasons.push('bigger than the ' + MAX_COLS + 'x' + MAX_ROWS + ' limit');
+  }
 
   // Advisory rather than blocking: oversized maps play, they just cannot be
   // opened in the game's own editor.

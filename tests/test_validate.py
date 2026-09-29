@@ -106,15 +106,17 @@ class Size(unittest.TestCase):
         self.assertIn("size.beyondEditor", codes(report))
         self.assertTrue(report.ok, "40x30 was played to completion")
 
-    def test_beyond_the_largest_tested_size_warns(self):
-        report = validate.check(a_map(70, 70))
-        self.assertIn("size.untested", codes(report))
-        self.assertTrue(report.ok, "unknown is not the same as broken")
+    def test_the_largest_confirmed_size_is_allowed(self):
+        self.assertTrue(validate.check(a_map(64, 64)).ok)
 
-    def test_an_absurd_size_is_an_error(self):
-        report = validate.check(a_map(200, 200))
-        self.assertIn("size.absurd", codes(report))
-        self.assertFalse(report.ok)
+    def test_past_the_limit_is_rejected(self):
+        report = validate.check(a_map(70, 70))
+        self.assertIn("size.tooLarge", codes(report))
+        self.assertFalse(report.ok, "the archive must not serve untested sizes")
+
+    def test_one_dimension_over_is_enough_to_reject(self):
+        self.assertIn("size.tooLarge", codes(validate.check(a_map(65, 20))))
+        self.assertIn("size.tooLarge", codes(validate.check(a_map(20, 65))))
 
 
 class Structures(unittest.TestCase):

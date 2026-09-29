@@ -110,6 +110,8 @@ export const STRUCTURE_HP_AT = [1, 0];
 
 /** Mirrors awrbc/core/validate.py; keep the two in step. */
 export const MAX_UNITS_PER_TEAM = 50;
+export const MAX_COLS = 64;
+export const MAX_ROWS = 64;
 export const IN_GAME_EDITOR_COLS = 30;
 export const IN_GAME_EDITOR_ROWS = 20;
 

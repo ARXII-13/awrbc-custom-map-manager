@@ -128,6 +128,7 @@ notes things it will:
 | every army has an HQ | error |
 | every army has a unit or a production property | error |
 | no army over 50 units | error |
+| bigger than 64x64 | error - the archive will not accept it |
 | bigger than the in-game editor's 30x20 | note - plays fine, just not editable in game |
 
 `awrbc/core/validate.py` is the full set and the authoritative one, including

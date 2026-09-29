@@ -39,13 +39,12 @@ MAX_UNITS_PER_TEAM = 50
 IN_GAME_EDITOR_COLS = 30
 IN_GAME_EDITOR_ROWS = 20
 
-#: The largest size actually confirmed to load. Beyond this is unknown rather
-#: than known-bad, so it warns and does not block.
-LARGEST_TESTED_CELLS = 64 * 64
-
-#: A guard against nonsense, not a measured limit. Nothing is known to fail
-#: here; it exists so a typo cannot ask for a billion tiles.
-MAX_CELLS = 128 * 128
+#: The hard ceiling, in each dimension. 64x64 is the largest size confirmed to
+#: load and play, and it is where the line is drawn rather than a guess at
+#: where the game breaks: past here a map is rejected, not warned about, so the
+#: archive never serves something nobody has run.
+MAX_COLS = 64
+MAX_ROWS = 64
 
 
 @dataclass
@@ -148,15 +147,10 @@ def check(m: Map) -> Report:
             r.add("balance.uneven", WARNING,
                   "property counts range from %d to %d across teams"
                   % (min(counts), max(counts)), "cells")
-    cells = m.cols * m.rows
-    if cells > MAX_CELLS:
-        r.add("size.absurd", ERROR,
-              "%dx%d is %d cells, past the %d guard"
-              % (m.cols, m.rows, cells, MAX_CELLS), "size")
-    elif cells > LARGEST_TESTED_CELLS:
-        r.add("size.untested", WARNING,
-              "%dx%d is %d cells; the largest confirmed to load is %d"
-              % (m.cols, m.rows, cells, LARGEST_TESTED_CELLS), "size")
+    if m.cols > MAX_COLS or m.rows > MAX_ROWS:
+        r.add("size.tooLarge", ERROR,
+              "%dx%d is past the %dx%d limit"
+              % (m.cols, m.rows, MAX_COLS, MAX_ROWS), "size")
     if m.cols > IN_GAME_EDITOR_COLS or m.rows > IN_GAME_EDITOR_ROWS:
         r.add("size.beyondEditor", WARNING,
               "%dx%d is past the in-game editor's %dx%d; it will play but can "

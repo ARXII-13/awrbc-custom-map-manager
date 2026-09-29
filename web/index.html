@@ -153,7 +153,7 @@
 <script type="module">
 import { drawMap, fitTile, cellIndex } from "./render.js";
 import { UNITS, TEAMS, TERRAIN_PALETTE, STRUCTURES, NEUTRAL_STRUCTURES,
-         DIRECTIONAL, MULTI_TILE, STRUCTURE_SPAN,
+         DIRECTIONAL, MULTI_TILE, STRUCTURE_SPAN, MAX_COLS, MAX_ROWS,
          terrain, team } from "./terrain.js";
 import { TERRAIN_ICONS, PROPERTY_ICONS, UNIT_ICONS } from "./icons.js";
 import { loadPack, packLabel, spriteFor } from "./sprites.js";
@@ -568,7 +568,13 @@ document.getElementById("new").onclick = () => {
   if (!answer) return;
   const m = /^\s*(\d+)\s*[x,\s]\s*(\d+)\s*$/i.exec(answer);
   if (!m) { alert("Could not read that size."); return; }
-  load(emptyMap(Number(m[1]), Number(m[2]), "Untitled"));
+  const cols = Number(m[1]), rows = Number(m[2]);
+  // Refuse here rather than let someone build a map the archive will reject.
+  if (cols < 1 || rows < 1 || cols > MAX_COLS || rows > MAX_ROWS) {
+    alert("Size must be between 1x1 and " + MAX_COLS + "x" + MAX_ROWS + ".");
+    return;
+  }
+  load(emptyMap(cols, rows, "Untitled"));
 };
 
 document.getElementById("file").onchange = (e) => {
