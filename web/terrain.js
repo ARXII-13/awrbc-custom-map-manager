@@ -89,17 +89,24 @@ export const TERRAIN_PALETTE = [1, 8, 4, 128, 256, 16, 32, 2, 64];
 /** Structures any army can hold - and that can equally sit neutral. */
 export const STRUCTURES = [512, 1024, 2048, 4096, 8192, 134217728];
 
-/**
- * Structures that are only ever neutral.
- *
- * The 3x3 Black Cannon and Death Ray are deliberately absent: placing one
- * means writing nine tiles with the right offsets, and the editor cannot do
- * that yet. They render correctly when a map already contains them.
- */
-export const NEUTRAL_STRUCTURES = [32768, 65536, 33554432, 1048576, 2097152];
+/** Structures that are only ever neutral. */
+export const NEUTRAL_STRUCTURES = [32768, 65536, 33554432, 1048576, 2097152,
+                                   524288, 8388608];
 
 /** Structures that aim, and so need a facing chosen when placed. */
 export const DIRECTIONAL = new Set([524288, 8388608, 1048576]);
+
+/**
+ * Structures that occupy a 3x3 block rather than one tile.
+ *
+ * All nine tiles carry the terrain id. The top-left is the anchor and holds
+ * the facing; the other eight record their offset from it; and the top-middle
+ * carries the hit points - observed at offset [1,0] on every instance in the
+ * sample, for both kinds.
+ */
+export const MULTI_TILE = new Set([524288, 8388608]);
+export const STRUCTURE_SPAN = 3;
+export const STRUCTURE_HP_AT = [1, 0];
 
 /** Breakable structures, which the game stores with full hit points. */
 export const BREAKABLE_HP = { 65536: 99, 1048576: 99, 2097152: 99 };

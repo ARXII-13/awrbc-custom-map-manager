@@ -11,6 +11,7 @@
 // terrain ids.
 
 import { TERRAIN, PRODUCTION, CAPTURABLE, DIRECTIONAL, BREAKABLE_HP,
+         MULTI_TILE, STRUCTURE_SPAN, STRUCTURE_HP_AT,
          UNIT_STATS, HP_SCALE } from './terrain.js';
 
 const UNDO_LIMIT = 80;
@@ -76,10 +77,70 @@ export function createEditor(doc, onChange) {
     if (i >= 0) doc.cells.splice(i, 1);
   }
 
+  /** The top-left tile of the structure covering (x, y), or null. */
+  function anchorOf(x, y) {
+    if (!inside(x, y) || !MULTI_TILE.has(doc.terrain[y][x])) return null;
+    const c = cellAt(x, y, false);
+    const off = (c && c.offset) || [0, 0];
+    return [x - off[0], y - off[1]];
+  }
+
+  /**
+   * Remove the whole structure covering (x, y).
+   *
+   * Clearing one tile of a 3x3 and leaving the rest would produce eight
+   * orphaned body tiles - a structure the game would read as broken - so any
+   * edit that touches one takes all nine.
+   */
+  function clearStructure(x, y) {
+    const at = anchorOf(x, y);
+    if (!at) return false;
+    for (let dy = 0; dy < STRUCTURE_SPAN; dy++) {
+      for (let dx = 0; dx < STRUCTURE_SPAN; dx++) {
+        const tx = at[0] + dx, ty = at[1] + dy;
+        if (!inside(tx, ty)) continue;
+        doc.terrain[ty][tx] = 1;
+        dropCell(tx, ty);
+      }
+    }
+    return true;
+  }
+
   return {
     doc,
     begin,
     commit,
+    anchorOf,
+
+    /**
+     * Place a 3x3 structure with its top-left at (x, y).
+     *
+     * Refuses rather than clipping when it will not fit, because a partial
+     * structure is worse than none.
+     */
+    placeStructure(x, y, type, facing) {
+      const span = STRUCTURE_SPAN;
+      if (x < 0 || y < 0 ||
+          x + span > doc.size.cols || y + span > doc.size.rows) {
+        return false;
+      }
+      // Anything already here goes, including other structures in the way.
+      for (let dy = 0; dy < span; dy++) {
+        for (let dx = 0; dx < span; dx++) clearStructure(x + dx, y + dy);
+      }
+      for (let dy = 0; dy < span; dy++) {
+        for (let dx = 0; dx < span; dx++) {
+          doc.terrain[y + dy][x + dx] = type;
+          dropCell(x + dx, y + dy);
+          const c = cellAt(x + dx, y + dy, true);
+          c.team = -1;
+          if (dx || dy) c.offset = [dx, dy];
+          else c.facing = facing || 'N';
+          if (dx === STRUCTURE_HP_AT[0] && dy === STRUCTURE_HP_AT[1]) c.hp = 99;
+        }
+      }
+      return true;
+    },
 
     canUndo: () => undo.length > 0,
     canRedo: () => redo.length > 0,
@@ -99,6 +160,9 @@ export function createEditor(doc, onChange) {
     },
 
     paint(x, y, type, team, facing) {
+      if (MULTI_TILE.has(type)) return this.placeStructure(x, y, type, facing);
+      // Painting over any part of a structure removes all of it.
+      if (inside(x, y)) clearStructure(x, y);
       if (!inside(x, y) || doc.terrain[y][x] === type) {
         // Still allow re-owning, or re-aiming, the same thing.
         if (!inside(x, y) || !(CAPTURABLE.has(type) || DIRECTIONAL.has(type))) {

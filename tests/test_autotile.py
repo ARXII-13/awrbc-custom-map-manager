@@ -206,6 +206,61 @@ class Structures(unittest.TestCase):
         self.assertIsNone(A.structure_flags(1, None, None))
 
 
+class AuthoredStructures(unittest.TestCase):
+    """A 3x3 structure described the way the editor writes it.
+
+    Nine tiles carrying the terrain id, the anchor holding a facing, the rest
+    their offset, and hit points at [1, 0]. Nothing says "anchor" or "body" -
+    those flags are derived from the offsets.
+    """
+
+    def _doc(self, kind, facing, ax=1, ay=1):
+        terrain = [[1] * 6 for _ in range(6)]
+        cells = []
+        for dy in range(3):
+            for dx in range(3):
+                terrain[ay + dy][ax + dx] = kind
+                cell = {"x": ax + dx, "y": ay + dy, "team": -1}
+                if dx or dy:
+                    cell["offset"] = [dx, dy]
+                else:
+                    cell["facing"] = facing
+                if (dx, dy) == (1, 0):
+                    cell["hp"] = 99
+                cells.append(cell)
+        return {"schema": 1, "name": "t", "author": "t",
+                "size": {"cols": 6, "rows": 6}, "fog": False, "waterColor": 0,
+                "terrain": terrain, "cells": cells, "units": []}
+
+    def test_the_anchor_carries_the_anchor_bit_and_the_facing(self):
+        m = schema.from_json(self._doc(A.BLACK_CANNON, "E"))
+        self.assertEqual(m.tiles[1][1].flags,
+                         A.STRUCTURE_ANCHOR | (1 << A.EAST))
+
+    def test_every_other_tile_is_a_body_tile(self):
+        m = schema.from_json(self._doc(A.DEATH_RAY, "S"))
+        for dy in range(3):
+            for dx in range(3):
+                if not (dx or dy):
+                    continue
+                self.assertEqual(m.tiles[1 + dx][1 + dy].flags,
+                                 A.STRUCTURE_BODY, (dx, dy))
+
+    def test_no_tile_of_a_structure_comes_out_zero(self):
+        m = schema.from_json(self._doc(A.BLACK_CANNON, "N"))
+        for x in range(m.cols):
+            for y in range(m.rows):
+                self.assertNotEqual(m.tiles[x][y].flags, 0, (x, y))
+
+    def test_the_facing_survives_a_round_trip(self):
+        for where in ("N", "E", "S", "W"):
+            built = schema.build_document(
+                schema.from_json(self._doc(A.BLACK_CANNON, where)))
+            anchor = next(c for c in built["cells"]
+                          if c["x"] == 1 and c["y"] == 1)
+            self.assertEqual(anchor["facing"], where)
+
+
 class OwnershipThatDoesNotExist(unittest.TestCase):
     """A cannon can be assigned a team, and the game ignores it.
 

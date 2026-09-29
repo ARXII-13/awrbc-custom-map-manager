@@ -107,9 +107,11 @@ the renderer reads it off the neighbours each time it draws, so a road fixes
 itself when you paint beside it. A cannon cannot be derived that way - only
 the mapmaker knows where it should point.
 
-The 3x3 Black Cannon and Death Ray are not in the palette. Placing one means
-writing nine tiles with the right offsets, which the editor cannot do yet; a
-map that already contains them renders correctly, facing included.
+The 3x3 Black Cannon and Death Ray place as a block: click sets the **top-left**
+tile and the other eight follow, with the facing on the anchor and hit points at
+offset [1,0]. Placing one where it will not fit is refused rather than clipped,
+because a partial structure is worse than none, and painting over any part of an
+existing one removes all nine rather than orphaning eight body tiles.
 
 ## Flags are not the editor's job
 
