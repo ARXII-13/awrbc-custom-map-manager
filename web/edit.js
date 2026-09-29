@@ -11,7 +11,8 @@
 // terrain ids.
 
 import { TERRAIN, PRODUCTION, CAPTURABLE, DIRECTIONAL, BREAKABLE_HP,
-         MULTI_TILE, STRUCTURE_SPAN, STRUCTURE_HP_AT,
+         MULTI_TILE, STRUCTURE_SPAN, STRUCTURE_HP_AT, MAX_UNITS_PER_TEAM,
+         IN_GAME_EDITOR_COLS, IN_GAME_EDITOR_ROWS,
          UNIT_STATS, HP_SCALE } from './terrain.js';
 
 const UNDO_LIMIT = 80;
@@ -299,12 +300,24 @@ export function stats(doc) {
 
   const teams = Object.keys(perTeam).map(Number).sort();
   const reasons = [];
+  const notes = [];
   for (const t of teams) {
     const s = perTeam[t];
     if (!s.hq) reasons.push('team ' + t + ' has no HQ');
     else if (!s.units && !s.production) reasons.push('team ' + t + ' has no units or production');
+    if (s.units > MAX_UNITS_PER_TEAM) {
+      reasons.push('team ' + t + ' has ' + s.units + ' units, over the ' +
+                   MAX_UNITS_PER_TEAM + ' limit');
+    }
   }
   if (teams.length < 2) reasons.push('needs at least two armies');
 
-  return { valid: reasons.length === 0, teams, perTeam, reasons };
+  // Advisory rather than blocking: oversized maps play, they just cannot be
+  // opened in the game's own editor.
+  if (doc.size.cols > IN_GAME_EDITOR_COLS || doc.size.rows > IN_GAME_EDITOR_ROWS) {
+    notes.push('bigger than the in-game editor (' + IN_GAME_EDITOR_COLS + 'x' +
+               IN_GAME_EDITOR_ROWS + '); playable, but only editable here');
+  }
+
+  return { valid: reasons.length === 0, teams, perTeam, reasons, notes };
 }

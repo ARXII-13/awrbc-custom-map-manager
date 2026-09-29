@@ -214,7 +214,8 @@ function refresh() {
   document.getElementById("valid").innerHTML =
     '<span class="pill ' + (s.valid ? "ok" : "no") + '">' +
     (s.valid ? "playable" : "not playable") + "</span>";
-  document.getElementById("why").textContent = s.valid ? "" : s.reasons.join("; ");
+  document.getElementById("why").textContent =
+    (s.valid ? [] : s.reasons).concat(s.notes || []).join("; ");
 
   const tb = document.querySelector("#stats tbody");
   tb.innerHTML = "";

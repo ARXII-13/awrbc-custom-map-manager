@@ -117,6 +117,24 @@ offset [1,0]. Placing one where it will not fit is refused rather than clipped,
 because a partial structure is worse than none, and painting over any part of an
 existing one removes all nine rather than orphaning eight body tiles.
 
+## What gets checked
+
+The live check under the map name blocks on things the game will not accept and
+notes things it will:
+
+| | |
+|---|---|
+| at least two armies | error |
+| every army has an HQ | error |
+| every army has a unit or a production property | error |
+| no army over 50 units | error |
+| bigger than the in-game editor's 30x20 | note - plays fine, just not editable in game |
+
+`awrbc/core/validate.py` is the full set and the authoritative one, including
+checks the editor cannot produce but an imported file can - an incomplete 3x3
+structure, ownership on terrain that cannot be owned, an absurd size. Its codes
+are a stable contract; the CLI renders them and archive CI will key off them.
+
 ## Flags are not the editor's job
 
 Export writes **no `flags` grid at all**. `schema.from_json` derives flags from

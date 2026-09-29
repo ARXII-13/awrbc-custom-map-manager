@@ -14,6 +14,7 @@ is correct.
 """
 from dataclasses import dataclass, field
 
+from . import autotile
 from .model import CAPTURABLE, HQ, Map
 
 ERROR = "error"
@@ -29,7 +30,22 @@ KNOWN_TILE_TYPES = {
 }
 KNOWN_UNIT_TYPES = set(range(1, 20))
 
-MAX_REASONABLE_CELLS = 10_000
+#: Advance Wars caps an army at 50 units, and the game enforces it in play.
+MAX_UNITS_PER_TEAM = 50
+
+#: What the in-game Design Room will open. Bigger maps import and play fine -
+#: 40x30 was played to completion and 64x64 loads - but they can only be edited
+#: here, which is worth saying rather than discovering.
+IN_GAME_EDITOR_COLS = 30
+IN_GAME_EDITOR_ROWS = 20
+
+#: The largest size actually confirmed to load. Beyond this is unknown rather
+#: than known-bad, so it warns and does not block.
+LARGEST_TESTED_CELLS = 64 * 64
+
+#: A guard against nonsense, not a measured limit. Nothing is known to fail
+#: here; it exists so a typo cannot ask for a billion tiles.
+MAX_CELLS = 128 * 128
 
 
 @dataclass
@@ -116,6 +132,14 @@ def check(m: Map) -> Report:
             r.add("play.cannotAct", ERROR,
                   "team %d has no production property and no units" % team, "cells")
 
+    for team, counts in sorted(m.per_team().items()):
+        if counts.units > MAX_UNITS_PER_TEAM:
+            r.add("units.tooMany", ERROR,
+                  "team %d has %d units; the limit is %d"
+                  % (team, counts.units, MAX_UNITS_PER_TEAM), "units")
+
+    _check_structures(m, r)
+
     # Advisory: design choices, not defects. The game accepts uneven maps.
     per = m.per_team()
     if per:
@@ -124,11 +148,60 @@ def check(m: Map) -> Report:
             r.add("balance.uneven", WARNING,
                   "property counts range from %d to %d across teams"
                   % (min(counts), max(counts)), "cells")
-    if m.cols * m.rows > MAX_REASONABLE_CELLS:
-        r.add("size.large", WARNING,
-              "%dx%d is %d cells; untested at this size"
-              % (m.cols, m.rows, m.cols * m.rows), "size")
+    cells = m.cols * m.rows
+    if cells > MAX_CELLS:
+        r.add("size.absurd", ERROR,
+              "%dx%d is %d cells, past the %d guard"
+              % (m.cols, m.rows, cells, MAX_CELLS), "size")
+    elif cells > LARGEST_TESTED_CELLS:
+        r.add("size.untested", WARNING,
+              "%dx%d is %d cells; the largest confirmed to load is %d"
+              % (m.cols, m.rows, cells, LARGEST_TESTED_CELLS), "size")
+    if m.cols > IN_GAME_EDITOR_COLS or m.rows > IN_GAME_EDITOR_ROWS:
+        r.add("size.beyondEditor", WARNING,
+              "%dx%d is past the in-game editor's %dx%d; it will play but can "
+              "only be edited outside the game"
+              % (m.cols, m.rows, IN_GAME_EDITOR_COLS, IN_GAME_EDITOR_ROWS),
+              "size")
     if len({t.type for _, _, t in m.iter_tiles()}) < 2:
         r.add("terrain.flat", WARNING, "the map is a single terrain type", "terrain")
 
     return r
+
+
+def _check_structures(m: Map, r: Report) -> None:
+    """Every 3x3 structure must be whole.
+
+    Eight tiles pointing at an anchor that is not there is a map the game reads
+    as broken. The editor cannot produce one, but a hand-written or converted
+    JSON can, so this is checked rather than assumed.
+    """
+    span = 3
+    seen = set()
+    for x, y, t in m.iter_tiles():
+        if t.type not in autotile.MULTI_TILE or (x, y) in seen:
+            continue
+        off = (t.offset.x, t.offset.y) if t.offset else (0, 0)
+        ax, ay = x - off[0], y - off[1]
+        if (ax, ay) in seen:
+            continue
+        missing = []
+        for dy in range(span):
+            for dx in range(span):
+                tx, ty = ax + dx, ay + dy
+                if not (0 <= tx < m.cols and 0 <= ty < m.rows):
+                    missing.append((dx, dy))
+                    continue
+                other = m.tiles[tx][ty]
+                want = (dx, dy)
+                got = (other.offset.x, other.offset.y) if other.offset else (0, 0)
+                if other.type != t.type or got != want:
+                    missing.append(want)
+                else:
+                    seen.add((tx, ty))
+        if missing:
+            r.add("structure.incomplete", ERROR,
+                  "structure at (%d,%d) is missing tiles %s"
+                  % (ax, ay, ", ".join("%d,%d" % o for o in missing)),
+                  "cells[%d,%d]" % (ax, ay))
+        seen.add((ax, ay))

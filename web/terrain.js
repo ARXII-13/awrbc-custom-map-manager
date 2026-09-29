@@ -108,6 +108,11 @@ export const MULTI_TILE = new Set([524288, 8388608]);
 export const STRUCTURE_SPAN = 3;
 export const STRUCTURE_HP_AT = [1, 0];
 
+/** Mirrors awrbc/core/validate.py; keep the two in step. */
+export const MAX_UNITS_PER_TEAM = 50;
+export const IN_GAME_EDITOR_COLS = 30;
+export const IN_GAME_EDITOR_ROWS = 20;
+
 /** Breakable structures, which the game stores with full hit points. */
 export const BREAKABLE_HP = { 65536: 99, 1048576: 99, 2097152: 99 };
 
