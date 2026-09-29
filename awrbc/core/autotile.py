@@ -8,15 +8,17 @@ or the map renders wrong. This module is that.
 retracted - the black screen was a Ryujinx input-config problem, not the map.
 See docs/format.md. Whether zero actually breaks anything is untested.)
 
-Four independent things share the one 32-bit field:
+Six independent things share the one 32-bit field:
 
-    bits 1-4    connection mask: N, W, E, S
-    bits 12-16  per-team sprite, HQ only
-    bits 18-26  decorative variant, chosen at random by the editor
-    bits 29,30  multi-tile structure: 30 anchor, 29 body
     bit 0       set on terrain that has no connection mask
+    bits 1-4    connection mask: N, W, E, S
+    bits 1-4    again, as a facing on a structure's anchor
+    bits 5-8    inner shoreline corners, sea only
+    bits 12-16  per-team sprite, HQ only
+    bits 18-25  decorative variant, chosen at random by the editor
+    bits 29,30  multi-tile structure: 30 anchor, 29 body
 
-Derived by correlating 2,500 tiles of game-authored maps against their
+Derived by correlating ~1,900 tiles of game-authored maps against their
 neighbours; see docs/format.md. Terrain that carries a connection mask is
 reproduced exactly. Decorative variants are not reproducible and do not need
 to be - identical neighbourhoods carry nine different values, so the game is

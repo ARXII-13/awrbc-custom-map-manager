@@ -23,6 +23,14 @@ SCHEMA_VERSION = 1
 
 #: Members we refuse to silently drop. None has ever been non-empty in an
 #: observed map, but losing them quietly would corrupt an archive.
+#: Members of LevelSaveData this schema cannot represent.
+#:
+#: The guard below only ever fires on hand-written or converted JSON, because
+#: nothing in this package produces these keys: savefile.read does not read
+#: them out of a save and to_json does not write them. Every map observed so
+#: far has them empty, so nothing has been lost - but a game-authored map that
+#: used one would be dropped on export rather than refused, and this check
+#: would not catch it. Reading them is the fix if such a map ever turns up.
 UNSUPPORTED = ("AIWaypoints", "MagmaTargets", "TransportedUnits")
 
 

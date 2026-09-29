@@ -83,10 +83,13 @@ top-left corner stays put, growing fills with plains, and shrinking discards
 whatever falls outside - it asks first when that would lose anything. Resize is
 a single undo step, dimensions included.
 
-**64x64 is a hard ceiling** and New will not start a map bigger than that, because
-the CLI and the archive reject one. Between 30x20 and 64x64 the size is flagged as a
-note rather than an error: those maps play fine but the in-game editor will not open
-them, so this is the only place they can be edited.
+**64x64 is a hard ceiling.** Both New and Resize refuse a larger size, because the
+CLI and the archive reject one. Shrinking past a 3x3 structure removes the whole
+structure rather than truncating it into eight orphaned body tiles.
+
+Between 30x20 and 64x64 the size is flagged as a note rather than an error: those
+maps play fine but the in-game editor will not open them, so this is the only place
+they can be edited.
 
 ## The palette is split by who can own a thing
 
@@ -122,22 +125,25 @@ existing one removes all nine rather than orphaning eight body tiles.
 
 ## What gets checked
 
-The live check under the map name blocks on things the game will not accept and
-notes things it will:
+The live check under the map name:
 
-| | |
-|---|---|
-| at least two armies | error |
-| every army has an HQ | error |
-| every army has a unit or a production property | error |
-| no army over 50 units | error |
-| bigger than 64x64 | error - the archive will not accept it |
-| bigger than the in-game editor's 30x20 | note - plays fine, just not editable in game |
+| | | |
+|---|---|---|
+| every army has an HQ | error | the game's own rule |
+| every army has a unit or a production property | error | the game's own rule |
+| at least two armies | error | ours - nobody to play against |
+| no army over 50 units | error | ours - Advance Wars' standard army cap |
+| bigger than 64x64 | error | ours - the archive will not accept it |
+| bigger than the in-game editor's 30x20 | note | plays fine, just not editable in game |
+
+Only the first two are decoded game behaviour; the rest are rules this project
+chose. See docs/format.md for which is which and why it matters.
 
 `awrbc/core/validate.py` is the full set and the authoritative one, including
 checks the editor cannot produce but an imported file can - an incomplete 3x3
-structure, ownership on terrain that cannot be owned, an absurd size. Its codes
-are a stable contract; the CLI renders them and archive CI will key off them.
+structure, ownership on terrain that cannot be owned, a grid that does not match
+its declared size. Its codes are a stable contract; the CLI renders them and
+archive CI will key off them.
 
 ## Flags are not the editor's job
 
@@ -161,9 +167,6 @@ flags imports to a save the game's own deserializer accepts.
 - Icons exist for terrain that needs one, all six property types, and all 19
   units. Plain terrain (grass, sea, road, river) is deliberately bare - an icon
   on every tile is noise.
-- **Resize does not enforce the 64x64 limit.** The New prompt refuses a larger size,
-  and anything over shows as an error in the live check, but Resize will let you go
-  past it. The export is then a map the CLI will refuse to import.
 - A sprite pack does not have to be complete. The one in use here leaves out **pipes
   and pipe seams**: their art is a colour mask that resolves through neither a biome
   palette nor an army colour table, nobody worked out what selects their colours, and

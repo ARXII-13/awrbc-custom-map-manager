@@ -11,9 +11,18 @@ hardware.
 
 ## Status
 
-Phase 1 complete: read, export, import, remove, backup and restore all work. See
-`../docs/phase-1-core-cli.md` for the plan and `../docs/format.md` for the save
-format record.
+**Phase 1 (core and CLI)** — read, export, import, remove, backup and restore.
+
+**Phase 2 (editor)** — a browser map editor in `web/`. Paint terrain, place
+units and structures, live validity, export JSON the CLI imports and the game
+loads. No install and no save access: it speaks map JSON only.
+
+Next is the archive. See `../docs/` for the plan, `../docs/format.md` for the
+save format record, and `web/README.md` for the editor.
+
+Maps are capped at 64x64. That is a policy limit rather than a measured one:
+64x64 is the largest size confirmed to load, and 40x30 the largest played to
+completion.
 
 ## Usage
 
@@ -54,6 +63,7 @@ Run from a checkout with `python -m awrbc.cli <command>`.
 ```
 awrbc/core/    codec, save reading, domain model - never prints, never exits
 awrbc/cli/     the only place that formats output or picks exit codes
+web/           the browser map editor; static, no backend
 tools/         bfcheck.ps1 and nrbfcheck - format validators
 tools/poc/     the reverse-engineering scripts, kept for reference
 tests/

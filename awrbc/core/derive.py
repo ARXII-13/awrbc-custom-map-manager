@@ -41,6 +41,10 @@ def metadata(m: Map) -> dict:
         "NumVersusProperties": versus,
         "MaxInitiallyOwnedVersusProperties": max(
             (v.properties for v in per.values()), default=0),
+        # Not decoded. It equals NumVersusProperties in every observed map, so
+        # that is what gets written - which is a working guess, not knowledge
+        # of what the field counts. tools/poc/bigmap.py computes it as
+        # HQs + Bases instead; one of the two is wrong.
         "NumSurplusTiles": versus,
         "TeamsPlaying": sum(1 << t for t in m.teams),
     }

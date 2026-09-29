@@ -13,7 +13,7 @@ everything else keeps its drawn icon.
 2. Copy `manifest.example.json` to `manifest.json`.
 3. Point `sheets` at your images and fill in each `[col, row]`.
 
-Reload; the sidebar says "sprite pack active" when it loaded.
+Reload; the sidebar names the pack that loaded.
 
 ## Manifest
 

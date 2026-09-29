@@ -1,8 +1,8 @@
 """Typed errors raised by core.
 
-core never prints and never exits. It raises from here; the CLI maps these to
-messages and exit codes, and the server (phase 2, connected mode) maps the same
-errors to HTTP status codes.
+core never prints and never exits. It raises from here and the CLI maps these
+to messages and exit codes. A local server was scoped once and never built; if
+one appears it maps the same errors to HTTP status codes.
 """
 
 

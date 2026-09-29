@@ -301,7 +301,9 @@ export function createEditor(doc, onChange) {
 /**
  * Per-team counts and whether the map is playable.
  *
- * The authoritative rule is `Map.is_playable` in awrbc/core/model.py: every
+ * The authoritative rules live in awrbc/core/validate.py - `Map.is_playable`
+ * in model.py only covers the HQ-and-production clause. This copy exists so
+ * the editor can show the verdict live, and covers the same ground: every
  * team needs an HQ, and at least one unit or one production property. This is
  * a copy so the editor can show it live; keep the two in step.
  */

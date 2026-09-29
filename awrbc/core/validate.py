@@ -30,7 +30,9 @@ KNOWN_TILE_TYPES = {
 }
 KNOWN_UNIT_TYPES = set(range(1, 20))
 
-#: Advance Wars caps an army at 50 units, and the game enforces it in play.
+#: Advance Wars caps an army at 50. This is series knowledge, not something
+#: this project measured - nobody has injected 51 units to watch what the
+#: game does - so it is our rule until someone tries it.
 MAX_UNITS_PER_TEAM = 50
 
 #: What the in-game Design Room will open. Bigger maps import and play fine -
@@ -39,10 +41,10 @@ MAX_UNITS_PER_TEAM = 50
 IN_GAME_EDITOR_COLS = 30
 IN_GAME_EDITOR_ROWS = 20
 
-#: The hard ceiling, in each dimension. 64x64 is the largest size confirmed to
-#: load and play, and it is where the line is drawn rather than a guess at
-#: where the game breaks: past here a map is rejected, not warned about, so the
-#: archive never serves something nobody has run.
+#: The hard ceiling, in each dimension. A policy choice, not a measured limit:
+#: 64x64 is the largest size confirmed to load, 40x30 is the largest actually
+#: played to completion, and nothing is known to fail above either. The line is
+#: drawn here so the archive never serves a size nobody has run.
 MAX_COLS = 64
 MAX_ROWS = 64
 
