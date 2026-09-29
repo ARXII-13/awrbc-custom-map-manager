@@ -170,6 +170,11 @@ flags imports to a save the game's own deserializer accepts.
 - A sprite pack does not have to be complete. The one in use here leaves out **pipes
   and pipe seams**: their art is a colour mask that resolves through neither a biome
   palette nor an army colour table, nobody worked out what selects their colours, and
-  raw mask values look worse than the drawn icons. They fall back to the grey drawn
-  ones, which is the mechanism working as intended.
+  raw mask values came out blue and green. They fall back to the drawn icons, which
+  is the mechanism working as intended.
+- **Pipe and pipe seam are drawn from their connections**, so a run reads as a run.
+  The icon is handed the same `N+E+S+W` set the sprite lookup uses, which is why a
+  corner bends and a seam shows its collar. A drawn icon can take the connection
+  set; before this they were the only terrain with neither an icon nor a sprite, and
+  rendered as a flat grey square.
 

@@ -190,7 +190,10 @@ function drawTile(ctx, doc, cells, x, y, px, py, size, opts) {
   const ink = info.property ? inkFor(owner.color, 0.93) : 'rgba(0,0,0,0.52)';
   if (icon && size >= ICON_MIN) {
     ctx.save();
-    icon(ctx, px, py, size, ink, facing);
+    // Terrain that runs - pipe, seam - draws itself from its connections, the
+    // same set the sprite lookup uses. A structure gets its facing instead.
+    icon(ctx, px, py, size, ink,
+         dirsFor(doc.terrain, x, y, id) || facing);
     ctx.restore();
     return;
   }

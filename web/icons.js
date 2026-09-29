@@ -42,6 +42,51 @@ function cannon(ctx, x, y, s, ink, facing, barrel) {
   ctx.restore();
 }
 
+/**
+ * A length of pipe, drawn along whichever sides it joins.
+ *
+ * Takes the connection set the renderer already works out, so a pipe reads as
+ * a run rather than a grey square. `seam` is the breakable joint: the same
+ * tube with a collar, and lighter, which is how the game distinguishes them.
+ */
+function pipeRun(ctx, x, y, s, dirs, body, edge, collar) {
+  const mid = 0.5, half = 0.19;
+  const legs = {
+    N: [mid - half, 0, half * 2, mid + half],
+    S: [mid - half, mid - half, half * 2, mid + half],
+    W: [0, mid - half, mid + half, half * 2],
+    E: [mid - half, mid - half, mid + half, half * 2],
+  };
+  const joined = dirs ? dirs.split('+').filter(Boolean) : [];
+  ctx.fillStyle = body;
+  if (!joined.length) {
+    // An isolated pipe still has to look like pipe, not like a blank tile.
+    box(ctx, s, x, y, mid - half, mid - half, half * 2, half * 2);
+    ctx.fill();
+  }
+  for (const d of joined) {
+    const [bx, by, bw, bh] = legs[d];
+    box(ctx, s, x, y, bx, by, bw, bh);
+    ctx.fill();
+  }
+  // A highlight along the top of every horizontal run gives it a round edge.
+  ctx.fillStyle = edge;
+  for (const d of joined) {
+    if (d === 'W' || d === 'E') {
+      const [bx, , bw] = legs[d];
+      box(ctx, s, x, y, bx, mid - half, bw, 0.06);
+      ctx.fill();
+    }
+  }
+  if (collar) {
+    ctx.fillStyle = collar;
+    const vertical = joined.includes('N') || joined.includes('S');
+    if (vertical) box(ctx, s, x, y, mid - half - 0.05, mid - 0.07, half * 2 + 0.1, 0.14);
+    else box(ctx, s, x, y, mid - 0.07, mid - half - 0.05, 0.14, half * 2 + 0.1);
+    ctx.fill();
+  }
+}
+
 // --- terrain ---------------------------------------------------------------
 
 export const TERRAIN_ICONS = {
@@ -77,6 +122,14 @@ export const TERRAIN_ICONS = {
     disc(ctx, s, x, y, 0.34, 0.58, 0.15); ctx.fill();
     disc(ctx, s, x, y, 0.62, 0.50, 0.12); ctx.fill();
     disc(ctx, s, x, y, 0.52, 0.70, 0.13); ctx.fill();
+  },
+  // Pipe: dark metal, welded shut, impassable.
+  32768(ctx, x, y, s, ink, dirs) {
+    pipeRun(ctx, x, y, s, dirs, '#5d6470', '#8f97a4', null);
+  },
+  // Pipe seam: the same run with a collar, lighter because it can be broken.
+  65536(ctx, x, y, s, ink, dirs) {
+    pipeRun(ctx, x, y, s, dirs, '#6d7684', '#a8b0bd', '#cfd6e0');
   },
   // Silo: a rocket nose on a pad.
   33554432(ctx, x, y, s, ink) {
