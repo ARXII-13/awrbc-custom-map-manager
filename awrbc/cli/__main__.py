@@ -254,6 +254,41 @@ def cmd_import(args, out):
     return EXIT_OK
 
 
+def _read_submission(path):
+    """Read a map from a .json file, a bundle directory, or a .zip of one.
+
+    Returns ``(document, preview_bytes_or_None)``. The editor's bundle carries a
+    preview drawn by its own renderer, which is a better picture than anything
+    this package can produce - it has the icons, and Python does not.
+    """
+    if os.path.isdir(path):
+        with open(os.path.join(path, "map.json"), encoding="utf-8") as fh:
+            doc = json.load(fh)
+        shot = os.path.join(path, "preview.png")
+        if os.path.exists(shot):
+            with open(shot, "rb") as fh:
+                return doc, fh.read()
+        return doc, None
+
+    if path.lower().endswith(".zip"):
+        import zipfile
+        with zipfile.ZipFile(path) as z:
+            names = z.namelist()
+            # Tolerate a zip that wraps its contents in a folder, which is what
+            # a round trip through a file manager usually produces.
+            entry = next((n for n in names
+                          if n.rsplit("/", 1)[-1] == "map.json"), None)
+            if entry is None:
+                raise MapNotFound("%s has no map.json in it" % path)
+            doc = json.loads(z.read(entry).decode("utf-8"))
+            stem = entry[:-len("map.json")]
+            shot = stem + "preview.png"
+            return doc, (z.read(shot) if shot in names else None)
+
+    with open(path, encoding="utf-8") as fh:
+        return json.load(fh), None
+
+
 def cmd_publish(args, out):
     """Place a map in a local checkout of the library.
 
@@ -269,8 +304,7 @@ def cmd_publish(args, out):
     if not os.path.isdir(root):
         raise MapNotFound("no library checkout at %s" % root)
 
-    with open(args.file, encoding="utf-8") as fh:
-        doc = json.load(fh)
+    doc, supplied = _read_submission(args.file)
     m = schema.from_json(doc)
 
     report = validate.check(m)
@@ -317,9 +351,10 @@ def cmd_publish(args, out):
     shot = os.path.join(os.path.dirname(target),
                         preview.preview_file(placement.version))
     with open(shot, "wb") as fh:
-        fh.write(preview.render(m))
+        fh.write(supplied if supplied else preview.render(m))
     result["preview"] = "/".join([placement.folder,
                                   preview.preview_file(placement.version)])
+    result["previewFrom"] = "bundle" if supplied else "generated"
 
     if args.json:
         json.dump(result, out, indent=2)

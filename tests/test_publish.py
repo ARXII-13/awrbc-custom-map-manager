@@ -247,6 +247,71 @@ class Refusals(PublishCase):
         self.assertEqual(code, PublishRefused.exit_code)
         self.assertEqual(len(catalog.map_files(self.library)), 1)
 
+    def test_a_bundle_zip_publishes_with_its_own_preview(self):
+        """What the editor's Export bundle produces."""
+        import zipfile
+        src, doc = self.source(name="Daibi")
+        bundle = os.path.join(self.tmp, "daibi.zip")
+        with zipfile.ZipFile(bundle, "w") as z:
+            z.writestr("map.json", json.dumps(doc))
+            z.writestr("preview.png", b"\x89PNG\r\n\x1a\nfrom the editor")
+
+        code, text = self.publish(bundle)
+        self.assertEqual(code, 0, text)
+        with open(os.path.join(self.library, "maps", "2p", "daibi", "v1.png"),
+                  "rb") as fh:
+            self.assertEqual(fh.read(), b"\x89PNG\r\n\x1a\nfrom the editor")
+
+    def test_a_bundle_wrapped_in_a_folder_still_works(self):
+        """A round trip through a file manager usually adds one."""
+        import zipfile
+        src, doc = self.source(name="Daibi")
+        bundle = os.path.join(self.tmp, "wrapped.zip")
+        with zipfile.ZipFile(bundle, "w") as z:
+            z.writestr("daibi/map.json", json.dumps(doc))
+            z.writestr("daibi/preview.png", b"\x89PNG\r\n\x1a\nnested")
+
+        code, text = self.publish(bundle)
+        self.assertEqual(code, 0, text)
+        with open(os.path.join(self.library, "maps", "2p", "daibi", "v1.png"),
+                  "rb") as fh:
+            self.assertEqual(fh.read(), b"\x89PNG\r\n\x1a\nnested")
+
+    def test_a_bundle_without_a_preview_gets_a_generated_one(self):
+        import zipfile
+        src, doc = self.source(name="Daibi")
+        bundle = os.path.join(self.tmp, "bare.zip")
+        with zipfile.ZipFile(bundle, "w") as z:
+            z.writestr("map.json", json.dumps(doc))
+
+        self.assertEqual(self.publish(bundle)[0], 0)
+        shot = os.path.join(self.library, "maps", "2p", "daibi", "v1.png")
+        with open(shot, "rb") as fh:
+            self.assertEqual(fh.read()[:8], b"\x89PNG\r\n\x1a\n")
+
+    def test_a_bundle_directory_works_too(self):
+        """Somebody will unzip it before running the command."""
+        src, doc = self.source(name="Daibi")
+        folder = os.path.join(self.tmp, "daibi-bundle")
+        os.makedirs(folder)
+        with open(os.path.join(folder, "map.json"), "w", encoding="utf-8") as fh:
+            json.dump(doc, fh)
+        with open(os.path.join(folder, "preview.png"), "wb") as fh:
+            fh.write(b"\x89PNG\r\n\x1a\nunzipped")
+
+        self.assertEqual(self.publish(folder)[0], 0)
+        with open(os.path.join(self.library, "maps", "2p", "daibi", "v1.png"),
+                  "rb") as fh:
+            self.assertEqual(fh.read(), b"\x89PNG\r\n\x1a\nunzipped")
+
+    def test_a_zip_with_no_map_in_it_says_so(self):
+        import zipfile
+        bundle = os.path.join(self.tmp, "empty.zip")
+        with zipfile.ZipFile(bundle, "w") as z:
+            z.writestr("readme.txt", "nothing here")
+        code, _ = self.publish(bundle)
+        self.assertNotEqual(code, 0)
+
     def test_a_missing_library_is_refused_before_anything_is_read(self):
         src, _ = self.source()
         out = io.StringIO()
@@ -326,19 +391,29 @@ class Catalog(PublishCase):
         self.assertTrue(os.path.exists(
             os.path.join(self.library, "maps", "2p", "daibi", "v1.png")))
 
-    def test_check_notices_a_preview_that_no_longer_matches(self):
-        """A stale preview is a lie in the browser, so CI has to catch it."""
+    def test_check_notices_a_missing_preview(self):
         src, _ = self.source(name="Daibi")
         self.publish(src)
         self.run_cli("catalog", "--library", self.library)
-        shot = os.path.join(self.library, "maps", "2p", "daibi", "v1.png")
-        with open(shot, "wb") as fh:
-            fh.write(b"\x89PNG\r\n\x1a\nnot really")
+        os.remove(os.path.join(self.library, "maps", "2p", "daibi", "v1.png"))
 
         code, text = self.run_cli("catalog", "--library", self.library,
                                   "--check")
         self.assertEqual(code, ValidationFailed.exit_code)
         self.assertIn("maps/2p/daibi/v1.png", text)
+
+    def test_regenerating_leaves_an_existing_preview_alone(self):
+        """A bundle's preview is drawn by the editor, which has the icons. This
+        package cannot reproduce it, so it must not overwrite it."""
+        src, _ = self.source(name="Daibi")
+        self.publish(src)
+        shot = os.path.join(self.library, "maps", "2p", "daibi", "v1.png")
+        with open(shot, "wb") as fh:
+            fh.write(b"pretend this came from the editor")
+
+        self.run_cli("catalog", "--library", self.library)
+        with open(shot, "rb") as fh:
+            self.assertEqual(fh.read(), b"pretend this came from the editor")
 
     def test_check_notices_a_missing_readme(self):
         src, _ = self.source(name="Daibi")

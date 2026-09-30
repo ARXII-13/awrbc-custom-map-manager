@@ -91,6 +91,7 @@
   <button id="new">New</button>
   <label class="btn">Open<input id="file" type="file" accept=".json" hidden></label>
   <button id="export">Export</button>
+  <button id="bundle" title="Map JSON and a preview image, zipped for submitting">Export bundle</button>
   <span class="sep"></span>
   <button data-tool="paint" aria-pressed="true" title="Paint terrain (B)">Paint</button>
   <button data-tool="fill" aria-pressed="false" title="Flood fill (G)">Fill</button>
@@ -155,7 +156,7 @@
 </div>
 
 <script type="module">
-import { drawMap, fitTile, cellIndex } from "./render.js";
+import { drawMap, fitTile, cellIndex, poster } from "./render.js";
 import { UNITS, TEAMS, TERRAIN_PALETTE, STRUCTURES, NEUTRAL_STRUCTURES,
          DIRECTIONAL, MULTI_TILE, STRUCTURE_SPAN, RUNS, MAX_COLS, MAX_ROWS,
          terrain, team } from "./terrain.js";
@@ -163,6 +164,7 @@ import { TERRAIN_ICONS, PROPERTY_ICONS, UNIT_ICONS } from "./icons.js";
 import { loadPack, packLabel, spriteFor } from "./sprites.js";
 import { createEditor, emptyMap, stats } from "./edit.js";
 import { available as repairsFor } from "./fixes.js";
+import { zip } from "./zip.js";
 
 const canvas = document.getElementById("c");
 const ctx = canvas.getContext("2d");
@@ -692,9 +694,9 @@ document.getElementById("file").onchange = (e) => {
   });
 };
 
-document.getElementById("export").onclick = () => {
-  // Flags are omitted on purpose: `awrbc import` derives them from terrain, so
-  // the autotile rule stays in one place. See edit.js.
+// Flags are omitted on purpose: `awrbc import` derives them from terrain, so
+// the autotile rule stays in one place. See edit.js.
+function exportDocument() {
   const out = {
     schema: 1,
     name: doc.name || "Untitled",
@@ -708,12 +710,44 @@ document.getElementById("export").onclick = () => {
   };
   if (doc.tags && doc.tags.length) out.tags = [...doc.tags].sort();
   if (doc.version && doc.version !== 1) out.version = doc.version;
-  const blob = new Blob([JSON.stringify(out, null, 1)], { type: "application/json" });
+  return out;
+}
+
+function baseName() {
+  return (doc.name || "map").replace(/[^\w.-]+/g, "_");
+}
+
+function download(blob, filename) {
   const a = document.createElement("a");
   a.href = URL.createObjectURL(blob);
-  a.download = (doc.name || "map").replace(/[^\w.-]+/g, "_") + ".json";
+  a.download = filename;
   a.click();
   URL.revokeObjectURL(a.href);
+}
+
+document.getElementById("export").onclick = () => {
+  download(new Blob([JSON.stringify(exportDocument(), null, 1)],
+                    { type: "application/json" }), baseName() + ".json");
+};
+
+// Tile size for the bundled preview. Big enough that the drawn icons read -
+// below about 12px they degrade to letters - and fixed rather than fitted, so
+// every map in the archive is drawn at one scale and a big map looks big.
+const PREVIEW_TILE = 16;
+
+document.getElementById("bundle").onclick = async () => {
+  const out = exportDocument();
+  // `sprites` is left at its default of false. The preview in a bundle is
+  // meant to be committed to a public repository, and the sprite pack is local
+  // art that must not be - see decision #37 and render.js. Whether a pack
+  // happens to be loaded here makes no difference to what goes in the zip.
+  const canvas = poster(out, PREVIEW_TILE);
+  const png = await new Promise((resolve) => canvas.toBlob(resolve, "image/png"));
+
+  download(zip({
+    "map.json": JSON.stringify(out, null, 1),
+    "preview.png": await png.arrayBuffer(),
+  }), baseName() + ".zip");
 };
 
 addEventListener("keydown", (e) => {

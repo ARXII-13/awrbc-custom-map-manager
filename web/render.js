@@ -156,7 +156,11 @@ function drawTile(ctx, doc, cells, x, y, px, py, size, opts) {
   }
 
   const facing = facingFor(cells, x, y);
-  const sprite = spriteFor(info.property ? 'property' : 'terrain', id, {
+  // `sprites: false` forces the drawn icons even when a pack is loaded. The
+  // archive renders this way: a pack is local and gitignored (decision #37),
+  // so an image made from one must never be what gets published.
+  const sprite = opts.sprites === false ? null :
+    spriteFor(info.property ? 'property' : 'terrain', id, {
     team: cell ? cell.team : null,
     dirs: dirsFor(doc.terrain, x, y, id),
     variant: variantFor(x, y),
@@ -170,7 +174,8 @@ function drawTile(ctx, doc, cells, x, y, px, py, size, opts) {
     // on open ground, so lay the ground down first. Without it a building
     // stands on a solid square of its owner's colour.
     if (id !== GROUND) {
-      const under = spriteFor('terrain', GROUND, { variant: variantFor(x, y) });
+      const under = opts.sprites === false ? null :
+        spriteFor('terrain', GROUND, { variant: variantFor(x, y) });
       if (under) blit(ctx, under, px, py, size);
     }
     blit(ctx, sprite, px, py, size);
@@ -207,12 +212,13 @@ function drawTile(ctx, doc, cells, x, y, px, py, size, opts) {
   }
 }
 
-function drawUnit(ctx, unit, px, py, size) {
+function drawUnit(ctx, unit, px, py, size, opts = {}) {
   const owner = team(unit.team);
   const inset = size * 0.16;
   const w = size - inset * 2;
 
-  const sprite = spriteFor('unit', unit.type, { team: unit.team });
+  const sprite = opts.sprites === false ? null :
+    spriteFor('unit', unit.type, { team: unit.team });
   if (sprite) {
     blit(ctx, sprite, px, py, size);
     drawHealth(ctx, unit, px, py, size, inset, w);
@@ -310,7 +316,7 @@ export function drawMap(ctx, doc, opts = {}) {
   if (opts.units !== false) {
     for (const u of doc.units || []) {
       if (u.x < x0 || u.x >= x1 || u.y < y0 || u.y >= y1) continue;
-      drawUnit(ctx, u, ox + u.x * size, oy + u.y * size, size);
+      drawUnit(ctx, u, ox + u.x * size, oy + u.y * size, size, opts);
     }
   }
 }
@@ -327,6 +333,33 @@ export function thumbnail(doc, width, height) {
     originX: Math.floor((width - size * doc.size.cols) / 2),
     originY: Math.floor((height - size * doc.size.rows) / 2),
     grid: false, glyphs: false,
+  });
+  return canvas;
+}
+
+/**
+ * A whole map at a fixed tile size, for the archive preview.
+ *
+ * Unlike `thumbnail`, which fits a map into a box, this keeps every map at the
+ * same scale - so a 64x64 map looks big next to a 10x10 one, which is true and
+ * is what someone browsing wants to know.
+ *
+ * `sprites` defaults to false: what this produces is meant to be committed to
+ * a public repository, and the sprite pack is local art that must not be
+ * (decision #37). Pass `{ sprites: true }` only for something staying on this
+ * machine.
+ */
+export function poster(doc, tilePx = 16, opts = {}) {
+  const canvas = document.createElement('canvas');
+  canvas.width = doc.size.cols * tilePx;
+  canvas.height = doc.size.rows * tilePx;
+  drawMap(canvas.getContext('2d'), doc, {
+    size: tilePx,
+    width: canvas.width,
+    height: canvas.height,
+    grid: false,
+    glyphs: true,
+    sprites: opts.sprites === true,
   });
   return canvas;
 }

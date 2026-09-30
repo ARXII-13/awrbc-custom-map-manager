@@ -199,8 +199,18 @@ def regenerate(root, keep_dates_from=None):
     files = {}
     for path, m in maps.items():
         p = archive.parse(path)
-        files["/".join([p.folder, preview.preview_file(p.version)])] = \
-            preview.render(m)
+        shot = "/".join([p.folder, preview.preview_file(p.version)])
+        # Only draw one that is not already there. A bundle from the editor
+        # carries a better picture than this package can make - the editor has
+        # the drawn icons and Python does not - so regenerating unconditionally
+        # would replace it with flat blocks on the next merge.
+        #
+        # The cost is real and worth stating: this catches a *missing* preview,
+        # not one that no longer matches its map. Nothing here can redraw an
+        # editor preview to compare against. A changed preview is visible in the
+        # pull request that changes it, which is where it gets caught instead.
+        if not os.path.exists(os.path.join(root, *shot.split("/"))):
+            files[shot] = preview.render(m)
     for folder, entry in index.items():
         files["/".join([folder, "README.md"])] = \
             preview.readme(entry, folder).encode("utf-8")
