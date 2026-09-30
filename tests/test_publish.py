@@ -311,6 +311,62 @@ class Catalog(PublishCase):
         self.run_cli("catalog", "--library", self.library)
         self.assertEqual(first, open(path, encoding="utf-8").read())
 
+    def test_it_generates_a_preview_and_a_readme_per_map(self):
+        src, _ = self.source(name="Daibi")
+        self.publish(src)
+        self.run_cli("catalog", "--library", self.library)
+        for name in ("v1.json", "v1.png", "README.md"):
+            self.assertTrue(os.path.exists(
+                os.path.join(self.library, "maps", "2p", "daibi", name)), name)
+
+    def test_publish_writes_the_preview_with_the_map(self):
+        """So the branch a contributor pushes shows an image in the PR."""
+        src, _ = self.source(name="Daibi")
+        self.publish(src)
+        self.assertTrue(os.path.exists(
+            os.path.join(self.library, "maps", "2p", "daibi", "v1.png")))
+
+    def test_check_notices_a_preview_that_no_longer_matches(self):
+        """A stale preview is a lie in the browser, so CI has to catch it."""
+        src, _ = self.source(name="Daibi")
+        self.publish(src)
+        self.run_cli("catalog", "--library", self.library)
+        shot = os.path.join(self.library, "maps", "2p", "daibi", "v1.png")
+        with open(shot, "wb") as fh:
+            fh.write(b"\x89PNG\r\n\x1a\nnot really")
+
+        code, text = self.run_cli("catalog", "--library", self.library,
+                                  "--check")
+        self.assertEqual(code, ValidationFailed.exit_code)
+        self.assertIn("maps/2p/daibi/v1.png", text)
+
+    def test_check_notices_a_missing_readme(self):
+        src, _ = self.source(name="Daibi")
+        self.publish(src)
+        self.run_cli("catalog", "--library", self.library)
+        os.remove(os.path.join(self.library, "maps", "2p", "daibi",
+                               "README.md"))
+        code, text = self.run_cli("catalog", "--library", self.library,
+                                  "--check")
+        self.assertEqual(code, ValidationFailed.exit_code)
+        self.assertIn("README.md", text)
+
+    def test_check_passes_on_a_freshly_generated_tree(self):
+        """The check has to be quiet when nothing is wrong, or it is ignored."""
+        src, _ = self.source(name="Daibi")
+        self.publish(src)
+        self.run_cli("catalog", "--library", self.library)
+        code, _ = self.run_cli("catalog", "--library", self.library, "--check")
+        self.assertEqual(code, 0)
+
+    def test_regenerating_writes_nothing_when_nothing_changed(self):
+        """Otherwise every CI run commits a no-op diff."""
+        src, _ = self.source(name="Daibi")
+        self.publish(src)
+        self.run_cli("catalog", "--library", self.library)
+        _, text = self.run_cli("catalog", "--library", self.library)
+        self.assertNotIn("wrote", text)
+
     def test_publish_can_read_the_tree_instead_of_the_index(self):
         """A stale catalog must not let a duplicate through."""
         src, _ = self.source(name="Daibi")

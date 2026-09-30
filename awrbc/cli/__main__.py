@@ -11,8 +11,8 @@ import re
 import subprocess
 import sys
 
-from ..core import (archive, backup, catalog, identify, locate, savefile,
-                    schema, validate)
+from ..core import (archive, backup, catalog, identify, locate, preview,
+                    savefile, schema, validate)
 from ..core.errors import (AwrbcError, MapNotFound, PublishRefused, SaveInUse,
                            SaveNotFound, ValidationFailed)
 
@@ -311,6 +311,16 @@ def cmd_publish(args, out):
         json.dump(built, fh, indent=1, ensure_ascii=False)
         fh.write("\n")
 
+    # The preview goes down with the map rather than waiting for a catalog run,
+    # so what the contributor pushes is what a reviewer sees in the pull
+    # request. `awrbc catalog` regenerates it along with everything else.
+    shot = os.path.join(os.path.dirname(target),
+                        preview.preview_file(placement.version))
+    with open(shot, "wb") as fh:
+        fh.write(preview.render(m))
+    result["preview"] = "/".join([placement.folder,
+                                  preview.preview_file(placement.version)])
+
     if args.json:
         json.dump(result, out, indent=2)
         out.write("\n")
@@ -325,10 +335,12 @@ def cmd_publish(args, out):
     out.write("\nTo submit it:\n")
     out.write("  cd %s\n" % root)
     out.write("  git checkout -b %s\n" % placement.folder.replace("maps/", ""))
+    # Add the folder, not the file: the preview sits beside the JSON and a
+    # branch pushed without it shows a broken image in the pull request.
+    message = ("'Add %s'" % m.name if placement.kind == archive.NEW
+               else "'Update %s to v%d'" % (m.name, placement.version))
     out.write("  git add %s && git commit -m %s\n"
-              % (placement.path, "'Add %s'" % m.name if placement.kind ==
-                 archive.NEW else "'Update %s to v%d'" % (m.name,
-                                                          placement.version)))
+              % (placement.folder, message))
     out.write("  git push -u origin HEAD\n")
     return EXIT_OK
 
@@ -339,27 +351,45 @@ def _write_warnings(out, report):
 
 
 def cmd_catalog(args, out):
-    """Regenerate the index from the map files. What CI runs on merge."""
+    """Regenerate the catalog, previews and folder READMEs.
+
+    What CI runs on merge, and with --check what it runs on a pull request: the
+    generated files are committed, so they can be out of step with the maps
+    beside them and something has to notice.
+    """
     root = args.library or os.environ.get("AWRBC_LIBRARY")
     if not root or not os.path.isdir(root):
         raise MapNotFound("give --library pointing at a library checkout")
 
-    index, problems = catalog.build(root, keep_dates_from=catalog.load(root))
-    if not args.check:
-        catalog.dump(index, root)
+    files, problems = catalog.regenerate(root,
+                                         keep_dates_from=catalog.load(root))
+    drifted = catalog.stale(root, files) if args.check else []
+    written = [] if args.check else catalog.write_generated(root, files)
+    count = len(catalog.load(root)) if args.check else \
+        len(json.loads(files[catalog.FILENAME].decode("utf-8"))["maps"])
 
     if args.json:
-        json.dump({"count": len(index), "problems": problems}, out, indent=2)
+        json.dump({"count": count, "problems": problems,
+                   "stale": drifted, "written": written}, out, indent=2)
         out.write("\n")
     else:
         for p in problems:
             out.write("  unreadable %s: %s\n" % (p["path"], p["error"]))
+        for rel in drifted:
+            out.write("  stale      %s\n" % rel)
+        if written:
+            out.write("  wrote %d file%s\n"
+                      % (len(written), "" if len(written) == 1 else "s"))
         out.write("%d map%s in the catalog%s\n"
-                  % (len(index), "" if len(index) == 1 else "s",
-                     " (not written)" if args.check else ""))
+                  % (count, "" if count == 1 else "s",
+                     " (checked, not written)" if args.check else ""))
+
     # One bad file does not make the catalog unbuildable, but it does mean the
-    # archive has something in it that nobody can read.
-    return EXIT_OK if not problems else ValidationFailed.exit_code
+    # archive holds something nobody can read. Drift is the same severity: a
+    # preview that no longer matches its map is a lie in the browser.
+    if problems or drifted:
+        return ValidationFailed.exit_code
+    return EXIT_OK
 
 
 def cmd_remove(args, out):

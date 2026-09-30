@@ -165,3 +165,99 @@ def dump(catalog, root):
         json.dump(payload, fh, indent=1, sort_keys=True, ensure_ascii=False)
         fh.write("\n")
     return path
+
+
+# --- Generated files --------------------------------------------------------
+#
+# The catalog is not the only thing in the repository that is computed from the
+# map files: each version has a preview image and each map folder a README. All
+# of it is regenerated together, because a README that disagreed with the
+# catalog beside it would be worse than having neither.
+
+
+def regenerate(root, keep_dates_from=None):
+    """Recompute every generated file. Returns ``(files, problems)``.
+
+    ``files`` maps a repo-relative path to the bytes it should contain, so the
+    caller can either write them or compare - which is the difference between
+    what a merge does and what a pull request check does.
+    """
+    from . import preview
+
+    dates = previous_dates(keep_dates_from)
+    index, problems, maps = {}, [], {}
+    for path in map_files(root):
+        try:
+            with open(os.path.join(root, path), encoding="utf-8") as fh:
+                doc = json.load(fh)
+            m = schema.from_json(doc)
+            add(index, m, doc, path, dates.get(path))
+            maps[path] = m
+        except Exception as exc:                        # noqa: BLE001
+            problems.append({"path": path, "error": str(exc)})
+
+    files = {}
+    for path, m in maps.items():
+        p = archive.parse(path)
+        files["/".join([p.folder, preview.preview_file(p.version)])] = \
+            preview.render(m)
+    for folder, entry in index.items():
+        files["/".join([folder, "README.md"])] = \
+            preview.readme(entry, folder).encode("utf-8")
+    files[FILENAME] = payload_bytes(index)
+    return files, problems
+
+
+def payload_bytes(catalog):
+    """The catalog as it is written, so it can be compared without writing."""
+    payload = {
+        "schema": SCHEMA_VERSION,
+        "generated": _today(),
+        "count": len(catalog),
+        "maps": catalog,
+    }
+    return (json.dumps(payload, indent=1, sort_keys=True, ensure_ascii=False)
+            + "\n").encode("utf-8")
+
+
+def write_generated(root, files):
+    """Write the generated files, returning the paths that actually changed."""
+    changed = []
+    for rel, data in sorted(files.items()):
+        target = os.path.join(root, *rel.split("/"))
+        if os.path.exists(target):
+            with open(target, "rb") as fh:
+                if fh.read() == data:
+                    continue
+        os.makedirs(os.path.dirname(target), exist_ok=True)
+        with open(target, "wb") as fh:
+            fh.write(data)
+        changed.append(rel)
+    return changed
+
+
+def stale(root, files):
+    """Generated files that are missing or out of step with the map beside them.
+
+    ``catalog.json`` carries a generation date, so it differs on any day it is
+    rebuilt whether or not anything changed. Comparing it byte for byte would
+    make every check fail the next morning, so it is compared on content.
+    """
+    out = []
+    for rel, data in sorted(files.items()):
+        target = os.path.join(root, *rel.split("/"))
+        if not os.path.exists(target):
+            out.append(rel)
+            continue
+        with open(target, "rb") as fh:
+            existing = fh.read()
+        if rel == FILENAME:
+            try:
+                if json.loads(existing.decode("utf-8")).get("maps") == \
+                        json.loads(data.decode("utf-8")).get("maps"):
+                    continue
+            except Exception:                           # noqa: BLE001
+                pass
+        if existing != data:
+            out.append(rel)
+    return out
