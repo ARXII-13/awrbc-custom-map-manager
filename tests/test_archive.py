@@ -10,7 +10,7 @@ that is the behaviour worth protecting.
 """
 import unittest
 
-from awrbc.core import archive, identity, schema, validate
+from awrbc.core import archive, schema, validate
 
 
 def a_map(cols=12, rows=10, name="Daibi", teams=2, tags=None, version=1,
@@ -93,13 +93,13 @@ class Categories(unittest.TestCase):
     def test_every_category_parses(self):
         for teams in (2, 3, 4, 5):
             m, doc = a_map(teams=teams)
-            archive.parse(archive.path_for(m, doc=doc))
+            archive.parse(archive.path_for(m))
 
 
 class Paths(unittest.TestCase):
     def test_full_path(self):
         m, doc = a_map(name="Twin Rivers", teams=4, version=3)
-        self.assertEqual(archive.path_for(m, doc=doc),
+        self.assertEqual(archive.path_for(m),
                          "maps/4p/twin-rivers/v3.json")
 
     def test_round_trip(self):
@@ -180,7 +180,7 @@ def catalog_of(*entries):
 class Publishing(unittest.TestCase):
     def test_a_first_upload_lands_at_v1(self):
         m, doc = a_map(name="Daibi")
-        p = archive.plan(m, doc, {})
+        p = archive.plan(m, {})
         self.assertEqual(p.kind, archive.NEW)
         self.assertEqual(p.path, "maps/2p/daibi/v1.json")
         self.assertEqual(p.version, 1)
@@ -189,13 +189,13 @@ class Publishing(unittest.TestCase):
     def test_the_uploader_does_not_pick_the_category_or_the_version(self):
         """Everything but the JSON is worked out, which is the point of deriving."""
         m, doc = a_map(name="Big Fight", teams=4, version=99)
-        p = archive.plan(m, doc, {})
+        p = archive.plan(m, {})
         self.assertEqual(p.path, "maps/4p/big-fight/v1.json")
 
     def test_an_update_takes_the_next_version(self):
         m, doc = a_map(name="Daibi")
         cat = catalog_of(("maps/2p/daibi", "tester", [(1, "old"), (2, "older")]))
-        p = archive.plan(m, doc, cat, update="2p/daibi", author="tester")
+        p = archive.plan(m, cat, update="2p/daibi", author="tester")
         self.assertEqual(p.kind, archive.REVISION)
         self.assertEqual(p.path, "maps/2p/daibi/v3.json")
 
@@ -203,14 +203,14 @@ class Publishing(unittest.TestCase):
         m, doc = a_map()
         cat = catalog_of(("maps/2p/daibi", None, [(1, "old")]))
         for ref in ("2p/daibi", "maps/2p/daibi", "maps/2p/daibi/v1.json"):
-            self.assertEqual(archive.plan(m, doc, cat, update=ref).path,
+            self.assertEqual(archive.plan(m, cat, update=ref).path,
                              "maps/2p/daibi/v2.json", ref)
 
     def test_identical_bytes_are_a_duplicate_wherever_they_came_from(self):
         m, doc = a_map(name="Daibi")
-        digest = identity.content_hash(doc)
+        digest = archive.map_hash(m)
         cat = catalog_of(("maps/2p/something-else", "tester", [(1, digest)]))
-        p = archive.plan(m, doc, cat)
+        p = archive.plan(m, cat)
         self.assertEqual(p.kind, archive.DUPLICATE)
         self.assertFalse(p.ok)
         self.assertIn("maps/2p/something-else/v1.json", p.reason)
@@ -219,21 +219,21 @@ class Publishing(unittest.TestCase):
         """The hash excludes name, author, tags and version - so a v2 with no
         actual edit cannot be published, even renamed and retagged."""
         m, doc = a_map(name="Daibi")
-        digest = identity.content_hash(doc)
+        digest = archive.map_hash(m)
         cat = catalog_of(("maps/2p/daibi", "tester", [(1, digest)]))
         m.name, m.tags, m.version = "Daibi Remastered", ["competitive"], 2
         doc["name"], doc["tags"], doc["version"] = m.name, m.tags, m.version
-        p = archive.plan(m, doc, cat, update="2p/daibi", author="tester")
+        p = archive.plan(m, cat, update="2p/daibi", author="tester")
         self.assertEqual(p.kind, archive.DUPLICATE)
 
     def test_a_real_edit_publishes_as_the_next_version(self):
         m, doc = a_map(name="Daibi")
         cat = catalog_of(("maps/2p/daibi", "tester",
-                          [(1, identity.content_hash(doc))]))
+                          [(1, archive.map_hash(m))]))
         m2, doc2 = a_map(name="Daibi")
         doc2["terrain"][5][5] = 16
         m2 = schema.from_json(doc2)
-        p = archive.plan(m2, doc2, cat, update="2p/daibi", author="tester")
+        p = archive.plan(m2, cat, update="2p/daibi", author="tester")
         self.assertEqual(p.kind, archive.REVISION)
         self.assertEqual(p.path, "maps/2p/daibi/v2.json")
 
@@ -241,27 +241,27 @@ class Publishing(unittest.TestCase):
         """Two people naming a map the same thing is not lineage."""
         m, doc = a_map(name="Daibi")
         cat = catalog_of(("maps/2p/daibi", "someone-else", [(1, "other")]))
-        p = archive.plan(m, doc, cat)
+        p = archive.plan(m, cat)
         self.assertEqual(p.kind, archive.CONFLICT)
         self.assertIn("--update", p.reason)
 
     def test_updating_something_that_is_not_there(self):
         m, doc = a_map()
-        p = archive.plan(m, doc, {}, update="2p/nothing")
+        p = archive.plan(m, {}, update="2p/nothing")
         self.assertEqual(p.kind, archive.CONFLICT)
         self.assertIn("nothing at maps/2p/nothing", p.reason)
 
     def test_revising_someone_elses_map_needs_a_maintainer(self):
         m, doc = a_map(name="Daibi")
         cat = catalog_of(("maps/2p/daibi", "original-author", [(1, "old")]))
-        p = archive.plan(m, doc, cat, update="2p/daibi", author="someone-else")
+        p = archive.plan(m, cat, update="2p/daibi", author="someone-else")
         self.assertEqual(p.kind, archive.CONFLICT)
         self.assertIn("maintainer", p.reason)
 
     def test_the_planned_path_is_one_ci_would_accept(self):
         """The two halves of the pipeline have to agree, or submissions bounce."""
         m, doc = a_map(name="Twin Rivers", teams=4)
-        p = archive.plan(m, doc, {})
+        p = archive.plan(m, {})
         m.version = p.version
         self.assertEqual(archive.check_path(p.path, m).errors, [])
 
@@ -269,7 +269,7 @@ class Publishing(unittest.TestCase):
         """The archive assigns the version; the file has to be told."""
         m, doc = a_map(name="Daibi", version=1)
         cat = catalog_of(("maps/2p/daibi", "tester", [(1, "old"), (2, "old2")]))
-        p = archive.plan(m, doc, cat, update="2p/daibi", author="tester")
+        p = archive.plan(m, cat, update="2p/daibi", author="tester")
         self.assertEqual([f.code for f in archive.check_path(p.path, m).errors],
                          ["path.version"])
         m.version = p.version
@@ -280,7 +280,7 @@ class PublishedMapsAreValid(unittest.TestCase):
     def test_planning_does_not_replace_validation(self):
         """Placement and soundness are different questions; CI asks both."""
         m, doc = a_map(name="Daibi")
-        self.assertTrue(archive.plan(m, doc, {}).ok)
+        self.assertTrue(archive.plan(m, {}).ok)
         self.assertTrue(validate.check(m).ok)
 
 

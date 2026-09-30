@@ -11,9 +11,10 @@ import re
 import subprocess
 import sys
 
-from ..core import backup, identify, locate, savefile, schema, validate
-from ..core.errors import (AwrbcError, MapNotFound, SaveInUse, SaveNotFound,
-                           ValidationFailed)
+from ..core import (archive, backup, catalog, identify, locate, savefile,
+                    schema, validate)
+from ..core.errors import (AwrbcError, MapNotFound, PublishRefused, SaveInUse,
+                           SaveNotFound, ValidationFailed)
 
 EXIT_OK = 0
 EXIT_USAGE = 1
@@ -253,6 +254,114 @@ def cmd_import(args, out):
     return EXIT_OK
 
 
+def cmd_publish(args, out):
+    """Place a map in a local checkout of the library.
+
+    Validation is blocking here, unlike export. A work-in-progress map is a
+    reasonable thing to have on disk and an unreasonable thing to put in a
+    public archive.
+    """
+    root = args.library or os.environ.get("AWRBC_LIBRARY")
+    if not root:
+        raise MapNotFound(
+            "give --library pointing at a checkout of awrbc-custom-map-library, "
+            "or set AWRBC_LIBRARY")
+    if not os.path.isdir(root):
+        raise MapNotFound("no library checkout at %s" % root)
+
+    with open(args.file, encoding="utf-8") as fh:
+        doc = json.load(fh)
+    m = schema.from_json(doc)
+
+    report = validate.check(m)
+    if report.errors:
+        for f in report.errors:
+            sys.stderr.write("error: %-18s %s\n" % (f.code, f.message))
+        raise ValidationFailed(report)
+
+    index = catalog.load(root) if not args.rescan else catalog.build(root)[0]
+    placement = archive.plan(m, index, update=args.update,
+                             author=doc.get("author"))
+    if not placement.ok:
+        raise PublishRefused(placement)
+
+    # The archive assigns the version, so the file has to be told: `version` is
+    # read outside the archive too, and a file that disagrees with its own path
+    # is what CI rejects.
+    m.version = placement.version
+    built = schema.build_document(m, author=doc.get("author"))
+    target = os.path.join(root, *placement.path.split("/"))
+
+    result = {"kind": placement.kind, "path": placement.path,
+              "version": placement.version, "id": built["id"],
+              "warnings": [vars(f) for f in report.warnings]}
+
+    if args.dry_run:
+        result["dryRun"] = True
+        if args.json:
+            json.dump(result, out, indent=2)
+            out.write("\n")
+        else:
+            out.write("dry run: would write %s\n" % placement.path)
+            _write_warnings(out, report)
+        return EXIT_OK
+
+    os.makedirs(os.path.dirname(target), exist_ok=True)
+    with open(target, "w", encoding="utf-8") as fh:
+        json.dump(built, fh, indent=1, ensure_ascii=False)
+        fh.write("\n")
+
+    if args.json:
+        json.dump(result, out, indent=2)
+        out.write("\n")
+        return EXIT_OK
+
+    out.write("%s %s\n" % ("added" if placement.kind == archive.NEW
+                           else "revised", placement.path))
+    out.write("  %-24s id %s\n" % (m.name[:24], built["id"]))
+    _write_warnings(out, report)
+    # Phase 3 stops here: the contributor runs these. The intake endpoint
+    # (decision #28) does the same thing with a token, so nobody has to.
+    out.write("\nTo submit it:\n")
+    out.write("  cd %s\n" % root)
+    out.write("  git checkout -b %s\n" % placement.folder.replace("maps/", ""))
+    out.write("  git add %s && git commit -m %s\n"
+              % (placement.path, "'Add %s'" % m.name if placement.kind ==
+                 archive.NEW else "'Update %s to v%d'" % (m.name,
+                                                          placement.version)))
+    out.write("  git push -u origin HEAD\n")
+    return EXIT_OK
+
+
+def _write_warnings(out, report):
+    for f in report.warnings:
+        out.write("  warning %-18s %s\n" % (f.code, f.message))
+
+
+def cmd_catalog(args, out):
+    """Regenerate the index from the map files. What CI runs on merge."""
+    root = args.library or os.environ.get("AWRBC_LIBRARY")
+    if not root or not os.path.isdir(root):
+        raise MapNotFound("give --library pointing at a library checkout")
+
+    index, problems = catalog.build(root, keep_dates_from=catalog.load(root))
+    if not args.check:
+        catalog.dump(index, root)
+
+    if args.json:
+        json.dump({"count": len(index), "problems": problems}, out, indent=2)
+        out.write("\n")
+    else:
+        for p in problems:
+            out.write("  unreadable %s: %s\n" % (p["path"], p["error"]))
+        out.write("%d map%s in the catalog%s\n"
+                  % (len(index), "" if len(index) == 1 else "s",
+                     " (not written)" if args.check else ""))
+    # One bad file does not make the catalog unbuildable, but it does mean the
+    # archive has something in it that nobody can read.
+    return EXIT_OK if not problems else ValidationFailed.exit_code
+
+
 def cmd_remove(args, out):
     chosen, _ = _resolve(args)
     if _game_running() and not args.force:
@@ -350,6 +459,25 @@ def build_parser():
     im.add_argument("--force", action="store_true",
                     help="import despite validation errors or a running emulator")
 
+    pub = sub.add_parser("publish", parents=[common],
+                         help="place a map in a library checkout")
+    pub.add_argument("file", help="map JSON file")
+    pub.add_argument("--library", help="checkout of awrbc-custom-map-library "
+                                       "(or set AWRBC_LIBRARY)")
+    pub.add_argument("--update", metavar="FOLDER",
+                     help="publish as the next version of an existing map, "
+                          "e.g. 2p/daibi")
+    pub.add_argument("--rescan", action="store_true",
+                     help="read the map files instead of catalog.json")
+    pub.add_argument("--dry-run", action="store_true",
+                     help="say where it would go, write nothing")
+
+    cat = sub.add_parser("catalog", parents=[common],
+                         help="regenerate catalog.json from the map files")
+    cat.add_argument("--library", help="checkout of awrbc-custom-map-library")
+    cat.add_argument("--check", action="store_true",
+                     help="report without writing")
+
     rm = sub.add_parser("remove", parents=[common], help="delete a map")
     rm.add_argument("index", type=int, help="map index from `list`")
     rm.add_argument("--dry-run", action="store_true")
@@ -374,9 +502,15 @@ def main(argv=None, out=None):
 
     handlers = {"doctor": cmd_doctor, "list": cmd_list, "export": cmd_export,
                 "import": cmd_import, "remove": cmd_remove,
-                "backup": cmd_backup, "restore": cmd_restore}
+                "backup": cmd_backup, "restore": cmd_restore,
+                "publish": cmd_publish, "catalog": cmd_catalog}
     try:
         return handlers[args.command](args, out)
+    except PublishRefused as exc:
+        # Not "your map is broken" - the archive has something to say about
+        # where it would go. The reason is the whole message.
+        sys.stderr.write("refused: %s\n" % exc)
+        return exc.exit_code
     except AwrbcError as exc:
         sys.stderr.write("error: %s\n" % exc)
         return exc.exit_code

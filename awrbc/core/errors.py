@@ -79,3 +79,19 @@ class ValidationFailed(AwrbcError):
     def __init__(self, report):
         self.report = report
         super().__init__("map failed validation")
+
+
+class PublishRefused(AwrbcError):
+    """The archive will not place this map, and the map is not at fault.
+
+    Separate from ValidationFailed because the map may be perfect: it is already
+    in the archive, or its slug is taken by somebody else's. Those need a
+    different answer from the person than "fix your map", and a different exit
+    code so an intake endpoint can tell the two apart without parsing text.
+    """
+
+    exit_code = 5
+
+    def __init__(self, placement):
+        self.placement = placement
+        super().__init__(placement.reason)

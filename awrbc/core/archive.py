@@ -84,9 +84,23 @@ def slugify(name, fallback=""):
     return s or fallback
 
 
-def slug_for(m, doc=None):
+def map_hash(m, length=16):
+    """The content hash, taken from the canonical form of the map.
+
+    Always this, never ``identity.content_hash`` on a document that arrived from
+    outside. Two files can describe the same map and hash differently - omitted
+    flags, a team on a tile that cannot own one (decision #42), key order - and
+    normalising is exactly what ``schema.to_json`` is for. Hashing the raw
+    document instead makes de-duplication depend on how the submitter's editor
+    happened to format its output, which is a dedupe that quietly does nothing.
+    """
+    from . import schema                        # local: schema imports model too
+    return identity.content_hash(schema.to_json(m), length)
+
+
+def slug_for(m):
     """The slug this map would claim, hash-backed when the name will not slug."""
-    return slugify(m.name, identity.content_hash(doc, 8) if doc else "")
+    return slugify(m.name, map_hash(m, 8))
 
 
 def category_for(m):
@@ -105,13 +119,13 @@ def version_file(version):
     return "v%d.json" % version
 
 
-def folder_for(m, slug=None, doc=None):
-    return "/".join([ROOT, category_for(m), slug or slug_for(m, doc)])
+def folder_for(m, slug=None):
+    return "/".join([ROOT, category_for(m), slug or slug_for(m)])
 
 
-def path_for(m, slug=None, doc=None):
+def path_for(m, slug=None):
     """Where this map goes, as a repo-relative POSIX path."""
-    return "/".join([folder_for(m, slug, doc), version_file(m.version)])
+    return "/".join([folder_for(m, slug), version_file(m.version)])
 
 
 @dataclass
@@ -242,8 +256,11 @@ def find_by_hash(catalog, digest):
     return ""
 
 
-def plan(m, doc, catalog=None, update=None, author=None):
+def plan(m, catalog=None, update=None, author=None):
     """Work out where a submitted map goes, without writing anything.
+
+    Takes the map, not the document it arrived in, so that placement cannot
+    depend on how the submitter formatted their JSON - see ``map_hash``.
 
     ``catalog`` is the archive's index, keyed by folder. ``update`` names the
     folder this claims to revise - ``"2p/daibi"`` or the full path - and is
@@ -253,7 +270,7 @@ def plan(m, doc, catalog=None, update=None, author=None):
     errors in the map; they are the pipeline saying it will not guess.
     """
     catalog = catalog or {}
-    digest = identity.content_hash(doc)
+    digest = map_hash(m)
 
     # Identical bytes are already here, whatever they are called. This is also
     # what stops a v2 that changed nothing: the hash excludes name, author, tags
@@ -291,13 +308,14 @@ def plan(m, doc, catalog=None, update=None, author=None):
                          path="/".join([folder, version_file(version)]),
                          folder=folder, version=version)
 
-    slug = slug_for(m, doc)
-    folder = "/".join([ROOT, category_for(m), slug])
+    folder = "/".join([ROOT, category_for(m), slug_for(m)])
     if folder in catalog:
+        # Deliberately does not guess which of the two this is. The common case
+        # is your own map, revised and submitted without saying so; the case
+        # that matters is a stranger's. They read identically from here.
         return Placement(CONFLICT,
-                         "%s is taken by another map; rename this one, or pass "
-                         "--update %s if it is a revision of that one"
-                         % (folder, folder))
+                         "%s already exists; pass --update %s if this is a new "
+                         "version of it, or rename this map" % (folder, folder))
     return Placement(NEW, "new map at %s" % folder,
                      path="/".join([folder, version_file(1)]),
                      folder=folder, version=1)
