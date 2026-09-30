@@ -275,9 +275,12 @@ def plan(m, doc, catalog=None, update=None, author=None):
                              "publish this as a new map" % folder)
         owner = entry.get("author")
         if author is not None and owner and owner != author:
-            # Ownership is checked, not enforced, at this layer - the pipeline
-            # only has the name the file claims. The PR is where a human or a
-            # signed-in account settles it.
+            # `author` is whoever the caller vouches for, and how much that is
+            # worth depends on who calls. The CLI can only pass the name the
+            # file claims; the intake endpoint passes the Discord account that
+            # actually signed in (decision #28). This layer takes it on trust
+            # either way - it has no way to tell the two apart, and pretending
+            # otherwise would put authorisation somewhere it cannot be enforced.
             return Placement(CONFLICT,
                              "%s was published by %r, not %r; a maintainer has "
                              "to approve a revision by someone else"
