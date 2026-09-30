@@ -96,7 +96,7 @@
   <button data-tool="fill" aria-pressed="false" title="Flood fill (G)">Fill</button>
   <button data-tool="unit" aria-pressed="false" title="Place unit (U)">Unit</button>
   <button data-tool="owner" aria-pressed="false" title="Set owner (O)">Owner</button>
-  <button data-tool="erase" aria-pressed="false" title="Remove unit (E)">Erase</button>
+  <button data-tool="erase" aria-pressed="false" title="Remove unit (E, or right-click anywhere)">Erase</button>
   <button data-tool="pan" aria-pressed="false" title="Pan (H, or hold Shift)">Pan</button>
   <span class="sep"></span>
   <button id="undo" disabled>Undo</button>
@@ -167,6 +167,9 @@ let doc = emptyMap(30, 20);
 let ed = null;
 let size = 24, ox = 0, oy = 0, cells = new Map();
 let logical = { width: 0, height: 0 };
+// Until someone zooms or pans, the view is ours to choose, so it re-fits when
+// the window changes. After that it is theirs and we leave it alone.
+let userFramed = false;
 let tool = "paint", brushTerrain = 1, brushUnit = 9, brushTeam = 0;
 let brushFacing = "N";
 
@@ -177,7 +180,7 @@ function resize() {
   canvas.height = Math.round(r.height * dpr);
   ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
   logical = { width: r.width, height: r.height };
-  draw();
+  if (userFramed) draw(); else fit();
 }
 
 function draw() {
@@ -192,6 +195,8 @@ function draw() {
 }
 
 function fit() {
+  if (!logical.width || !logical.height) return;
+  userFramed = false;
   size = fitTile(doc, logical.width - 24, logical.height - 24);
   ox = Math.floor((logical.width - size * doc.size.cols) / 2);
   oy = Math.floor((logical.height - size * doc.size.rows) / 2);
@@ -485,7 +490,21 @@ let drag = null;
 
 canvas.addEventListener("pointerdown", (e) => {
   canvas.setPointerCapture(e.pointerId);
-  if (tool === "pan" || e.button === 1 || e.button === 2 || e.shiftKey) {
+
+  // Right-click removes the unit under the cursor, whatever tool is selected.
+  // Placing units and correcting a misplaced one are the same activity, and
+  // making that a mode switch is friction for no gain. Middle-drag and Shift
+  // still pan, so nothing is lost by spending the right button here.
+  if (e.button === 2) {
+    drag = { mode: "erase", last: null };
+    ed.begin();
+    const p = tileAt(e);
+    if (ed.removeUnit(p.x, p.y)) draw();
+    drag.last = p.x + "," + p.y;
+    return;
+  }
+
+  if (tool === "pan" || e.button === 1 || e.shiftKey) {
     drag = { mode: "pan", x: e.clientX, y: e.clientY, ox, oy };
     canvas.classList.add("panning");
     return;
@@ -501,7 +520,16 @@ canvas.addEventListener("pointermove", (e) => {
   if (drag && drag.mode === "pan") {
     ox = drag.ox + (e.clientX - drag.x);
     oy = drag.oy + (e.clientY - drag.y);
+    userFramed = true;
     draw();
+    return;
+  }
+  if (drag && drag.mode === "erase") {
+    const key = p.x + "," + p.y;
+    if (key !== drag.last) {
+      drag.last = key;
+      if (ed.removeUnit(p.x, p.y)) draw();
+    }
     return;
   }
   // Fill is a single action; dragging it would flood repeatedly.
@@ -529,7 +557,7 @@ canvas.addEventListener("pointermove", (e) => {
 });
 
 function endDrag() {
-  if (drag && drag.mode === "edit") ed.commit();
+  if (drag && (drag.mode === "edit" || drag.mode === "erase")) ed.commit();
   drag = null;
   canvas.classList.remove("panning");
 }
@@ -546,6 +574,7 @@ canvas.addEventListener("wheel", (e) => {
   ox = mx - (mx - ox) * (next / size);
   oy = my - (my - oy) * (next / size);
   size = next;
+  userFramed = true;
   draw();
 }, { passive: false });
 
@@ -650,6 +679,10 @@ addEventListener("keydown", (e) => {
 });
 
 window.addEventListener("resize", resize);
+// The canvas can settle to its real size after first paint - fonts, scrollbars,
+// the pane being dragged - and a window listener alone misses that, leaving the
+// map fitted to a size it no longer has.
+if (window.ResizeObserver) new ResizeObserver(resize).observe(canvas);
 setTool("paint");
 resize();
 load(doc);

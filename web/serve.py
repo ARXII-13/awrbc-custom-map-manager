@@ -4,7 +4,10 @@
 edit to render.js or terrain.js can appear to have no effect - and you end up
 debugging code the page is not running. That cost half an hour once already.
 
-    python serve.py [port]
+    python serve.py [port] [host]
+
+Binds to localhost by default. Pass 0.0.0.0 to reach it from another machine
+on the same network, which is how the other test desktop uses it.
 """
 import sys
 from http.server import HTTPServer, SimpleHTTPRequestHandler
@@ -25,5 +28,6 @@ class NoCache(SimpleHTTPRequestHandler):
 
 if __name__ == "__main__":
     port = int(sys.argv[1]) if len(sys.argv) > 1 else 8731
-    print("editor on http://127.0.0.1:%d/  (no-cache)" % port)
-    HTTPServer(("127.0.0.1", port), NoCache).serve_forever()
+    host = sys.argv[2] if len(sys.argv) > 2 else "127.0.0.1"
+    print("editor on http://%s:%d/  (no-cache)" % (host, port))
+    HTTPServer((host, port), NoCache).serve_forever()

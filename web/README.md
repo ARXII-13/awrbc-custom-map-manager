@@ -70,7 +70,7 @@ light yellow; both washed out entirely with white icons.
 | Fill | `G` | Flood fill the contiguous region under the cursor |
 | Unit | `U` | Place the selected unit for the selected army |
 | Owner | `O` | Re-assign a property or unit to the selected army |
-| Erase | `E` | Remove a unit |
+| Erase | `E` | Remove a unit. **Right-click does the same from any tool**, and dragging with it held clears a line of them - correcting a misplacement should not need a mode switch |
 | Pan | `H` | Or hold Shift, or use the middle/right button, from any tool |
 
 `1`-`5` pick an army and `0` picks neutral. Ctrl+Z / Ctrl+Shift+Z undo and
