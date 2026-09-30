@@ -348,13 +348,13 @@ def cmd_publish(args, out):
     # The preview goes down with the map rather than waiting for a catalog run,
     # so what the contributor pushes is what a reviewer sees in the pull
     # request. `awrbc catalog` regenerates it along with everything else.
-    shot = os.path.join(os.path.dirname(target),
-                        preview.preview_file(placement.version))
-    with open(shot, "wb") as fh:
-        fh.write(supplied if supplied else preview.render(m))
-    result["preview"] = "/".join([placement.folder,
-                                  preview.preview_file(placement.version)])
-    result["previewFrom"] = "bundle" if supplied else "generated"
+    if supplied:
+        shot = os.path.join(os.path.dirname(target),
+                            preview.preview_file(placement.version))
+        with open(shot, "wb") as fh:
+            fh.write(supplied)
+        result["preview"] = "/".join([placement.folder,
+                                      preview.preview_file(placement.version)])
 
     if args.json:
         json.dump(result, out, indent=2)
@@ -365,6 +365,12 @@ def cmd_publish(args, out):
                            else "revised", placement.path))
     out.write("  %-24s id %s\n" % (m.name[:24], built["id"]))
     _write_warnings(out, report)
+    if not supplied:
+        # Not an error - a map without a picture is still a playable map - but
+        # it will sit in the archive with nothing to look at, and the person
+        # publishing it is the only one who can fix that.
+        out.write("  no preview   open the map in the editor and use Export "
+                  "bundle to include one\n")
     # Phase 3 stops here: the contributor runs these. The intake endpoint
     # (decision #28) does the same thing with a token, so nobody has to.
     out.write("\nTo submit it:\n")

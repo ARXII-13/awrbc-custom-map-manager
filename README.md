@@ -37,7 +37,7 @@ awrbc backup                      snapshot the save
 awrbc restore [name]              list snapshots, or roll one back
 
 awrbc publish map.json            place a map in a library checkout
-awrbc catalog                     rebuild the index, previews and READMEs
+awrbc catalog                     rebuild the index and folder READMEs
 ```
 
 `import` and `remove` take `--dry-run` and `--force`.
