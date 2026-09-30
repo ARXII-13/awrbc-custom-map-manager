@@ -102,6 +102,7 @@
   <button id="undo" disabled>Undo</button>
   <button id="redo" disabled>Redo</button>
   <button id="fit">Fit</button>
+  <button id="check" hidden>Check</button>
 </header>
 
 <div id="body">
@@ -158,6 +159,7 @@ import { UNITS, TEAMS, TERRAIN_PALETTE, STRUCTURES, NEUTRAL_STRUCTURES,
 import { TERRAIN_ICONS, PROPERTY_ICONS, UNIT_ICONS } from "./icons.js";
 import { loadPack, packLabel, spriteFor } from "./sprites.js";
 import { createEditor, emptyMap, stats } from "./edit.js";
+import { available as repairsFor } from "./fixes.js";
 
 const canvas = document.getElementById("c");
 const ctx = canvas.getContext("2d");
@@ -231,6 +233,13 @@ function refresh() {
       t.name + '</td><td class="n">' + q.units + " u</td>" +
       '<td class="n">' + q.properties + " p</td></tr>");
   }
+  // Offer the repair pass only when there is something to repair.
+  const repairs = repairsFor(doc, { MULTI_TILE, STRUCTURE_SPAN });
+  const check = document.getElementById("check");
+  check.hidden = repairs.length === 0;
+  check.textContent = repairs.length === 1 ? "Fix 1 issue"
+                                           : "Fix " + repairs.length + " issues";
+
   document.getElementById("undo").disabled = !ed.canUndo();
   document.getElementById("redo").disabled = !ed.canRedo();
   draw();
@@ -586,6 +595,34 @@ for (const b of document.querySelectorAll("[data-tool]")) {
 document.getElementById("undo").onclick = () => ed.undo();
 document.getElementById("redo").onclick = () => ed.redo();
 document.getElementById("fit").onclick = fit;
+
+document.getElementById("check").onclick = () => {
+  const repairs = repairsFor(doc, { MULTI_TILE, STRUCTURE_SPAN });
+  if (!repairs.length) return;
+  // One at a time, each explained, each its own undo step. A repair that
+  // changes how the map plays should not arrive as a surprise.
+  const done = [];
+  for (const r of repairs) {
+    if (!confirm(r.label + "
+
+" + r.detail + "
+
+Apply?")) continue;
+    ed.begin();
+    const n = r.apply(ed);
+    ed.commit();
+    done.push(r.label + " (" + n + " tiles)");
+  }
+  if (done.length) {
+    refresh();
+    alert("Applied:
+  " + done.join("
+  ") +
+          "
+
+Ctrl+Z takes any of it back.");
+  }
+};
 document.getElementById("name").oninput = (e) => { doc.name = e.target.value; };
 
 document.getElementById("resize").onclick = () => {

@@ -148,6 +148,25 @@ structure, ownership on terrain that cannot be owned, a grid that does not match
 its declared size. Its codes are a stable contract; the CLI renders them and
 archive CI will key off them.
 
+## Check and fix
+
+Some faults only exist in the shape of a finished map. A river is not too wide
+until the tile that makes it too wide is placed, and refusing that stroke while
+you paint would be maddening. So a **Fix** button appears in the toolbar when
+there is something to repair, and stays hidden when there is not.
+
+| | |
+|---|---|
+| `river.wide` | a river more than one tile across becomes sea - in Advance Wars a waterway that wide **is** sea, which is why there is no art for a river's middle |
+| `structure.incomplete` | tiles belonging to a cannon that is missing part of itself are cleared |
+
+Each repair says what it will do before it runs, applies as its own undo step,
+and can be skipped. Converting river to sea changes who can cross it - a river
+carries infantry and mech, sea carries ships - so it asks rather than assumes.
+
+`fixes.js` is where they live; adding one is a `label`, a `detail` and an
+`apply` that works through the editor so undo keeps working.
+
 ## Flags are not the editor's job
 
 Export writes **no `flags` grid at all**. `schema.from_json` derives flags from
