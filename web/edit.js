@@ -347,6 +347,22 @@ export function stats(doc) {
     reasons.push('bigger than the ' + MAX_COLS + 'x' + MAX_ROWS + ' limit');
   }
 
+  // Every river in a game-authored map is one tile wide. Two tiles wide and
+  // every tile becomes a junction - there is no sprite for the middle of a
+  // river - so it renders as blocks. Worth saying while it can still be fixed.
+  let wide = 0;
+  for (let y = 0; y < doc.size.rows - 1; y++) {
+    for (let x = 0; x < doc.size.cols - 1; x++) {
+      if (doc.terrain[y][x] === 16 && doc.terrain[y][x + 1] === 16 &&
+          doc.terrain[y + 1][x] === 16 && doc.terrain[y + 1][x + 1] === 16) wide++;
+    }
+  }
+  if (wide) {
+    notes.push('river is wider than one tile in ' + wide +
+               ' place' + (wide === 1 ? '' : 's') + '; the game has no art for ' +
+               'that and it renders as blocks');
+  }
+
   // Advisory rather than blocking: oversized maps play, they just cannot be
   // opened in the game's own editor.
   if (doc.size.cols > IN_GAME_EDITOR_COLS || doc.size.rows > IN_GAME_EDITOR_ROWS) {

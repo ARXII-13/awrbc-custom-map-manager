@@ -17,6 +17,8 @@ from dataclasses import dataclass, field
 from . import autotile
 from .model import CAPTURABLE, Map
 
+RIVER = 16
+
 ERROR = "error"
 WARNING = "warning"
 
@@ -162,7 +164,31 @@ def check(m: Map) -> Report:
     if len({t.type for _, _, t in m.iter_tiles()}) < 2:
         r.add("terrain.flat", WARNING, "the map is a single terrain type", "terrain")
 
+    _check_river_width(m, r)
+
     return r
+
+
+def _check_river_width(m: Map, r: Report) -> None:
+    """A river wider than one tile has no art.
+
+    Every river in a game-authored map is one tile wide - zero 2x2 blocks of
+    river across the whole sample. Draw one two tiles wide and every tile
+    becomes a junction, because there is no sprite for the middle of a river,
+    and it renders as a field of blocks rather than water. The map plays; it
+    just does not look like a river, so this is advice and not a refusal.
+    """
+    blocks = 0
+    for x in range(m.cols - 1):
+        for y in range(m.rows - 1):
+            if all(m.tiles[x + dx][y + dy].type == RIVER
+                   for dx in (0, 1) for dy in (0, 1)):
+                blocks += 1
+    if blocks:
+        r.add("river.wide", WARNING,
+              "the river is more than one tile wide in %d place%s; the game has "
+              "no art for that and it will render as blocks"
+              % (blocks, "" if blocks == 1 else "s"), "terrain")
 
 
 def _check_structures(m: Map, r: Report) -> None:

@@ -61,6 +61,39 @@ class ConnectionMask(unittest.TestCase):
         self.assertTrue(all(v == 1 for row in f for v in row))
 
 
+class RiverOrientation(unittest.TestCase):
+    """Bit 18 on a river is flow direction, not decoration.
+
+    It was treated as one of two interchangeable decorations, so a straight run
+    got the perpendicular sprite roughly half the time and the river rendered
+    as disconnected blocks. Found by playing a map, not by reading flags.
+    """
+
+    def test_a_horizontal_run_is_marked_horizontal(self):
+        f = A.compute(grid(['...', 'rrr', '...']))
+        self.assertTrue(f[1][1] & A.RIVER_HORIZONTAL)
+
+    def test_a_vertical_run_is_not(self):
+        f = A.compute(grid(['.r.', '.r.', '.r.']))
+        self.assertFalse(f[1][1] & A.RIVER_HORIZONTAL)
+
+    def test_a_corner_is_not(self):
+        f = A.compute(grid(['...', '.rr', '.r.']))
+        self.assertFalse(f[1][1] & A.RIVER_HORIZONTAL)
+
+    def test_a_junction_is_not(self):
+        f = A.compute(grid(['.r.', 'rrr', '.r.']))
+        self.assertFalse(f[1][1] & A.RIVER_HORIZONTAL)
+
+    def test_it_does_not_depend_on_the_random_source(self):
+        """Two runs with different seeds must agree, or a river flickers."""
+        import random as rnd
+        a = A.compute(grid(['...', 'rrr', '...']), rng=rnd.Random(1))
+        b = A.compute(grid(['...', 'rrr', '...']), rng=rnd.Random(99))
+        self.assertEqual([r[1] & (0x1E | A.RIVER_HORIZONTAL) for r in a],
+                         [r[1] & (0x1E | A.RIVER_HORIZONTAL) for r in b])
+
+
 class Shoreline(unittest.TestCase):
     def test_sea_marks_the_sides_facing_land(self):
         f = masks(A.compute(grid(['sss', 's.s', 'sss'])))

@@ -85,8 +85,16 @@ VARIANTS = tuple(1 << b for b in range(18, 26))
 VARIANTS_FOR = {
     PLAINS: VARIANTS,
     WOODS: (0, 1 << 18, 1 << 19),
-    RIVER: (0, 1 << 18, 1 << 19),
 }
+
+#: Bit 18 on a river is not decoration - it is which way the water runs.
+#:
+#: A river carrying only east and west has it set (29 of 33 tiles across the
+#: sample); one carrying only north and south never does (16 of 16); corners
+#: and ends never do. Assigning it at random, as if it were decoration, gives
+#: half the tiles of a straight run the perpendicular sprite, and the river
+#: reads as a row of disconnected blocks in game.
+RIVER_HORIZONTAL = 1 << 18
 
 #: A seaport always carries this, on top of its single direction bit.
 SEAPORT_BIT = 1 << 19
@@ -259,9 +267,14 @@ def flags_for(terrain, x, y, team=None, rng=random):
     if kind == HQ:
         value |= TEAM_BIT.get(team, TEAM_BIT[0])
 
-    variants = VARIANTS_FOR.get(kind)
-    if variants:
-        value |= rng.choice(variants)
+    if kind == RIVER:
+        # Flow direction, not decoration. See RIVER_HORIZONTAL.
+        if value & 0x1E == (1 << WEST) | (1 << EAST):
+            value |= RIVER_HORIZONTAL
+    else:
+        variants = VARIANTS_FOR.get(kind)
+        if variants:
+            value |= rng.choice(variants)
     return _never_zero(value)
 
 
