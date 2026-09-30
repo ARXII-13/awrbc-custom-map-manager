@@ -109,6 +109,13 @@ class Map:
 
     ``tiles`` and ``units`` are indexed ``[x][y]`` to match the game's rank-2
     ``[cols, rows]`` arrays. ``units`` holds None where a cell is empty.
+
+    ``tags`` and ``version`` are the author's, not the game's - nothing in a
+    save carries them. They are excluded from the content hash, so retagging a
+    map or bumping its version does not make it a different map. Anything that
+    *can* be worked out from the terrain, such as how many armies it supports,
+    is derived instead, because a stored answer can disagree with the map and a
+    derived one cannot.
     """
 
     name: str = ""
@@ -120,6 +127,8 @@ class Map:
     water_color: int = 0
     tiles: list = field(default_factory=list)
     units: list = field(default_factory=list)
+    tags: list = field(default_factory=list)
+    version: int = 1
 
     def tile(self, x: int, y: int) -> Tile:
         return self.tiles[x][y]

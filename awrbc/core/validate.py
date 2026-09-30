@@ -165,8 +165,49 @@ def check(m: Map) -> Report:
         r.add("terrain.flat", WARNING, "the map is a single terrain type", "terrain")
 
     _check_river_width(m, r)
+    _check_labels(m, r)
 
     return r
+
+
+#: Tags the archive understands. Anything else is allowed but warned about, so
+#: a catalog does not fill up with one-off spellings of the same idea. The
+#: structural ones - how many armies, predeployed, naval - are derived from the
+#: map and must not be written here, or they can contradict it.
+KNOWN_TAGS = frozenset([
+    "competitive", "casual", "campaign", "co-op", "ffa", "teams",
+    "symmetric", "asymmetric", "special", "remake", "experimental",
+])
+
+#: Derived facts, which are not the author's to assert.
+DERIVED_TAGS = frozenset([
+    "2-player", "3-player", "4-player", "predeployed", "navy", "fog",
+])
+
+MAX_TAGS = 8
+
+
+def _check_labels(m: Map, r: Report) -> None:
+    """Tags and version are the author's; they still have to be usable."""
+    if len(m.tags) > MAX_TAGS:
+        r.add("tags.tooMany", WARNING,
+              "%d tags; %d is plenty and more is noise"
+              % (len(m.tags), MAX_TAGS), "tags")
+    for tag in m.tags:
+        if tag in DERIVED_TAGS:
+            r.add("tags.derived", WARNING,
+                  "%r is worked out from the map; tagging it by hand lets the "
+                  "two disagree" % tag, "tags")
+        elif tag not in KNOWN_TAGS:
+            r.add("tags.unknown", WARNING,
+                  "%r is not a tag the archive knows; it will still be "
+                  "accepted" % tag, "tags")
+        if tag != tag.strip().lower() or not tag:
+            r.add("tags.shape", ERROR,
+                  "tag %r must be lowercase with no surrounding space" % tag,
+                  "tags")
+    if m.version < 1:
+        r.add("version.invalid", ERROR, "version must be 1 or more", "version")
 
 
 def _check_river_width(m: Map, r: Report) -> None:

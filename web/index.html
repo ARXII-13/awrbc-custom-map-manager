@@ -121,6 +121,9 @@
     </div>
     <div class="sub" id="sizenote"></div>
     <div class="sub" id="meta" style="margin-top:4px"></div>
+    <input type="text" id="tags" style="width:100%;margin-top:6px"
+           placeholder="tags, comma separated">
+    <div class="sub" id="tagnote"></div>
     <div style="margin-top:6px"><span id="valid"></span></div>
     <div id="why"></div>
     <div class="sub" id="pack" hidden style="margin-top:4px"></div>
@@ -249,6 +252,7 @@ function load(json) {
   doc = json;
   ed = createEditor(doc, refresh);
   document.getElementById("name").value = doc.name || "Untitled";
+  document.getElementById("tags").value = (doc.tags || []).join(", ");
   buildPalette();
   refresh();
   fit();
@@ -625,6 +629,20 @@ Ctrl+Z takes any of it back.");
 };
 document.getElementById("name").oninput = (e) => { doc.name = e.target.value; };
 
+// Tags are the author's own labels. Anything the map can answer for itself -
+// how many armies, whether units are predeployed - is derived at export and
+// must not be typed here, or the two can disagree.
+const DERIVED_TAGS = new Set(["2-player", "3-player", "4-player",
+                              "predeployed", "navy", "fog"]);
+document.getElementById("tags").oninput = (e) => {
+  const raw = e.target.value.split(",").map((t) => t.trim().toLowerCase());
+  doc.tags = [...new Set(raw.filter(Boolean))].sort();
+  const claimed = doc.tags.filter((t) => DERIVED_TAGS.has(t));
+  document.getElementById("tagnote").textContent = claimed.length
+    ? claimed.join(", ") + " is worked out from the map; no need to tag it"
+    : "";
+};
+
 document.getElementById("resize").onclick = () => {
   const cols = Number(document.getElementById("cols").value);
   const rows = Number(document.getElementById("rows").value);
@@ -688,6 +706,8 @@ document.getElementById("export").onclick = () => {
     cells: doc.cells,
     units: doc.units,
   };
+  if (doc.tags && doc.tags.length) out.tags = [...doc.tags].sort();
+  if (doc.version && doc.version !== 1) out.version = doc.version;
   const blob = new Blob([JSON.stringify(out, null, 1)], { type: "application/json" });
   const a = document.createElement("a");
   a.href = URL.createObjectURL(blob);

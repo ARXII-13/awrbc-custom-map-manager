@@ -149,3 +149,53 @@ class Rejects(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class TagsAndVersion(unittest.TestCase):
+    """Author's labels, kept apart from what the map can answer itself."""
+
+    def _doc(self, **extra):
+        terrain = [[1] * 3 for _ in range(3)]
+        terrain[0][0] = 512
+        terrain[2][2] = 512
+        doc = {
+            "schema": 1, "name": "t", "author": "a",
+            "size": {"cols": 3, "rows": 3}, "fog": False, "waterColor": 0,
+            "terrain": terrain, "units": [],
+            "cells": [{"x": 0, "y": 0, "team": 0, "capture": 20},
+                      {"x": 2, "y": 2, "team": 1, "capture": 20}],
+        }
+        doc.update(extra)
+        return doc
+
+    def test_tags_round_trip_sorted_and_deduplicated(self):
+        m = schema.from_json(self._doc(tags=["special", "casual", "special"]))
+        self.assertEqual(m.tags, ["casual", "special"])
+        self.assertEqual(schema.build_document(m)["tags"], ["casual", "special"])
+
+    def test_version_round_trips(self):
+        m = schema.from_json(self._doc(version=4))
+        self.assertEqual(schema.build_document(m)["version"], 4)
+
+    def test_version_one_is_not_written_out(self):
+        """The default should not clutter every file."""
+        self.assertNotIn("version", schema.build_document(
+            schema.from_json(self._doc())))
+
+    def test_neither_changes_the_map_id(self):
+        """Retagging is not a new map."""
+        plain = schema.build_document(schema.from_json(self._doc()))["id"]
+        tagged = schema.build_document(schema.from_json(
+            self._doc(tags=["special"], version=9)))["id"]
+        self.assertEqual(plain, tagged)
+
+    def test_bad_shapes_are_refused(self):
+        for bad in ({"tags": "special"}, {"tags": [1]},
+                    {"version": 0}, {"version": "2"}, {"version": True}):
+            with self.assertRaises(schema.SchemaError, msg=repr(bad)):
+                schema.from_json(self._doc(**bad))
+
+    def test_player_count_is_derived_not_declared(self):
+        doc = schema.build_document(schema.from_json(self._doc()))
+        self.assertEqual(doc["derived"]["players"], 2)
+        self.assertNotIn("players", doc)

@@ -50,6 +50,14 @@ def metadata(m: Map) -> dict:
     }
 
 
+#: Water a ship can sit on, so a map can be filtered for naval play.
+NAVIGABLE = frozenset([2, 8192])
+
+#: The Black Hole hardware, which is what "special" usually means in practice.
+BLACK_HOLE_STRUCTURES = frozenset([32768, 65536, 524288, 1048576, 2097152,
+                                   8388608, 33554432])
+
+
 def derived_block(m: Map) -> dict:
     """The ``derived`` section of the map JSON.
 
@@ -57,10 +65,20 @@ def derived_block(m: Map) -> dict:
     it is never trusted - it exists so the catalog can filter without re-parsing
     the whole archive.
     """
+    per = m.per_team()
+    terrain = {t.type for _, _, t in m.iter_tiles()}
     return {
         "valid": m.is_playable,
         "teams": m.teams,
+        # The categories a browser wants to filter on, worked out from the map
+        # rather than declared beside it. A stored player count can disagree
+        # with the terrain; a derived one cannot.
+        "players": len(m.teams),
+        "predeployed": any(c.units for c in per.values()),
+        "navy": bool(terrain & NAVIGABLE),
+        "structures": bool(terrain & BLACK_HOLE_STRUCTURES),
+        "fog": bool(m.fog),
         "perTeam": {str(t): {"hq": c.hq, "production": c.production,
                              "properties": c.properties, "units": c.units}
-                    for t, c in m.per_team().items()},
+                    for t, c in per.items()},
     }

@@ -119,6 +119,10 @@ def build_document(m: Map, *, author: str = None, keep_creator: bool = False,
 
     doc = to_json(m, author=anonymize.author_for(
         m.creator, keep=keep_creator, override=author))
+    if m.tags:
+        doc["tags"] = sorted(m.tags)
+    if m.version and m.version != 1:
+        doc["version"] = m.version
     doc["id"] = identity.content_hash(doc)
     doc["derived"] = derive.derived_block(m)
     if save_version is not None:
@@ -213,6 +217,15 @@ def from_json(doc: dict) -> Map:
                 built = autotile.structure_flags(t.type, offset, t.facing)
                 t.flags = computed[y][x] if built is None else built
 
+    tags = doc.get("tags") or []
+    if not isinstance(tags, list) or any(not isinstance(t, str) for t in tags):
+        raise SchemaError("tags must be a list of strings")
+    # `version` here is the author's revision of the map, not the schema
+    # version read at the top of this function.
+    revision = doc.get("version", 1)
+    if not isinstance(revision, int) or isinstance(revision, bool) or revision < 1:
+        raise SchemaError("version must be a positive integer")
+
     return Map(
         name=doc.get("name") or "",
         creator=doc.get("author") or "",
@@ -220,4 +233,5 @@ def from_json(doc: dict) -> Map:
         fog=bool(doc.get("fog", False)),
         water_color=doc.get("waterColor", 0),
         tiles=tiles, units=units,
+        tags=sorted(set(tags)), version=revision,
     )
