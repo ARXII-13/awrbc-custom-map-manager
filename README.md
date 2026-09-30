@@ -35,6 +35,9 @@ awrbc import map.json             add a map from JSON
 awrbc remove 3                    delete a map
 awrbc backup                      snapshot the save
 awrbc restore [name]              list snapshots, or roll one back
+
+awrbc publish map.json            place a map in a library checkout
+awrbc catalog                     rebuild the library's index
 ```
 
 `import` and `remove` take `--dry-run` and `--force`.
