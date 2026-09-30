@@ -1,8 +1,13 @@
 """Stable map identity.
 
-The id is a content hash. It is the filename in the archive and the join key the
-future ratings database will use, so it has to stay the same for the same map
-forever — including after the game has opened and re-saved it.
+The id is a content hash. It identifies a *file*: the archive dedupes on it, the
+catalog records it, and it is the join key the future ratings database will use.
+So it has to stay the same for the same map forever — including after the game
+has opened and re-saved it.
+
+It is not the archive path. Which map a file belongs to is its folder, and which
+revision is its filename (decisions #8 and #43, archive.py). The hash says
+which exact bytes, which is a different question and stays a different field.
 
 That is why the hashed subset is narrower than the file:
 
