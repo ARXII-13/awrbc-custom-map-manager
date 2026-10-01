@@ -17,7 +17,7 @@ Values are raw game values. Friendly names are a presentation concern.
 """
 from .errors import SaveUnreadable
 from . import autotile
-from .model import CAPTURABLE, Coord, Map, Tile, Unit
+from .model import CAPTURABLE, NEUTRAL_TEAM, Coord, Map, Tile, Unit
 
 SCHEMA_VERSION = 1
 
@@ -54,7 +54,7 @@ def to_json(m: Map, *, author: str = None, map_id: str = None) -> dict:
                 # entirely - confirmed in play 2026-09-28 - so normalise it to
                 # neutral. Two maps that differ only there play identically and
                 # must not hash differently.
-                cell["team"] = t.team if t.type in CAPTURABLE else -1
+                cell["team"] = t.team if t.type in CAPTURABLE else NEUTRAL_TEAM
             if t.capture_points:
                 cell["capture"] = t.capture_points
             if t.hp:
@@ -177,7 +177,7 @@ def from_json(doc: dict) -> Map:
             raise SchemaError("cell out of range: %r" % (c,))
         t = tiles[x][y]
         team = c.get("team")
-        t.team = team if (team is None or t.type in CAPTURABLE) else -1
+        t.team = team if (team is None or t.type in CAPTURABLE) else NEUTRAL_TEAM
         t.capture_points = c.get("capture", 0)
         t.hp = c.get("hp", 0)
         off = c.get("offset")

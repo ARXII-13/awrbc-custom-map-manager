@@ -22,8 +22,11 @@ That is why the hashed subset is narrower than the file:
 import hashlib
 import json
 
-#: Bump if the hashed subset ever changes - ids are not comparable across
-#: versions.
+#: The hashed subset this build uses. Nothing reads it, deliberately: it is not
+#: mixed into the digest, because doing that would change every existing id the
+#: moment it was bumped - including ids already published in the archive. It is
+#: a marker for a human deciding whether two archives are comparable, and if the
+#: subset ever does change, the migration is a conversation, not a constant.
 HASH_VERSION = 1
 
 HASHED_FIELDS = ("size", "fog", "waterColor", "terrain", "cells", "units")

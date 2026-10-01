@@ -17,6 +17,3 @@ def author_for(creator: str, *, keep: bool = False, override: str = None) -> str
         return creator
     return DEFAULT_AUTHOR
 
-
-def is_scrubbed(author: str) -> bool:
-    return author == DEFAULT_AUTHOR

@@ -1,8 +1,14 @@
 # Map editor
 
-A static page that opens, edits and exports the map JSON the CLI reads. No
-install, no backend, no save access - so it cannot damage anything, and anyone
-can design a map whether or not they own the game.
+Opens, edits and exports the map JSON the CLI reads. No save access - so it
+cannot damage anything, and anyone can design a map whether or not they own the
+game.
+
+> **This is the phase 2 editor, as built.** It is being folded into one
+> application with a map viewer, with a build step and a backend behind it
+> (decisions #47-#50). What is here still runs and is still the source of
+> `render.js`, `edit.js` and `terrain.js`, which stay framework-free precisely
+> so they survive that move. See `docs/app-architecture.md`.
 
 ## Running it
 

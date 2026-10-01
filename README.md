@@ -66,7 +66,7 @@ Run from a checkout with `python -m awrbc <command>`, or install it with `pip in
 ```
 awrbc/core/    codec, save reading, domain model - never prints, never exits
 awrbc/cli/     the only place that formats output or picks exit codes
-web/           the browser map editor; static, no backend
+web/           the browser map editor; becoming part of the app (see docs)
 tools/         bfcheck.ps1 and nrbfcheck - format validators
 tools/poc/     the reverse-engineering scripts, kept for reference
 tests/
