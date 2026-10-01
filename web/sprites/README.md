@@ -56,4 +56,4 @@ have not been troubled, but that is tolerance, not a licence, and it is not
 something this repository should rely on.
 
 So: use whatever art you like on your own machine. Keep the repository shipping
-only the original drawn icons, which is what `icons.js` is for.
+a letter on a flat colour, which is legible but not the intent.

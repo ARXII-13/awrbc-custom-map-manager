@@ -8,14 +8,12 @@
 // module owns that transpose, and nothing here needs to know about it.
 
 import { terrain, team, UNIT_ABBR, HP_SCALE } from './terrain.js';
-import { TERRAIN_ICONS, PROPERTY_ICONS, UNIT_ICONS } from './icons.js';
 import { spriteFor } from './sprites.js';
 
 const GRID_LINE = 'rgba(0,0,0,0.13)';
 
 // Below this a tile is a few pixels across and an icon is mud; flat colour
 // reads better, which is also what thumbnails want.
-const ICON_MIN = 13;
 const LABEL_MIN = 16;
 
 /** Open ground, used as the layer under transparent terrain and buildings. */
@@ -191,18 +189,9 @@ function drawTile(ctx, doc, cells, x, y, px, py, size, opts) {
 
   if (!opts.glyphs || size < 12) return;
 
-  const icon = info.property ? PROPERTY_ICONS[id] : TERRAIN_ICONS[id];
+  // No sprite for this tile: a letter, so the terrain is still identifiable.
+  // There is no drawn-art path - a sprite pack is how this renderer draws.
   const ink = info.property ? inkFor(owner.color, 0.93) : 'rgba(0,0,0,0.52)';
-  if (icon && size >= ICON_MIN) {
-    ctx.save();
-    // Terrain that runs - pipe, seam - draws itself from its connections, the
-    // same set the sprite lookup uses. A structure gets its facing instead.
-    icon(ctx, px, py, size, ink,
-         dirsFor(doc.terrain, x, y, id) || facing);
-    ctx.restore();
-    return;
-  }
-  // No icon for this terrain, or too small to draw one: fall back to a letter.
   if (info.glyph) {
     ctx.fillStyle = ink;
     ctx.font = 'bold ' + Math.round(size * 0.5) + 'px system-ui, sans-serif';
@@ -236,13 +225,8 @@ function drawUnit(ctx, unit, px, py, size, opts = {}) {
   ctx.lineWidth = Math.max(1, size / 24);
   ctx.stroke();
 
-  const icon = UNIT_ICONS[unit.type];
-  if (icon && size >= ICON_MIN) {
-    ctx.save();
-    // Inset so the silhouette sits inside the counter rather than on its edge.
-    icon(ctx, px + size * 0.12, py + size * 0.12, size * 0.76, inkFor(owner.color));
-    ctx.restore();
-  } else if (size >= LABEL_MIN) {
+  // No sprite for this unit: its abbreviation on the team counter.
+  if (size >= LABEL_MIN) {
     ctx.fillStyle = inkFor(owner.color);
     ctx.font = 'bold ' + Math.round(size * 0.34) + 'px system-ui, sans-serif';
     ctx.textAlign = 'center';
@@ -344,10 +328,9 @@ export function thumbnail(doc, width, height) {
  * same scale - so a 64x64 map looks big next to a 10x10 one, which is true and
  * is what someone browsing wants to know.
  *
- * `sprites` defaults to false: what this produces is meant to be committed to
- * a public repository, and the sprite pack is local art that must not be
- * (decision #37). Pass `{ sprites: true }` only for something staying on this
- * machine.
+ * Renders with whatever pack is loaded. A preview is meant to look like the
+ * map does on screen, so this draws what the editor draws; the author's loaded
+ * pack is therefore what reaches the archive.
  */
 export function poster(doc, tilePx = 16, opts = {}) {
   const canvas = document.createElement('canvas');
@@ -359,7 +342,7 @@ export function poster(doc, tilePx = 16, opts = {}) {
     height: canvas.height,
     grid: false,
     glyphs: true,
-    sprites: opts.sprites === true,
+    sprites: opts.sprites !== false,
   });
   return canvas;
 }

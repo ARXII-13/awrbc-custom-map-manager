@@ -34,8 +34,7 @@ python -m awrbc export 0 -o ALL.json
 | | |
 |---|---|
 | `terrain.js` | Terrain, team and unit tables. Data only - no drawing, no DOM. |
-| `icons.js` | Terrain, property and unit icons, drawn procedurally. |
-| `sprites.js` | Optional sprite-pack loader; overrides the drawn icons. |
+| `sprites.js` | Sprite-pack loader. The pack is how this renders. |
 | `edit.js` | Editing operations, undo, and live stats. No rendering. |
 | `render.js` | The renderer. Pure: a 2D context plus a map document. |
 | `fixes.js` | Repairs offered after validation - wide rivers, broken structures. |
@@ -73,31 +72,20 @@ maps, so it is typed once. Opening a map that already names someone keeps that
 name rather than relabelling their map as yours. Leave it blank and the map
 publishes as `anonymous`, which is also what the archive shows.
 
-## No game assets, ever
+## Art
 
-Every colour and every icon here is original. None of it is sampled, traced or
-ripped from Advance Wars, on the GBA or the Switch. That is not a style choice -
-it is the whole reason this project can publish an archive and a website at all,
-and it is the first thing somebody will be tempted to "improve".
+The renderer draws from the sprite pack in `web/sprites/`. There is no
+substitute-art path: without a pack, terrain falls back to a letter on a
+colour, which is legible and not meant to be pretty.
 
-If you want different art on your own machine, drop a sprite pack into
-`web/sprites/` - it overrides the drawn icons per id, and it is gitignored, so
-no third-party art of any kind lands in this repository. See
-`sprites/README.md`. That boundary is decision #37.
+The pack is gitignored, so no third-party art is committed to this repository.
+What does leave this machine is a bundle's `preview.png`, which carries
+whatever the renderer drew - so the pack you load is what the archive shows.
+That is the intent (decision #46), not an accident.
 
-One thing the gitignore does *not* cover, now that the editor renders previews:
-a bundle's `preview.png` carries whatever the renderer drew. `poster()` takes
-`sprites: false` and Export bundle does not override it, so a bundle is drawn
-art no matter what pack is loaded - verified byte-identical with and without
-one. Change that argument and you are deciding to publish the pack's art as a
-raster, which is a different question from using it locally.
-
-Icons are drawn in a 0..1 box and scaled, so they stay sharp anywhere between a
-13px tile and a 72px one. A 16x16 sprite sheet could not do that.
-
-`inkFor()` in `render.js` picks icon ink from the background's luma rather than
-always using white. Neutral properties are light grey and Yellow Comet is a
-light yellow; both washed out entirely with white icons.
+`inkFor()` in `render.js` picks label ink from the background's luma rather
+than always using white. Neutral properties are light grey and Yellow Comet is
+a light yellow; both washed out entirely with white text.
 
 ## Tools
 

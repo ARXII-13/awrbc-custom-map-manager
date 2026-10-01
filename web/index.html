@@ -163,7 +163,6 @@ import { drawMap, fitTile, cellIndex, poster } from "./render.js";
 import { UNITS, TEAMS, TERRAIN_PALETTE, STRUCTURES, NEUTRAL_STRUCTURES,
          DIRECTIONAL, MULTI_TILE, STRUCTURE_SPAN, RUNS, MAX_COLS, MAX_ROWS,
          terrain, team } from "./terrain.js";
-import { TERRAIN_ICONS, PROPERTY_ICONS, UNIT_ICONS } from "./icons.js";
 import { loadPack, packLabel, spriteFor } from "./sprites.js";
 import { createEditor, emptyMap, stats } from "./edit.js";
 import { available as repairsFor } from "./fixes.js";
@@ -368,21 +367,14 @@ function swatch(kind, id) {
     return cv;
   }
 
-  // No pack: fall back to the drawn icons.
-  if (kind === "terrain") {
-    const icon = info.property ? PROPERTY_ICONS[id] : TERRAIN_ICONS[id];
-    if (icon) {
-      icon(g, 0, 0, S, info.property ? "rgba(255,255,255,.93)" : "rgba(0,0,0,.52)");
-    } else if (info.glyph) {
-      g.fillStyle = "rgba(0,0,0,.5)";
-      g.font = "bold 17px system-ui, sans-serif";
-      g.textAlign = "center";
-      g.textBaseline = "middle";
-      g.fillText(info.glyph, S / 2, S / 2);
-    }
-  } else {
-    const icon = UNIT_ICONS[id];
-    if (icon) icon(g, S * 0.1, S * 0.1, S * 0.8, "rgba(255,255,255,.95)");
+  // No pack covers this id: the colour, with a letter on it. There is no
+  // drawn-art path - a sprite pack is how the palette is meant to look.
+  if (kind === "terrain" && info.glyph) {
+    g.fillStyle = "rgba(0,0,0,.5)";
+    g.font = "bold 17px system-ui, sans-serif";
+    g.textAlign = "center";
+    g.textBaseline = "middle";
+    g.fillText(info.glyph, S / 2, S / 2);
   }
   return cv;
 }
