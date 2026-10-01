@@ -149,21 +149,14 @@ def load(root):
 
 
 def dump(catalog, root):
-    """Write the catalog, returning the path.
+    """Write the catalog on its own, returning the path.
 
-    ``sort_keys`` and a trailing newline are not cosmetic - without them a
-    regeneration commit is an unreadable diff every time.
+    ``regenerate`` is what the CLI uses. This is for a caller that already has
+    an index in hand and only wants it on disk.
     """
     path = os.path.join(root, FILENAME)
-    payload = {
-        "schema": SCHEMA_VERSION,
-        "generated": _today(),
-        "count": len(catalog),
-        "maps": catalog,
-    }
-    with open(path, "w", encoding="utf-8") as fh:
-        json.dump(payload, fh, indent=1, sort_keys=True, ensure_ascii=False)
-        fh.write("\n")
+    with open(path, "wb") as fh:
+        fh.write(payload_bytes(catalog))
     return path
 
 
@@ -184,33 +177,19 @@ def regenerate(root, keep_dates_from=None):
     """
     from . import preview
 
-    dates = previous_dates(keep_dates_from)
-    index, problems, maps = {}, [], {}
-    for path in map_files(root):
-        try:
-            with open(os.path.join(root, path), encoding="utf-8") as fh:
-                doc = json.load(fh)
-            m = schema.from_json(doc)
-            add(index, m, doc, path, dates.get(path))
-            maps[path] = m
-        except Exception as exc:                        # noqa: BLE001
-            problems.append({"path": path, "error": str(exc)})
+    index, problems = build(root, keep_dates_from)
 
-    # Previews are not made here. The editor renders them: it owns the icons
-    # and whatever sprite pack is loaded, and a second renderer in Python could
-    # only ever draw a worse picture of the same map while needing to be kept in
-    # step with the first. What this does instead is notice which versions have
-    # one, so a README never embeds an image that is not there.
-    files, shots = {}, {}
-    for path in maps:
-        p = archive.parse(path)
-        shot = "/".join([p.folder, preview.preview_file(p.version)])
-        shots[shot] = os.path.exists(os.path.join(root, *shot.split("/")))
-
+    # Previews are not made here. The editor renders them: it owns the icons and
+    # whatever sprite pack is loaded, and a second renderer in Python could only
+    # ever draw a worse picture of the same map while needing to be kept in step
+    # with the first. All this does is notice which versions have one, so a
+    # README never embeds an image that is not there.
+    files = {}
     for folder, entry in index.items():
         have = {v["version"] for v in entry.get("versions", [])
-                if shots.get("/".join([folder,
-                                       preview.preview_file(v["version"])]))}
+                if os.path.exists(os.path.join(
+                    root, *folder.split("/"),
+                    preview.preview_file(v["version"])))}
         files["/".join([folder, "README.md"])] = \
             preview.readme(entry, folder, previews=have).encode("utf-8")
     files[FILENAME] = payload_bytes(index)
@@ -218,7 +197,11 @@ def regenerate(root, keep_dates_from=None):
 
 
 def payload_bytes(catalog):
-    """The catalog as it is written, so it can be compared without writing."""
+    """The catalog as it is written, so it can be compared without writing.
+
+    ``sort_keys`` and the trailing newline are not cosmetic: without them a
+    regeneration commit is an unreadable diff every time.
+    """
     payload = {
         "schema": SCHEMA_VERSION,
         "generated": _today(),

@@ -22,14 +22,13 @@ import re
 from dataclasses import dataclass, field
 
 from . import identity
-from .model import Map
 from .validate import ERROR, WARNING, Report
 
 ROOT = "maps"
 
-#: The archive holds 2- to 5-army maps; fewer is unplayable and validation
-#: already refuses it.
-MIN_PLAYERS = 2
+#: The archive holds 2- to 5-army maps. There is no matching minimum here:
+#: validation already refuses a one-army map, so nothing ever reaches this
+#: module needing a floor checked.
 MAX_PLAYERS = 5
 
 #: The one authored category. It is not a sixth player count - it is the bucket
@@ -308,7 +307,7 @@ def plan(m, catalog=None, update=None, author=None):
                          path="/".join([folder, version_file(version)]),
                          folder=folder, version=version)
 
-    folder = "/".join([ROOT, category_for(m), slug_for(m)])
+    folder = folder_for(m)
     if folder in catalog:
         # Deliberately does not guess which of the two this is. The common case
         # is your own map, revised and submitted without saying so; the case

@@ -59,7 +59,7 @@ Import blocks on validation errors unless you pass `--force`.
 place, so a partial save is never left behind. Import also refuses while the game
 is running, because the title flushes its own copy over external edits.
 
-Run from a checkout with `python -m awrbc.cli <command>`.
+Run from a checkout with `python -m awrbc <command>`, or install it with `pip install -e .` for a plain `awrbc`.
 
 ## Layout
 

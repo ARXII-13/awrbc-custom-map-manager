@@ -38,10 +38,22 @@ python -m awrbc export 0 -o ALL.json
 | `sprites.js` | Optional sprite-pack loader; overrides the drawn icons. |
 | `edit.js` | Editing operations, undo, and live stats. No rendering. |
 | `render.js` | The renderer. Pure: a 2D context plus a map document. |
+| `fixes.js` | Repairs offered after validation - wide rivers, broken structures. |
+| `zip.js` | A store-only zip writer, for Export bundle. No dependency. |
 | `index.html` | The viewer shell - loading, pan, zoom, hover, stats. |
 
-`render.js` is deliberately free of editing state so the archive's thumbnail
-generator can use it unchanged; `thumbnail(doc, w, h)` is there for that.
+`render.js` is deliberately free of editing state, so anything that needs a
+picture of a map can use it unchanged. `thumbnail(doc, w, h)` fits a map into a
+box; `poster(doc, tilePx)` draws it at a fixed tile size, which is what Export
+bundle puts in the zip.
+
+## Export bundle
+
+**Export** writes the map JSON. **Export bundle** writes a zip holding
+`map.json` and a `preview.png` drawn by this renderer, which `awrbc publish`
+unpacks into the archive. The editor is the only thing that renders a preview -
+the Python package deliberately has no renderer of its own (decision #45), so a
+map published without a bundle simply has no picture.
 
 ## No game assets, ever
 
@@ -51,9 +63,16 @@ it is the whole reason this project can publish an archive and a website at all,
 and it is the first thing somebody will be tempted to "improve".
 
 If you want different art on your own machine, drop a sprite pack into
-`web/sprites/` - it overrides the drawn icons per id, and it is gitignored so it
-never reaches the repository, the archive or the website. See
+`web/sprites/` - it overrides the drawn icons per id, and it is gitignored, so
+no third-party art of any kind lands in this repository. See
 `sprites/README.md`. That boundary is decision #37.
+
+One thing the gitignore does *not* cover, now that the editor renders previews:
+a bundle's `preview.png` carries whatever the renderer drew. `poster()` takes
+`sprites: false` and Export bundle does not override it, so a bundle is drawn
+art no matter what pack is loaded - verified byte-identical with and without
+one. Change that argument and you are deciding to publish the pack's art as a
+raster, which is a different question from using it locally.
 
 Icons are drawn in a 0..1 box and scaled, so they stay sharp anywhere between a
 13px tile and a 72px one. A 16x16 sprite sheet could not do that.
