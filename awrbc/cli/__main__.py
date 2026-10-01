@@ -11,7 +11,7 @@ import re
 import subprocess
 import sys
 
-from ..core import (archive, backup, catalog, identify, locate, preview,
+from ..core import (archive, backup, catalog, identify, locate, preview, repo,
                     savefile, schema, validate)
 from ..core.errors import (AwrbcError, MapNotFound, PublishRefused, SaveInUse,
                            SaveNotFound, ValidationFailed)
@@ -219,13 +219,34 @@ def cmd_export(args, out):
     return EXIT_OK
 
 
+def _import_source(args, out):
+    """Where the map being imported comes from: a local file, or the archive.
+
+    A path that exists on disk is a file. Anything else is looked up in the
+    archive. That order matters: it means a file you can see is never silently
+    ignored in favour of something downloaded, and the ambiguity only ever
+    resolves outward - never the other way round.
+    """
+    if os.path.exists(args.file):
+        # Whatever the editor produced, bundle or bare JSON. A bundle's preview
+        # is ignored here - a save has no use for it - but refusing the file
+        # over it would make people pick the right export before they know
+        # there is a choice.
+        doc, _preview = _read_submission(args.file)
+        return doc, None
+
+    index, stale = _catalog_for(args)
+    _warn_stale(out, stale)
+    folder, entry, version = repo.resolve(index, args.file)
+    doc = repo.fetch_map(folder, version, args.base,
+                         root=getattr(args, "library", None))
+    return doc, "%s v%d by %s" % (folder, version,
+                                  entry.get("author") or "anonymous")
+
+
 def cmd_import(args, out):
     chosen, _ = _resolve(args)
-    # Takes whatever the editor produced, bundle or bare JSON. The preview in a
-    # bundle is ignored here - a save has no use for it - but refusing the file
-    # over it would make people pick the right export before they know there is
-    # a choice.
-    doc_json, _preview = _read_submission(args.file)
+    doc_json, origin = _import_source(args, out)
 
     m = schema.from_json(doc_json)
     report = validate.check(m)
@@ -258,7 +279,7 @@ def cmd_import(args, out):
 
     if args.json:
         json.dump({"slot": slot, "bytes": written, "backup": snap.path,
-                   "name": args.name or m.name,
+                   "name": args.name or m.name, "from": origin,
                    "warnings": [vars(f) for f in report.warnings]}, out, indent=2)
         out.write("\n")
         return EXIT_OK
@@ -266,6 +287,10 @@ def cmd_import(args, out):
     out.write("imported %r as slot %s\n" % (args.name or m.name, slot))
     for f in report.warnings:
         out.write("  warning %-18s %s\n" % (f.code, f.message))
+    if origin:
+        # Somebody else's map just went into this save. Saying whose, and which
+        # version, is the difference between a download and an unlabelled file.
+        out.write("  from    %s\n" % origin)
     out.write("  save    %s (%s bytes)\n" % (chosen.path, format(written, ",")))
     out.write("  backup  %s\n" % snap.path)
     return EXIT_OK
@@ -568,6 +593,94 @@ def cmd_catalog(args, out):
     return EXIT_OK
 
 
+def _catalog_for(args):
+    """The archive index, from a local checkout if given, else the network."""
+    if getattr(args, "library", None):
+        return repo.load_local(args.library)
+    return repo.fetch_catalog(args.base, refresh=getattr(args, "refresh", False))
+
+
+def _warn_stale(out, stale):
+    if stale is None:
+        return
+    hours = stale / 3600.0
+    sys.stderr.write(
+        "warning: the archive is unreachable; using a copy cached %s ago\n"
+        % ("%.0f minutes" % (stale / 60.0) if hours < 1
+           else "%.0f hours" % hours))
+
+
+def _facts(entry):
+    v = entry.get("versions", [{}])[-1]
+    bits = ["%dp" % v.get("players", 0),
+            "%dx%d" % (v.get("cols", 0), v.get("rows", 0))]
+    bits += [k for k in ("predeployed", "navy", "structures", "fog")
+             if v.get(k)]
+    bits += list(v.get("tags", []))
+    return bits
+
+
+def cmd_search(args, out):
+    index, stale = _catalog_for(args)
+    _warn_stale(out, stale)
+    found = repo.search(index, " ".join(args.query or []))
+
+    if args.json:
+        json.dump({"query": " ".join(args.query or []),
+                   "results": [{"folder": f, "name": e.get("name"),
+                                "author": e.get("author"),
+                                "slug": e.get("slug"),
+                                "versions": [v["version"]
+                                             for v in e.get("versions", [])],
+                                "facts": _facts(e)}
+                               for f, e in found]}, out, indent=2)
+        out.write("\n")
+        return EXIT_OK
+
+    if not found:
+        out.write("nothing matched. `awrbc search` with no words lists "
+                  "everything.\n")
+        return EXIT_OK
+    out.write("  %-20s %-18s %-22s %s\n"
+              % ("slug", "name", "by", "what it is"))
+    for folder, entry in found:
+        out.write("  %-20s %-18s %-22s %s\n"
+                  % (entry.get("slug", "")[:20], (entry.get("name") or "")[:18],
+                     (entry.get("author") or "")[:22],
+                     ", ".join(_facts(entry))))
+    out.write("\n%d map%s. `awrbc show <slug>` for one.\n"
+              % (len(found), "" if len(found) == 1 else "s"))
+    return EXIT_OK
+
+
+def cmd_show(args, out):
+    index, stale = _catalog_for(args)
+    _warn_stale(out, stale)
+    folder, entry, version = repo.resolve(index, args.slug)
+    versions = sorted(entry.get("versions", []), key=lambda v: v["version"],
+                      reverse=True)
+
+    if args.json:
+        json.dump({"folder": folder, "name": entry.get("name"),
+                   "author": entry.get("author"), "latest": version,
+                   "versions": versions}, out, indent=2)
+        out.write("\n")
+        return EXIT_OK
+
+    out.write("%s\n" % (entry.get("name") or entry.get("slug")))
+    out.write("  by %s\n" % (entry.get("author") or "anonymous"))
+    out.write("  %s\n" % ", ".join(_facts(entry)))
+    out.write("  %s\n\n" % folder)
+    out.write("  %-6s %-12s %s\n" % ("", "added", "id"))
+    for v in versions:
+        out.write("  %-6s %-12s %s%s\n"
+                  % ("v%d" % v["version"], v.get("added", ""),
+                     v.get("hash", ""),
+                     "   <- latest" if v["version"] == version else ""))
+    out.write("\nawrbc import %s\n" % (entry.get("slug") or folder))
+    return EXIT_OK
+
+
 def cmd_remove(args, out):
     chosen, _ = _resolve(args)
     if _game_running() and not args.force:
@@ -672,6 +785,17 @@ def build_parser():
         description="Custom map tools for Advance Wars 1+2: Re-Boot Camp. "
                     "Not affiliated with Nintendo or WayForward.")
     sub = p.add_subparsers(dest="command")
+
+    def archive_flags(p):
+        """Where to read the published archive from."""
+        p.add_argument("--base", default=repo.DEFAULT_BASE,
+                       help="archive URL (default: the public library)")
+        p.add_argument("--library",
+                       help="a local checkout to read instead of the network")
+        p.add_argument("--refresh", action="store_true",
+                       help="ignore the cached catalog")
+        return p
+
     sub.add_parser("doctor", parents=[common],
                    help="find save data and report what is readable")
     sub.add_parser("list", parents=[common],
@@ -688,11 +812,14 @@ def build_parser():
 
     im = sub.add_parser("import", parents=[common],
                         help="add a map from JSON into the save")
-    im.add_argument("file", help="map JSON, or an Export bundle zip")
+    im.add_argument("file", metavar="FILE-OR-SLUG",
+                    help="a map JSON or bundle zip on disk, or a slug from "
+                         "the archive (daibi, 2p/daibi, daibi@v2)")
     im.add_argument("--name", help="name to give the map in game")
     im.add_argument("--dry-run", action="store_true", help="build but do not write")
     im.add_argument("--force", action="store_true",
                     help="import despite validation errors or a running emulator")
+    archive_flags(im)
 
     pub = sub.add_parser("publish", parents=[common],
                          help="place a map in a library checkout")
@@ -720,6 +847,15 @@ def build_parser():
     cat.add_argument("--check", action="store_true",
                      help="report without writing")
 
+    se = archive_flags(sub.add_parser("search", parents=[common],
+                                      help="find maps in the archive"))
+    se.add_argument("query", nargs="*",
+                    help="words to match; all of them must match")
+
+    sh = archive_flags(sub.add_parser("show", parents=[common],
+                                      help="details for one map"))
+    sh.add_argument("slug", help="slug, 2p/slug, or slug@v2")
+
     rm = sub.add_parser("remove", parents=[common], help="delete a map")
     rm.add_argument("index", type=int, help="map index from `list`")
     rm.add_argument("--dry-run", action="store_true")
@@ -746,7 +882,8 @@ def main(argv=None, out=None):
                 "import": cmd_import, "remove": cmd_remove,
                 "backup": cmd_backup, "restore": cmd_restore,
                 "publish": cmd_publish, "catalog": cmd_catalog,
-                "verify": cmd_verify}
+                "verify": cmd_verify, "search": cmd_search,
+                "show": cmd_show}
     try:
         return handlers[args.command](args, out)
     except PublishRefused as exc:

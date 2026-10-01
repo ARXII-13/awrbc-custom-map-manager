@@ -36,11 +36,22 @@ awrbc remove 3                    delete a map
 awrbc backup                      snapshot the save
 awrbc restore [name]              list snapshots, or roll one back
 
+awrbc search "4p fog"             find maps in the public archive
+awrbc show renew                  what one map is, and its versions
+awrbc import renew                fetch it from the archive into your save
+
 awrbc publish map.json            place a map in a library checkout
 awrbc catalog                     rebuild the index and folder READMEs
 ```
 
-`import` and `remove` take `--dry-run` and `--force`.
+`import` and `remove` take `--dry-run` and `--force`. `import` accepts a file
+on disk or a slug from the archive - an existing path always wins, so a file
+you can see is never passed over in favour of a download.
+
+The archive commands take `--base` (a different archive), `--library` (a local
+checkout, which also works offline) and `--refresh`. The catalog is cached for
+an hour; when the network is down a stale copy is used with a warning rather
+than failing.
 
 Flags: `--save-dir` (Ryujinx folder, JKSV dump, or a maps file), `--profile`,
 `--json`. Export also takes `--author` and `--keep-creator`.
