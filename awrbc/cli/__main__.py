@@ -41,15 +41,29 @@ def _game_running():
 
     Only a loaded game holds the save; the emulator sitting open with no title
     is fine, so this must not refuse merely because Ryujinx is on screen.
+
+    Asks the platform's own process list. This used to shell out to `tasklist`
+    unconditionally, which meant that on macOS and Linux the command did not
+    exist, the exception was swallowed, and the check silently answered "not
+    running" every time - turning a guard against the emulator overwriting our
+    write into a no-op on two of the three platforms.
+
+    It still answers False when it cannot tell, because refusing to write
+    because `ps` is missing would be worse than the risk. That is a deliberate
+    fail-open, not an oversight.
     """
     if os.environ.get("AWRBC_SKIP_PROCESS_CHECK"):
         return False
+    if sys.platform == "win32":
+        argv = ["tasklist"]
+    else:
+        argv = ["ps", "-A", "-o", "comm="]
     try:
-        out = subprocess.run(["tasklist"], capture_output=True, text=True,
+        out = subprocess.run(argv, capture_output=True, text=True,
                              timeout=10).stdout.lower()
     except Exception:                               # noqa: BLE001
         return False
-    return "ryujinx.exe" in out
+    return "ryujinx" in out
 
 
 def cmd_doctor(args, out):
