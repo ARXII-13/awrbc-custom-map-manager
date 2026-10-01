@@ -503,19 +503,26 @@ function applyAt(x, y) {
 
 let drag = null;
 
+// How far the pointer has to move before a right-button press counts as a drag
+// rather than a click. Small enough that a deliberate pan starts immediately,
+// large enough that clicking with a trackpad does not scroll the map a pixel
+// and swallow the delete.
+const DRAG_SLOP = 4;
+
 canvas.addEventListener("pointerdown", (e) => {
   canvas.setPointerCapture(e.pointerId);
 
-  // Right-click removes the unit under the cursor, whatever tool is selected.
-  // Placing units and correcting a misplaced one are the same activity, and
-  // making that a mode switch is friction for no gain. Middle-drag and Shift
-  // still pan, so nothing is lost by spending the right button here.
+  // The right button does two things, and which one cannot be known yet:
+  // right-drag pans the view, right-click removes the unit under the cursor.
+  // So commit to neither here. The pointer either moves far enough to be a
+  // drag, or comes up near where it went down, which is a click.
+  //
+  // An earlier version spent the right button on erasing alone and took
+  // right-drag panning away with it. Panning a zoomed map is the more common
+  // action by far, so it wins any tie.
   if (e.button === 2) {
-    drag = { mode: "erase", last: null };
-    ed.begin();
-    const p = tileAt(e);
-    if (ed.removeUnit(p.x, p.y)) draw();
-    drag.last = p.x + "," + p.y;
+    drag = { mode: "right", x: e.clientX, y: e.clientY, ox, oy,
+             panning: false, start: tileAt(e) };
     return;
   }
 
@@ -539,11 +546,19 @@ canvas.addEventListener("pointermove", (e) => {
     draw();
     return;
   }
-  if (drag && drag.mode === "erase") {
-    const key = p.x + "," + p.y;
-    if (key !== drag.last) {
-      drag.last = key;
-      if (ed.removeUnit(p.x, p.y)) draw();
+  if (drag && drag.mode === "right") {
+    // Past the slop, this is a pan and stays one until the button comes up -
+    // otherwise a shaky hand turns a deliberate pan back into a delete.
+    if (!drag.panning &&
+        Math.hypot(e.clientX - drag.x, e.clientY - drag.y) > DRAG_SLOP) {
+      drag.panning = true;
+      canvas.classList.add("panning");
+    }
+    if (drag.panning) {
+      ox = drag.ox + (e.clientX - drag.x);
+      oy = drag.oy + (e.clientY - drag.y);
+      userFramed = true;
+      draw();
     }
     return;
   }
@@ -572,7 +587,14 @@ canvas.addEventListener("pointermove", (e) => {
 });
 
 function endDrag() {
-  if (drag && (drag.mode === "edit" || drag.mode === "erase")) ed.commit();
+  // A right button that never moved was a click, so do the delete now rather
+  // than on the way down.
+  if (drag && drag.mode === "right" && !drag.panning) {
+    ed.begin();
+    if (ed.removeUnit(drag.start.x, drag.start.y)) draw();
+    ed.commit();
+  }
+  if (drag && drag.mode === "edit") ed.commit();
   drag = null;
   canvas.classList.remove("panning");
 }
