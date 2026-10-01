@@ -201,7 +201,10 @@ def regenerate(root, keep_dates_from=None):
                 found = preview.check_png(fh.read(),
                                           tiles=(v["cols"], v["rows"]))
             for f in found.errors:
-                problems.append({"path": rel, "error": f.message})
+                # Same wording `verify` uses, so a caller doing both checks can
+                # drop the duplicate rather than print the same fault twice.
+                problems.append({"path": rel,
+                                 "error": "%s: %s" % (f.code, f.message)})
         files["/".join([folder, "README.md"])] = \
             preview.readme(entry, folder, previews=have).encode("utf-8")
     files[FILENAME] = payload_bytes(index)
