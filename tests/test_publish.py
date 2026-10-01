@@ -308,6 +308,34 @@ class Refusals(PublishCase):
                   "rb") as fh:
             self.assertEqual(fh.read(), b"\x89PNG\r\n\x1a\nunzipped")
 
+    def test_every_form_the_editor_can_produce_is_readable(self):
+        """`import` and `publish` share this reader, so neither can be the one
+        that rejects what the other accepts - which is what made two export
+        buttons a trap rather than a choice."""
+        import zipfile
+        from awrbc.cli.__main__ import _read_submission
+
+        _, doc = self.source(name="Daibi")
+        bare = os.path.join(self.tmp, "bare.json")
+        with open(bare, "w", encoding="utf-8") as fh:
+            json.dump(doc, fh)
+
+        bundle = os.path.join(self.tmp, "readable.zip")
+        with zipfile.ZipFile(bundle, "w") as z:
+            z.writestr("map.json", json.dumps(doc))
+            z.writestr("preview.png", EDITOR_PNG)
+
+        folder = os.path.join(self.tmp, "unpacked-readable")
+        os.makedirs(folder)
+        with open(os.path.join(folder, "map.json"), "w", encoding="utf-8") as fh:
+            json.dump(doc, fh)
+
+        for source, expect_preview in ((bare, False), (bundle, True),
+                                       (folder, False)):
+            read, preview = _read_submission(source)
+            self.assertEqual(read["name"], "Daibi", source)
+            self.assertEqual(bool(preview), expect_preview, source)
+
     def test_a_zip_with_no_map_in_it_says_so(self):
         import zipfile
         bundle = os.path.join(self.tmp, "empty.zip")

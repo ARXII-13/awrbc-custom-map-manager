@@ -47,13 +47,31 @@ picture of a map can use it unchanged. `thumbnail(doc, w, h)` fits a map into a
 box; `poster(doc, tilePx)` draws it at a fixed tile size, which is what Export
 bundle puts in the zip.
 
-## Export bundle
+## Exporting
 
-**Export** writes the map JSON. **Export bundle** writes a zip holding
-`map.json` and a `preview.png` drawn by this renderer, which `awrbc publish`
-unpacks into the archive. The editor is the only thing that renders a preview -
-the Python package deliberately has no renderer of its own (decision #45), so a
-map published without a bundle simply has no picture.
+> **Use Export bundle unless you have a reason not to.** It is the one that
+> includes a picture of your map, and a map published without one has nothing
+> to look at in the archive. The author of this tool exported the wrong one
+> first, which is why this paragraph exists.
+
+| | Gives you | Use it for |
+|---|---|---|
+| **Export bundle** | `.zip` - `map.json` + `preview.png` | Sharing, submitting, anything someone else will see |
+| **Export** | `.json` only | Hand-editing, diffing, pasting somewhere |
+
+Both go into `awrbc import` and `awrbc publish`; neither command cares which
+you picked, so the only thing you lose with the plain export is the preview.
+
+The preview is drawn by this renderer, because the editor is the only thing
+that has the icons - the Python package deliberately has none (decision #45).
+So nothing downstream can make the picture for you later.
+
+## Fill in your name
+
+The **author** field in the Map panel is remembered in this browser between
+maps, so it is typed once. Opening a map that already names someone keeps that
+name rather than relabelling their map as yours. Leave it blank and the map
+publishes as `anonymous`, which is also what the archive shows.
 
 ## No game assets, ever
 

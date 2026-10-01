@@ -113,7 +113,10 @@
   </div>
   <aside>
     <h2>Map</h2>
-    <input type="text" id="name" style="width:100%" value="Untitled">
+    <input type="text" id="name" style="width:100%" value="Untitled"
+           placeholder="map name">
+    <input type="text" id="author" style="width:100%;margin-top:6px"
+           placeholder="your name">
     <div class="row">
       <input type="number" id="cols" min="1" step="1">
       <span>x</span>
@@ -255,6 +258,12 @@ function load(json) {
   ed = createEditor(doc, refresh);
   document.getElementById("name").value = doc.name || "Untitled";
   document.getElementById("tags").value = (doc.tags || []).join(", ");
+  // A map that already names an author keeps it - opening someone else's map
+  // must not quietly relabel it as yours. A new or anonymous one picks up the
+  // name this browser remembers.
+  const carried = doc.author && doc.author !== "anonymous" ? doc.author : "";
+  doc.author = carried || rememberedAuthor();
+  authorBox.value = doc.author;
   buildPalette();
   refresh();
   fit();
@@ -644,6 +653,23 @@ document.getElementById("check").onclick = () => {
   }
 };
 document.getElementById("name").oninput = (e) => { doc.name = e.target.value; };
+
+// Your name does not change between maps, so remember it. Without this the
+// author field is one more thing to retype per map, and what actually happens
+// is that nobody fills it in and every map is published by "anonymous".
+const AUTHOR_KEY = "awrbc.author";
+const authorBox = document.getElementById("author");
+
+function rememberedAuthor() {
+  // Private windows and blocked site data make this throw rather than return
+  // null, and an editor that will not load is worse than one that forgets.
+  try { return localStorage.getItem(AUTHOR_KEY) || ""; } catch { return ""; }
+}
+
+authorBox.oninput = (e) => {
+  doc.author = e.target.value.trim();
+  try { localStorage.setItem(AUTHOR_KEY, doc.author); } catch { /* ignore */ }
+};
 
 // Tags are the author's own labels. Anything the map can answer for itself -
 // how many armies, whether units are predeployed - is derived at export and

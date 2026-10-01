@@ -207,8 +207,11 @@ def cmd_export(args, out):
 
 def cmd_import(args, out):
     chosen, _ = _resolve(args)
-    with open(args.file, encoding="utf-8") as fh:
-        doc_json = json.load(fh)
+    # Takes whatever the editor produced, bundle or bare JSON. The preview in a
+    # bundle is ignored here - a save has no use for it - but refusing the file
+    # over it would make people pick the right export before they know there is
+    # a choice.
+    doc_json, _preview = _read_submission(args.file)
 
     m = schema.from_json(doc_json)
     report = validate.check(m)
@@ -524,7 +527,7 @@ def build_parser():
 
     im = sub.add_parser("import", parents=[common],
                         help="add a map from JSON into the save")
-    im.add_argument("file", help="map JSON file")
+    im.add_argument("file", help="map JSON, or an Export bundle zip")
     im.add_argument("--name", help="name to give the map in game")
     im.add_argument("--dry-run", action="store_true", help="build but do not write")
     im.add_argument("--force", action="store_true",
@@ -532,7 +535,7 @@ def build_parser():
 
     pub = sub.add_parser("publish", parents=[common],
                          help="place a map in a library checkout")
-    pub.add_argument("file", help="map JSON file")
+    pub.add_argument("file", help="an Export bundle zip, a bundle folder, or a bare map JSON")
     pub.add_argument("--library", help="checkout of awrbc-custom-map-library "
                                        "(or set AWRBC_LIBRARY)")
     pub.add_argument("--update", metavar="FOLDER",
