@@ -609,11 +609,7 @@ document.getElementById("check").onclick = () => {
   // changes how the map plays should not arrive as a surprise.
   const done = [];
   for (const r of repairs) {
-    if (!confirm(r.label + "
-
-" + r.detail + "
-
-Apply?")) continue;
+    if (!confirm(r.label + "\n\n" + r.detail + "\n\nApply?")) continue;
     ed.begin();
     const n = r.apply(ed);
     ed.commit();
@@ -621,12 +617,8 @@ Apply?")) continue;
   }
   if (done.length) {
     refresh();
-    alert("Applied:
-  " + done.join("
-  ") +
-          "
-
-Ctrl+Z takes any of it back.");
+    alert("Applied:\n  " + done.join("\n  ") +
+          "\n\nCtrl+Z takes any of it back.");
   }
 };
 document.getElementById("name").oninput = (e) => { doc.name = e.target.value; };
