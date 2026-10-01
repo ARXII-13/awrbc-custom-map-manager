@@ -186,10 +186,22 @@ def regenerate(root, keep_dates_from=None):
     # README never embeds an image that is not there.
     files = {}
     for folder, entry in index.items():
-        have = {v["version"] for v in entry.get("versions", [])
-                if os.path.exists(os.path.join(
-                    root, *folder.split("/"),
-                    preview.preview_file(v["version"])))}
+        have = set()
+        for v in entry.get("versions", []):
+            rel = "/".join([folder, preview.preview_file(v["version"])])
+            target = os.path.join(root, *rel.split("/"))
+            if not os.path.exists(target):
+                continue
+            have.add(v["version"])
+            # A preview is untrusted input sitting in the repository, and a
+            # pull request can add one without going anywhere near `publish`.
+            # The catalog already knows what size the map is, so checking the
+            # image against it costs nothing extra here.
+            with open(target, "rb") as fh:
+                found = preview.check_png(fh.read(),
+                                          tiles=(v["cols"], v["rows"]))
+            for f in found.errors:
+                problems.append({"path": rel, "error": f.message})
         files["/".join([folder, "README.md"])] = \
             preview.readme(entry, folder, previews=have).encode("utf-8")
     files[FILENAME] = payload_bytes(index)

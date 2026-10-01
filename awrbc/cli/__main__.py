@@ -311,6 +311,11 @@ def cmd_publish(args, out):
     m = schema.from_json(doc)
 
     report = validate.check(m)
+    if supplied:
+        # The image is untrusted input being copied into a public repository,
+        # so it is checked before it gets there rather than after.
+        for f in preview.check_png(supplied, m).findings:
+            report.add(f.code, f.severity, f.message, f.path)
     if report.errors:
         for f in report.errors:
             sys.stderr.write("error: %-18s %s\n" % (f.code, f.message))

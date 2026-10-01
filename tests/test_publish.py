@@ -16,15 +16,18 @@ import tempfile
 import unittest
 
 from awrbc.cli.__main__ import main
-from awrbc.core import archive, catalog
+from awrbc.core import archive, catalog, preview
 from awrbc.core.errors import PublishRefused, ValidationFailed
 
 from .test_archive import a_map
+from .test_preview_check import make_png
 
-#: Stands in for whatever the editor drew. Nothing here inspects it - the
-#: point of these tests is that the bytes survive untouched, because this
-#: package can no longer reproduce them.
-EDITOR_PNG = b"\x89PNG\r\n\x1a\nfrom the editor"
+#: Stands in for whatever the editor drew; nothing here inspects it, because
+#: this package can no longer reproduce it. It does have to be a real PNG of
+#: the size a 12x10 map renders at - what `a_map` produces - since `publish`
+#: now refuses anything else, and a placeholder string would be rejected the
+#: same way a smuggled file would.
+EDITOR_PNG = make_png(12 * preview.PREVIEW_TILE, 10 * preview.PREVIEW_TILE)
 
 
 def write_map(path, name="Daibi", teams=2, tags=None, terrain=None,
@@ -259,13 +262,13 @@ class Refusals(PublishCase):
         bundle = os.path.join(self.tmp, "daibi.zip")
         with zipfile.ZipFile(bundle, "w") as z:
             z.writestr("map.json", json.dumps(doc))
-            z.writestr("preview.png", b"\x89PNG\r\n\x1a\nfrom the editor")
+            z.writestr("preview.png", EDITOR_PNG)
 
         code, text = self.publish(bundle)
         self.assertEqual(code, 0, text)
         with open(os.path.join(self.library, "maps", "2p", "daibi", "v1.png"),
                   "rb") as fh:
-            self.assertEqual(fh.read(), b"\x89PNG\r\n\x1a\nfrom the editor")
+            self.assertEqual(fh.read(), EDITOR_PNG)
 
     def test_a_bundle_wrapped_in_a_folder_still_works(self):
         """A round trip through a file manager usually adds one."""
@@ -274,13 +277,13 @@ class Refusals(PublishCase):
         bundle = os.path.join(self.tmp, "wrapped.zip")
         with zipfile.ZipFile(bundle, "w") as z:
             z.writestr("daibi/map.json", json.dumps(doc))
-            z.writestr("daibi/preview.png", b"\x89PNG\r\n\x1a\nnested")
+            z.writestr("daibi/preview.png", EDITOR_PNG)
 
         code, text = self.publish(bundle)
         self.assertEqual(code, 0, text)
         with open(os.path.join(self.library, "maps", "2p", "daibi", "v1.png"),
                   "rb") as fh:
-            self.assertEqual(fh.read(), b"\x89PNG\r\n\x1a\nnested")
+            self.assertEqual(fh.read(), EDITOR_PNG)
 
     def test_publishing_without_a_preview_succeeds_but_says_so(self):
         """A map with no picture is still a playable map. Only the person
@@ -301,12 +304,12 @@ class Refusals(PublishCase):
         with open(os.path.join(folder, "map.json"), "w", encoding="utf-8") as fh:
             json.dump(doc, fh)
         with open(os.path.join(folder, "preview.png"), "wb") as fh:
-            fh.write(b"\x89PNG\r\n\x1a\nunzipped")
+            fh.write(EDITOR_PNG)
 
         self.assertEqual(self.publish(folder)[0], 0)
         with open(os.path.join(self.library, "maps", "2p", "daibi", "v1.png"),
                   "rb") as fh:
-            self.assertEqual(fh.read(), b"\x89PNG\r\n\x1a\nunzipped")
+            self.assertEqual(fh.read(), EDITOR_PNG)
 
     def test_every_form_the_editor_can_produce_is_readable(self):
         """`import` and `publish` share this reader, so neither can be the one
