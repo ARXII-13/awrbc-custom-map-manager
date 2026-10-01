@@ -1,8 +1,9 @@
 # Sprite packs
 
-Drop a sprite pack here and the viewer uses it instead of the drawn icons. The
-renderer falls back per id, so a partial pack is fine - cover what you have and
-everything else keeps its drawn icon.
+Drop a sprite pack here and the renderer uses it. There is no drawn-art
+alternative any more (decision #46) - the fallback for an id a pack does not
+cover is a letter on a flat colour, so a partial pack is fine but a missing one
+is drab.
 
 **Nothing in this directory is committed** except this file and
 `manifest.example.json`. That is deliberate: see "What not to commit" below.

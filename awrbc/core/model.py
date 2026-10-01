@@ -65,10 +65,6 @@ class Tile:
     has_launched: bool = False
 
     @property
-    def is_capturable(self) -> bool:
-        return self.type in CAPTURABLE
-
-    @property
     def is_production(self) -> bool:
         return self.type in PRODUCTION
 
@@ -129,12 +125,6 @@ class Map:
     units: list = field(default_factory=list)
     tags: list = field(default_factory=list)
     version: int = 1
-
-    def tile(self, x: int, y: int) -> Tile:
-        return self.tiles[x][y]
-
-    def unit(self, x: int, y: int) -> Optional[Unit]:
-        return self.units[x][y]
 
     def iter_tiles(self):
         for x in range(self.cols):

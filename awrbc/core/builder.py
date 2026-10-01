@@ -127,9 +127,6 @@ class Types:
         for oid, (name, mnames, mtypes) in parser.classes.items():
             self.defs.setdefault(name, (oid, mnames, mtypes))
 
-    def __contains__(self, name):
-        return name in self.defs
-
     def require(self, *names):
         missing = [n for n in names if n not in self.defs]
         if missing:

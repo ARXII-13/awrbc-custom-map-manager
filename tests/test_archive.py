@@ -93,14 +93,17 @@ class Categories(unittest.TestCase):
     def test_every_category_parses(self):
         for teams in (2, 3, 4, 5):
             m, doc = a_map(teams=teams)
-            archive.parse(archive.path_for(m))
+            archive.parse(archive.folder_for(m) + "/" +
+                          archive.version_file(1))
 
 
 class Paths(unittest.TestCase):
-    def test_full_path(self):
+    def test_folder_comes_from_the_map(self):
         m, doc = a_map(name="Twin Rivers", teams=4, version=3)
-        self.assertEqual(archive.path_for(m),
-                         "maps/4p/twin-rivers/v3.json")
+        self.assertEqual(archive.folder_for(m), "maps/4p/twin-rivers")
+        # Not folder_for's business: the filename follows the version the
+        # archive assigns, which only `plan` knows.
+        self.assertEqual(archive.version_file(3), "v3.json")
 
     def test_round_trip(self):
         p = archive.parse("maps/2p/daibi/v2.json")

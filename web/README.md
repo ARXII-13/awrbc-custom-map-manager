@@ -214,16 +214,14 @@ flags imports to a save the game's own deserializer accepts.
 - **No symmetry helpers and no rectangle select.** Paint is per-tile with a drag
   stroke, plus flood fill. Mirroring a quadrant is the single most useful thing
   missing for anyone building a competitive map.
-- **Author, fog and water colour are not editable.** They round-trip faithfully
-  through an opened map, but nothing in the UI sets them, so a map created here is
-  always `anonymous`, fog off, water colour 0.
-- Icons exist for terrain that needs one, all six property types, and all 19
-  units. Plain terrain (grass, sea, road, river) is deliberately bare - an icon
-  on every tile is noise.
-- **Pipe and pipe seam are drawn from their connections**, so a run reads as a run.
-  The icon is handed the same `N+E+S+W` set the sprite lookup uses, which is why a
-  corner bends and a seam shows its collar. Any terrain that runs rather than sits
-  can use that.
+- **Fog and water colour are not editable.** They round-trip faithfully through
+  an opened map, but nothing in the UI sets them, so a map created here is always
+  fog off, water colour 0. (Name and author *are* editable - see "Fill in your
+  name" above.)
+- **Pipe and pipe seam are drawn from their connections**, so a run reads as a
+  run: `dirsFor` hands the sprite lookup the same `N+E+S+W` set the autotile rule
+  uses, which is why a corner bends and a seam shows its collar. Any terrain that
+  runs rather than sits can use that.
 - Pipe art in a sprite pack may need its own resolver. The pack built by
   `sprites/build_terrain.py` carries one: pipeline sprites encode their shade in the
   red channel alone and match no colour table or biome palette, so the builder maps

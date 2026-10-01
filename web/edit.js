@@ -10,7 +10,7 @@
 // apart, and the editor does not need flags for anything - it renders from
 // terrain ids.
 
-import { TERRAIN, PRODUCTION, CAPTURABLE, DIRECTIONAL, BREAKABLE_HP,
+import { PRODUCTION, CAPTURABLE, DIRECTIONAL, BREAKABLE_HP,
          MULTI_TILE, STRUCTURE_SPAN, STRUCTURE_HP_AT, MAX_UNITS_PER_TEAM,
          MAX_COLS, MAX_ROWS, IN_GAME_EDITOR_COLS, IN_GAME_EDITOR_ROWS,
          UNIT_STATS, HP_SCALE } from './terrain.js';
@@ -107,11 +107,12 @@ export function createEditor(doc, onChange) {
     return true;
   }
 
+  // Only what index.html actually calls. `doc` and `anchorOf` were exposed here
+  // and never used from outside - the caller keeps its own `doc` reference, and
+  // anchorOf is internal to structure placement.
   return {
-    doc,
     begin,
     commit,
-    anchorOf,
 
     /**
      * Place a 3x3 structure with its top-left at (x, y).

@@ -1,5 +1,5 @@
 {
-  "_": "Template. Copy to manifest.json, point `sheets` at your images, and replace each [col, row] with the tile's position in that sheet. Delete any entry your pack does not cover - it falls back to the drawn icon. A third element picks a sheet other than defaultSheet: [col, row, \"units\"].",
+  "_": "Template. Copy to manifest.json, point `sheets` at your images, and replace each [col, row] with the tile's position in that sheet. Delete any entry your pack does not cover - that tile falls back to a letter on a flat colour. A third element picks a sheet other than defaultSheet: [col, row, \"units\"].",
   "tile": 16,
   "defaultSheet": "terrain",
   "sheets": {

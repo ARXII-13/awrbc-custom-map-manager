@@ -42,9 +42,11 @@ def metadata(m: Map) -> dict:
         "MaxInitiallyOwnedVersusProperties": max(
             (v.properties for v in per.values()), default=0),
         # Not decoded. It equals NumVersusProperties in every observed map, so
-        # that is what gets written - which is a working guess, not knowledge
-        # of what the field counts. tools/poc/bigmap.py computes it as
-        # HQs + Bases instead; one of the two is wrong.
+        # that is what gets written - a working guess, not knowledge of what
+        # the field counts. An earlier reverse-engineering script computed it
+        # as `HQs + Bases` instead and the game accepted that too, so at least
+        # one of the two formulas is wrong and no observed save distinguishes
+        # them. See unknown in docs/decisions.md.
         "NumSurplusTiles": versus,
         "TeamsPlaying": sum(1 << t for t in m.teams),
     }

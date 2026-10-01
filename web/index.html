@@ -123,7 +123,6 @@
       <input type="number" id="rows" min="1" step="1">
       <button id="resize">Resize</button>
     </div>
-    <div class="sub" id="sizenote"></div>
     <div class="sub" id="meta" style="margin-top:4px"></div>
     <input type="text" id="tags" style="width:100%;margin-top:6px"
            placeholder="tags, comma separated">
@@ -134,7 +133,6 @@
 
     <h2>Army</h2>
     <div class="teams" id="teams"></div>
-    <div class="sub" id="teamnote"></div>
 
     <h2>Terrain</h2>
     <div class="grid" id="palette"></div>
@@ -221,10 +219,6 @@ function refresh() {
     (doc.units || []).length + " units";
   document.getElementById("cols").value = doc.size.cols;
   document.getElementById("rows").value = doc.size.rows;
-  document.getElementById("sizenote").textContent =
-    (doc.size.cols > 30 || doc.size.rows > 20)
-      ? "Beyond the in-game editor's 30x20; plays fine, editable only here."
-      : "";
   document.getElementById("valid").innerHTML =
     '<span class="pill ' + (s.valid ? "ok" : "no") + '">' +
     (s.valid ? "playable" : "not playable") + "</span>";
@@ -343,12 +337,12 @@ function swatch(kind, id) {
   const info = kind === "terrain" ? terrain(id) : null;
 
   g.fillStyle = kind === "unit"
-    ? (brushTeam < 0 ? TEAMS[0].color : owner.color)
+    ? (owner.color)
     : (info.property ? owner.color : (info.base || info.color));
   g.fillRect(0, 0, S, S);
 
   const pick = kind === "unit"
-    ? { team: brushTeam < 0 ? 0 : brushTeam }
+    ? { team: brushTeam }
     : { team: brushTeam, dirs: "N+E+S+W", variant: 0, facing: brushFacing };
   const art = assemble(kind === "terrain" && info.property ? "property" : kind,
                        id, pick);
@@ -426,7 +420,6 @@ function buildPalette() {
   }
   document.getElementById("unitnote").textContent =
     neutral ? "Units belong to an army. Pick one above." : "";
-  document.getElementById("unithead").hidden = false;
 
   buildFacing();
   buildTeams();
@@ -466,7 +459,6 @@ function buildTeams() {
   };
   TEAMS.forEach((t, i) => add(t.name + " (" + (i + 1) + ")", t.color, i));
   add("Neutral (0)", "#b4b4b4", -1);
-  document.getElementById("teamnote").textContent = "";
 }
 
 function setTool(t) {
@@ -762,17 +754,16 @@ document.getElementById("export").onclick = () => {
                     { type: "application/json" }), baseName() + ".json");
 };
 
-// Tile size for the bundled preview. Big enough that the drawn icons read -
-// below about 12px they degrade to letters - and fixed rather than fitted, so
-// every map in the archive is drawn at one scale and a big map looks big.
+// Tile size for the bundled preview. Above the 12px cutoff where tiles fall
+// back to letters, and fixed rather than fitted, so every map in the archive is
+// drawn at one scale and a big map looks big.
 const PREVIEW_TILE = 16;
 
 document.getElementById("bundle").onclick = async () => {
   const out = exportDocument();
-  // `sprites` is left at its default of false. The preview in a bundle is
-  // meant to be committed to a public repository, and the sprite pack is local
-  // art that must not be - see decision #37 and render.js. Whether a pack
-  // happens to be loaded here makes no difference to what goes in the zip.
+  // Rendered with whatever pack is loaded, which is the point: the preview
+  // should look like the map looks. The author's local pack is therefore what
+  // reaches the archive, deliberately - decision #46, superseding #37.
   const canvas = poster(out, PREVIEW_TILE);
   const png = await new Promise((resolve) => canvas.toBlob(resolve, "image/png"));
 

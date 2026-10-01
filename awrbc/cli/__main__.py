@@ -480,7 +480,7 @@ def cmd_verify(args, out):
     for rel in catalog.stale(root, files):
         fail(rel, "generated file is out of date; run `awrbc catalog`")
 
-    if args.changed:
+    if args.changed is not None:
         for p in _submission_rules(args.changed):
             fail(p["path"], p["error"])
 
@@ -579,33 +579,57 @@ def cmd_remove(args, out):
     name = doc.maps[args.index].name
     slot = savefile.remove_map(doc, args.index)
     if args.dry_run:
-        out.write("dry run: would remove %r (slot %s)\n" % (name, slot))
+        if args.json:
+            json.dump({"dryRun": True, "removed": name, "slot": slot},
+                      out, indent=2)
+            out.write("\n")
+        else:
+            out.write("dry run: would remove %r (slot %s)\n" % (name, slot))
         return EXIT_OK
     snap = backup.snapshot(chosen.path)
     savefile.write(doc, chosen.path)
-    out.write("removed %r (slot %s)\n  backup %s\n" % (name, slot, snap.path))
+    if args.json:
+        json.dump({"removed": name, "slot": slot, "backup": snap.path,
+                   "remaining": len(doc.maps)}, out, indent=2)
+        out.write("\n")
+    else:
+        out.write("removed %r (slot %s)\n  backup %s\n" % (name, slot, snap.path))
     return EXIT_OK
 
 
 def cmd_backup(args, out):
     chosen, _ = _resolve(args)
     snap = backup.snapshot(chosen.path)
-    out.write("%s\n" % snap.path)
+    if args.json:
+        json.dump({"backup": snap.path, "save": chosen.path}, out, indent=2)
+        out.write("\n")
+    else:
+        out.write("%s\n" % snap.path)
     return EXIT_OK
 
 
 def cmd_restore(args, out):
     chosen, _ = _resolve(args)
     snaps = backup.snapshots(chosen.path)
-    if not snaps:
-        out.write("no snapshots for %s\n" % chosen.path)
-        return EXIT_OK
+
     if args.name is None:
-        out.write("snapshots for %s\n\n" % chosen.path)
-        for s in snaps:
-            out.write("  %-28s %s bytes\n" % (s.name, format(s.size, ",")))
-        out.write("\nawrbc restore <name> to roll back\n")
+        # Naming no snapshot is how you ask what there is, so an empty list is
+        # a successful answer rather than an error.
+        if args.json:
+            json.dump({"save": chosen.path,
+                       "snapshots": [{"name": s.name, "size": s.size,
+                                      "taken": s.taken} for s in snaps]},
+                      out, indent=2)
+            out.write("\n")
+        elif not snaps:
+            out.write("no snapshots for %s\n" % chosen.path)
+        else:
+            out.write("snapshots for %s\n\n" % chosen.path)
+            for s in snaps:
+                out.write("  %-28s %s bytes\n" % (s.name, format(s.size, ",")))
+            out.write("\nawrbc restore <name> to roll back\n")
         return EXIT_OK
+
     match = [s for s in snaps if s.name == args.name or s.taken == args.name]
     if not match:
         raise MapNotFound("no snapshot named %r" % args.name)
@@ -613,7 +637,12 @@ def cmd_restore(args, out):
         raise SaveInUse("the emulator appears to be running; close the game first")
     backup.snapshot(chosen.path)        # snapshot the current state too
     n = backup.restore(match[0].path, chosen.path)
-    out.write("restored %s (%s bytes)\n" % (match[0].name, format(n, ",")))
+    if args.json:
+        json.dump({"restored": match[0].name, "bytes": n,
+                   "save": chosen.path}, out, indent=2)
+        out.write("\n")
+    else:
+        out.write("restored %s (%s bytes)\n" % (match[0].name, format(n, ",")))
     return EXIT_OK
 
 

@@ -27,7 +27,7 @@ def _today():
     return datetime.date.today().isoformat()
 
 
-def version_entry(m, doc, version, added=None):
+def version_entry(m, version, added=None):
     """One published revision, as the catalog records it.
 
     The derived facts are copied in so a browser can filter on "4 players, has
@@ -58,7 +58,7 @@ def map_entry(m, doc, path, added=None):
         "slug": p.slug,
         "name": m.name,
         "author": doc.get("author") or "",
-        "versions": [version_entry(m, doc, p.version, added)],
+        "versions": [version_entry(m, version=p.version, added=added)],
     }
 
 
@@ -77,7 +77,7 @@ def add(catalog, m, doc, path, added=None):
 
     entry["versions"] = [v for v in entry["versions"]
                          if v.get("version") != p.version]
-    entry["versions"].append(version_entry(m, doc, p.version, added))
+    entry["versions"].append(version_entry(m, p.version, added))
     entry["versions"].sort(key=lambda v: v["version"])
     if p.version >= max(v["version"] for v in entry["versions"]):
         entry["name"] = m.name
@@ -107,7 +107,7 @@ def previous_dates(catalog):
     dates = {}
     for folder, entry in (catalog or {}).items():
         for v in entry.get("versions", []):
-            path = "/".join([folder, archive.version_file(v["version"])])
+            path = archive.version_path(folder, v["version"])
             if v.get("added"):
                 dates[path] = v["added"]
     return dates
@@ -146,18 +146,6 @@ def load(root):
     with open(path, encoding="utf-8") as fh:
         doc = json.load(fh)
     return doc.get("maps", {})
-
-
-def dump(catalog, root):
-    """Write the catalog on its own, returning the path.
-
-    ``regenerate`` is what the CLI uses. This is for a caller that already has
-    an index in hand and only wants it on disk.
-    """
-    path = os.path.join(root, FILENAME)
-    with open(path, "wb") as fh:
-        fh.write(payload_bytes(catalog))
-    return path
 
 
 # --- Generated files --------------------------------------------------------
@@ -206,7 +194,7 @@ def regenerate(root, keep_dates_from=None):
                 problems.append({"path": rel,
                                  "error": "%s: %s" % (f.code, f.message)})
         files["/".join([folder, "README.md"])] = \
-            preview.readme(entry, folder, previews=have).encode("utf-8")
+            preview.readme(entry, previews=have).encode("utf-8")
     files[FILENAME] = payload_bytes(index)
     return files, problems
 

@@ -23,7 +23,7 @@ def preview_file(version):
     return "v%d.png" % version
 
 
-def readme(entry, folder, previews=None):
+def readme(entry, previews=None):
     """Build the folder README.
 
     Built from the catalog entry rather than from the map files, so it says the

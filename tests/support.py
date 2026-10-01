@@ -48,10 +48,6 @@ def binaryformatter_verdict(path):
     return None, "unrecognised bfcheck output: %s" % text.strip()[:200]
 
 
-needs_binaryformatter = unittest.skipIf(
-    powershell() is None,
-    "needs Windows PowerShell for the real BinaryFormatter")
-
 REAL_SAVE = os.environ.get("AWRBC_TEST_SAVE")
 
 

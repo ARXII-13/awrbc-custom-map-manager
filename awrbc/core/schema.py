@@ -38,7 +38,7 @@ class SchemaError(SaveUnreadable):
     """Map JSON that cannot be read as schema v1."""
 
 
-def to_json(m: Map, *, author: str = None, map_id: str = None) -> dict:
+def to_json(m: Map, *, author: str = None) -> dict:
     """Domain map -> plain dict ready for json.dump."""
     terrain = [[m.tiles[x][y].type for x in range(m.cols)] for y in range(m.rows)]
     flags = [[m.tiles[x][y].flags for x in range(m.cols)] for y in range(m.rows)]
@@ -103,8 +103,6 @@ def to_json(m: Map, *, author: str = None, map_id: str = None) -> dict:
         "cells": cells,
         "units": units,
     }
-    if map_id is not None:
-        doc["id"] = map_id
     return doc
 
 

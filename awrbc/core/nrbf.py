@@ -401,16 +401,15 @@ def _rec(w, r):
         raise ValueError('cannot write record %d' % r.rt)
 
 
-def write(parser, pad_to=None):
+def write(parser):
+    # No padding here. Sizing the file is savefile._file_size_for's job, which
+    # rounds to a power of two. Nothing ever passed `pad_to`, and a second
+    # padding mechanism was one more place for the two to disagree about how
+    # big a save should be.
     w = W()
     for rec in parser.records:
         _rec(w, rec)
-    out = bytes(w.b)
-    if pad_to:
-        if len(out) > pad_to:
-            raise ValueError('stream %d exceeds %d' % (len(out), pad_to))
-        out += b'\0' * (pad_to - len(out))
-    return out
+    return bytes(w.b)
 
 
 def load(path):

@@ -2,7 +2,7 @@
 //
 // Pure drawing: give it a 2D context and a map document (the JSON the CLI
 // exports) and it draws. No DOM lookups, no globals, no editing state - so the
-// editor and the archive's thumbnail generator can share it unchanged.
+// editor and the bundle preview can share it unchanged.
 //
 // The JSON is row-major: terrain[y][x]. The save is column-major; the schema
 // module owns that transpose, and nothing here needs to know about it.
@@ -154,11 +154,7 @@ function drawTile(ctx, doc, cells, x, y, px, py, size, opts) {
   }
 
   const facing = facingFor(cells, x, y);
-  // `sprites: false` forces the drawn icons even when a pack is loaded. The
-  // archive renders this way: a pack is local and gitignored (decision #37),
-  // so an image made from one must never be what gets published.
-  const sprite = opts.sprites === false ? null :
-    spriteFor(info.property ? 'property' : 'terrain', id, {
+  const sprite = spriteFor(info.property ? 'property' : 'terrain', id, {
     team: cell ? cell.team : null,
     dirs: dirsFor(doc.terrain, x, y, id),
     variant: variantFor(x, y),
@@ -172,8 +168,7 @@ function drawTile(ctx, doc, cells, x, y, px, py, size, opts) {
     // on open ground, so lay the ground down first. Without it a building
     // stands on a solid square of its owner's colour.
     if (id !== GROUND) {
-      const under = opts.sprites === false ? null :
-        spriteFor('terrain', GROUND, { variant: variantFor(x, y) });
+      const under = spriteFor('terrain', GROUND, { variant: variantFor(x, y) });
       if (under) blit(ctx, under, px, py, size);
     }
     blit(ctx, sprite, px, py, size);
@@ -206,8 +201,7 @@ function drawUnit(ctx, unit, px, py, size, opts = {}) {
   const inset = size * 0.16;
   const w = size - inset * 2;
 
-  const sprite = opts.sprites === false ? null :
-    spriteFor('unit', unit.type, { team: unit.team });
+  const sprite = spriteFor('unit', unit.type, { team: unit.team });
   if (sprite) {
     blit(ctx, sprite, px, py, size);
     drawHealth(ctx, unit, px, py, size, inset, w);
@@ -305,34 +299,18 @@ export function drawMap(ctx, doc, opts = {}) {
   }
 }
 
-/** Render a whole map into a fresh canvas, sized to fit. Used for thumbnails. */
-export function thumbnail(doc, width, height) {
-  const canvas = document.createElement('canvas');
-  canvas.width = width;
-  canvas.height = height;
-  const size = fitTile(doc, width, height);
-  const ctx = canvas.getContext('2d');
-  drawMap(ctx, doc, {
-    size,
-    originX: Math.floor((width - size * doc.size.cols) / 2),
-    originY: Math.floor((height - size * doc.size.rows) / 2),
-    grid: false, glyphs: false,
-  });
-  return canvas;
-}
-
 /**
  * A whole map at a fixed tile size, for the archive preview.
  *
- * Unlike `thumbnail`, which fits a map into a box, this keeps every map at the
- * same scale - so a 64x64 map looks big next to a 10x10 one, which is true and
+ * Keeps every map at the same scale rather than fitting one into a box - so a 64x64 map looks big next to a 10x10 one, which is true and
  * is what someone browsing wants to know.
  *
  * Renders with whatever pack is loaded. A preview is meant to look like the
  * map does on screen, so this draws what the editor draws; the author's loaded
- * pack is therefore what reaches the archive.
+ * pack is therefore what reaches the archive. With no pack it falls to glyphs,
+ * which is the only fallback there is - see decision #46.
  */
-export function poster(doc, tilePx = 16, opts = {}) {
+export function poster(doc, tilePx = 16) {
   const canvas = document.createElement('canvas');
   canvas.width = doc.size.cols * tilePx;
   canvas.height = doc.size.rows * tilePx;
@@ -342,7 +320,6 @@ export function poster(doc, tilePx = 16, opts = {}) {
     height: canvas.height,
     grid: false,
     glyphs: true,
-    sprites: opts.sprites !== false,
   });
   return canvas;
 }

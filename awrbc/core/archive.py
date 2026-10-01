@@ -118,13 +118,24 @@ def version_file(version):
     return "v%d.json" % version
 
 
-def folder_for(m, slug=None):
-    return "/".join([ROOT, category_for(m), slug or slug_for(m)])
+def version_path(folder, version):
+    """``maps/2p/daibi`` plus a version number, as one path.
+
+    Exists because three callers were joining those two by hand, and a path
+    assembled four different ways is a path that eventually differs.
+    """
+    return "/".join([folder, version_file(version)])
 
 
-def path_for(m, slug=None):
-    """Where this map goes, as a repo-relative POSIX path."""
-    return "/".join([folder_for(m, slug), version_file(m.version)])
+def folder_for(m):
+    """The folder this map belongs in, as a repo-relative POSIX path.
+
+    There is deliberately no `path_for(m)` beside this. The filename depends on
+    the version the *archive* assigns, not on whatever the file arrived
+    claiming, so building a full path from a map alone would produce something
+    plausible and wrong. `plan()` is where a path gets decided.
+    """
+    return "/".join([ROOT, category_for(m), slug_for(m)])
 
 
 @dataclass
@@ -139,7 +150,7 @@ class ArchivePath:
         return "/".join([ROOT, self.category, self.slug])
 
     def __str__(self):
-        return "/".join([self.folder, version_file(self.version)])
+        return version_path(self.folder, self.version)
 
 
 def parse(path):
@@ -251,7 +262,7 @@ def find_by_hash(catalog, digest):
     for folder, entry in (catalog or {}).items():
         for v in entry.get("versions", []):
             if v.get("hash") == digest:
-                return "/".join([folder, version_file(v.get("version", 1))])
+                return version_path(folder, v.get("version", 1))
     return ""
 
 

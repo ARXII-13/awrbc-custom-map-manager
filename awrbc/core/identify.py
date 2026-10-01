@@ -45,10 +45,6 @@ class Identity:
     title_id: Optional[int] = None
     reason: Optional[str] = None
 
-    @property
-    def title_hex(self):
-        return None if self.title_id is None else "%016X" % self.title_id
-
 
 def title_id_for(maps_path: str) -> Optional[int]:
     """Read the title id from the save's ExtraData, if it is reachable.

@@ -381,7 +381,8 @@ class Catalog(PublishCase):
         self.run_cli("catalog", "--library", self.library)
         index = catalog.load(self.library)
         index["maps/2p/daibi"]["versions"][0]["added"] = "2020-01-01"
-        catalog.dump(index, self.library)
+        with open(os.path.join(self.library, catalog.FILENAME), "wb") as fh:
+            fh.write(catalog.payload_bytes(index))
 
         self.run_cli("catalog", "--library", self.library)
         rebuilt = catalog.load(self.library)

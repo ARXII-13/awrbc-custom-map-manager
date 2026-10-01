@@ -1,11 +1,11 @@
 // Sprite packs.
 //
-// A pack in `sprites/` overrides the drawn icons. That directory is gitignored
+// A pack in `sprites/` is how this renders. That directory is gitignored
 // and never published - see sprites/README.md for the manifest format and for
 // why that boundary exists. The repository itself ships no third-party art.
 //
 // Loading is best-effort by design: no pack, a broken manifest or a missing
-// image all fall through to the drawn icons rather than failing the page.
+// image all fall through to glyphs on flat colour rather than failing the page.
 
 let pack = null;
 let packName = null;
@@ -121,7 +121,6 @@ async function loadFrom(base) {
 
     packName = manifest.name || base.replace(/\/$/, '').split('/').pop();
     pack = {
-      tile: manifest.tile || 16,
       sheets,
       defaultSheet: manifest.defaultSheet || names[0],
       terrain: manifest.terrain || {},

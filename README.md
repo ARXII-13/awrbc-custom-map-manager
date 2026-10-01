@@ -68,9 +68,21 @@ awrbc/core/    codec, save reading, domain model - never prints, never exits
 awrbc/cli/     the only place that formats output or picks exit codes
 web/           the browser map editor; becoming part of the app (see docs)
 tools/         bfcheck.ps1 and nrbfcheck - format validators
-tools/poc/     the reverse-engineering scripts, kept for reference
 tests/
 ```
+
+## A note on the `docs/` references
+
+Comments and docstrings in here cite `docs/format.md`, `docs/decisions.md` and
+the phase documents. **Those files are not in this repository.** The design
+notes, the save-format research record and the decision register are kept
+outside version control, and only the code is published.
+
+So those citations are to a document set you do not have. They are left in
+because they say *why* a piece of code is the shape it is, and a reader is
+better served knowing a reason was written down somewhere than seeing the
+reason deleted. If something here looks arbitrary, it probably has an entry in
+that register.
 
 ## Validating output
 
