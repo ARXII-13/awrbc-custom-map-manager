@@ -18,6 +18,16 @@ import { createApp, rateLimited, recordSubmission, resetLimits, safeNext }
   from './index.js';
 
 describe('the oauth state check', () => {
+  it('answers false for a state that is not ASCII, rather than throwing', () => {
+    // `got` is a query parameter, so a stranger picks it. timingSafeEqual
+    // throws when its inputs differ in bytes, and one accented character
+    // makes two equal-length strings differ in bytes - which escaped the
+    // callback as a 500 instead of a refusal.
+    assert.doesNotThrow(() => stateMatches('abcd', 'abcé'));
+    assert.equal(stateMatches('abcd', 'abcé'), false);
+    assert.equal(stateMatches('abcé', 'abcé'), true);
+  });
+
   it('accepts a state against itself', () => {
     const state = newState();
     assert.equal(stateMatches(state, state), true);

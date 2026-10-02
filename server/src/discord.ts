@@ -48,8 +48,16 @@ export function newState(): string {
  */
 export function stateMatches(expected: unknown, got: unknown): boolean {
   if (typeof expected !== 'string' || typeof got !== 'string') return false;
-  if (expected.length === 0 || expected.length !== got.length) return false;
-  return timingSafeEqual(Buffer.from(expected), Buffer.from(got));
+  // Compare the buffers' lengths, not the strings'. timingSafeEqual throws
+  // when its inputs differ in *bytes*, and one multibyte character makes two
+  // strings of equal length differ in bytes - so `?state=` with an accent in
+  // it used to raise a RangeError out of the callback instead of answering
+  // false. `got` comes straight off the query string, so it is a stranger's
+  // to choose.
+  const a = Buffer.from(expected, 'utf8');
+  const b = Buffer.from(got, 'utf8');
+  if (a.length === 0 || a.length !== b.length) return false;
+  return timingSafeEqual(a, b);
 }
 
 export function loginUrl(clientId: string, redirectUri: string,
