@@ -35,8 +35,10 @@ jobs:
         with:
           python-version: ${{ matrix.python }}
 
+      # With the extra, so the server tests run rather than skipping. The
+      # package itself still declares no dependencies.
       - name: Install
-        run: pip install -e .
+        run: pip install -e ".[server]"
 
       # No save file and no game: the suite builds its own documents from the
       # type table, which is what lets it run on a clean runner at all.
