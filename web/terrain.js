@@ -15,7 +15,10 @@ export const TERRAIN = {
   8:         { name: 'Woods',        color: '#5d9647', base: '#a9cf75', glyph: '*' },
   16:        { name: 'River',        color: '#72b4dd' },
   32:        { name: 'Shoal',        color: '#e6d6a0' },
-  64:        { name: 'Reef',         color: '#3c6ba3', base: '#4577bd', glyph: 'o' },
+  // `onWater` because reef is coral floating in the sea, not standing on
+  // open ground - it is the one terrain whose backdrop is not grass.
+  64:        { name: 'Reef',         color: '#3c6ba3', base: '#4577bd', glyph: 'o',
+               onWater: true },
   128:       { name: 'Road',         color: '#cac4b2' },
   256:       { name: 'Bridge',       color: '#b5915f' },
   512:       { name: 'HQ',           property: true, glyph: 'H' },

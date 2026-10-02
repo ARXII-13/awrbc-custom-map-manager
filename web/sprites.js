@@ -1,8 +1,8 @@
 // Sprite packs.
 //
-// A pack in `sprites/` is how this renders. That directory is gitignored
-// and never published - see sprites/README.md for the manifest format and for
-// why that boundary exists. The repository itself ships no third-party art.
+// A pack in `sprites/` is how this renders, and the pack there is committed
+// (decision #56) - a clone and the deployed editor both draw properly with no
+// extra step. See sprites/README.md for the manifest format.
 //
 // Loading is best-effort by design: no pack, a broken manifest or a missing
 // image all fall through to glyphs on flat colour rather than failing the page.

@@ -40,10 +40,8 @@ jobs:
           cp -r web/* site/
 
           # Not part of a published site: the dev server, the tests, and the
-          # sprite directory's documentation. `sprites/` itself holds no art in
-          # git - see the note below.
-          # Not part of a published site. The sprite pack itself stays -
-          # it is what the editor draws with.
+          # sprite directory's documentation. The pack itself stays - it is
+          # what the editor draws with.
           rm -rf site/test site/serve.py site/README.md
           rm -f site/sprites/README.md site/sprites/manifest.example.json
 

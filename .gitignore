@@ -35,3 +35,5 @@ web/samples/
 # are not: they read a checkout of somebody else's project and are a record of
 # how the pack was made, not something this repository can run.
 web/sprites/build_*.py
+# Their download cache, which belongs to the builders rather than the pack.
+web/sprites/cache/

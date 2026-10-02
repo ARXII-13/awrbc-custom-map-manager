@@ -1,5 +1,5 @@
 {
- "_": "Built from Commander Wars by tools/build_pack.py. Local only - these are Advance Wars derived assets and are gitignored.",
+ "_": "Built from Commander Wars by web/sprites/build_pack.py and build_terrain.py. Advance Wars derived art; see web/sprites/README.md.",
  "name": "commander-wars",
  "tile": 32,
  "defaultSheet": "units",
@@ -238,36 +238,120 @@
     ]
    }
   },
+  "64": {
+   "dirs": {
+    "": [
+     10,
+     2,
+     "terrain"
+    ],
+    "N": [
+     11,
+     2,
+     "terrain"
+    ],
+    "E": [
+     12,
+     2,
+     "terrain"
+    ],
+    "S": [
+     13,
+     2,
+     "terrain"
+    ],
+    "W": [
+     14,
+     2,
+     "terrain"
+    ],
+    "N+E": [
+     15,
+     2,
+     "terrain"
+    ],
+    "N+S": [
+     0,
+     3,
+     "terrain"
+    ],
+    "N+W": [
+     1,
+     3,
+     "terrain"
+    ],
+    "E+S": [
+     2,
+     3,
+     "terrain"
+    ],
+    "E+W": [
+     3,
+     3,
+     "terrain"
+    ],
+    "S+W": [
+     4,
+     3,
+     "terrain"
+    ],
+    "N+E+S": [
+     5,
+     3,
+     "terrain"
+    ],
+    "N+E+W": [
+     6,
+     3,
+     "terrain"
+    ],
+    "N+S+W": [
+     7,
+     3,
+     "terrain"
+    ],
+    "E+S+W": [
+     8,
+     3,
+     "terrain"
+    ],
+    "N+E+S+W": [
+     9,
+     3,
+     "terrain"
+    ]
+   }
+  },
   "33554432": [
    14,
-   4,
+   5,
    "terrain"
   ],
   "2097152": [
    15,
-   4,
+   5,
    "terrain"
   ],
   "1048576": {
    "parts": {
     "N|0,0": [
      0,
-     5,
+     6,
      "terrain"
     ],
     "E|0,0": [
      1,
-     5,
+     6,
      "terrain"
     ],
     "S|0,0": [
      2,
-     5,
+     6,
      "terrain"
     ],
     "W|0,0": [
      3,
-     5,
+     6,
      "terrain"
     ]
    }
@@ -276,82 +360,82 @@
    "dirs": {
     "": [
      4,
-     5,
+     6,
      "terrain"
     ],
     "N": [
      5,
-     5,
+     6,
      "terrain"
     ],
     "E": [
      6,
-     5,
+     6,
      "terrain"
     ],
     "S": [
      7,
-     5,
+     6,
      "terrain"
     ],
     "W": [
      8,
-     5,
+     6,
      "terrain"
     ],
     "N+E": [
      9,
-     5,
+     6,
      "terrain"
     ],
     "N+S": [
      10,
-     5,
+     6,
      "terrain"
     ],
     "N+W": [
      11,
-     5,
+     6,
      "terrain"
     ],
     "E+S": [
      12,
-     5,
+     6,
      "terrain"
     ],
     "E+W": [
      13,
-     5,
+     6,
      "terrain"
     ],
     "S+W": [
      14,
-     5,
+     6,
      "terrain"
     ],
     "N+E+S": [
      15,
-     5,
+     6,
      "terrain"
     ],
     "N+E+W": [
      0,
-     6,
+     7,
      "terrain"
     ],
     "N+S+W": [
      1,
-     6,
+     7,
      "terrain"
     ],
     "E+S+W": [
      2,
-     6,
+     7,
      "terrain"
     ],
     "N+E+S+W": [
      3,
-     6,
+     7,
      "terrain"
     ]
    }
@@ -360,12 +444,12 @@
    "dirs": {
     "E+W": [
      4,
-     6,
+     7,
      "terrain"
     ],
     "N+S": [
      5,
-     6,
+     7,
      "terrain"
     ]
    }
@@ -374,182 +458,182 @@
    "parts": {
     "N|0,0": [
      6,
-     6,
+     7,
      "terrain"
     ],
     "N|1,0": [
      7,
-     6,
+     7,
      "terrain"
     ],
     "N|2,0": [
      8,
-     6,
+     7,
      "terrain"
     ],
     "N|0,1": [
      9,
-     6,
+     7,
      "terrain"
     ],
     "N|1,1": [
      10,
-     6,
+     7,
      "terrain"
     ],
     "N|2,1": [
      11,
-     6,
+     7,
      "terrain"
     ],
     "N|0,2": [
      12,
-     6,
+     7,
      "terrain"
     ],
     "N|1,2": [
      13,
-     6,
+     7,
      "terrain"
     ],
     "N|2,2": [
      14,
-     6,
+     7,
      "terrain"
     ],
     "E|0,0": [
      15,
-     6,
+     7,
      "terrain"
     ],
     "E|1,0": [
      0,
-     7,
+     8,
      "terrain"
     ],
     "E|2,0": [
      1,
-     7,
+     8,
      "terrain"
     ],
     "E|0,1": [
      2,
-     7,
+     8,
      "terrain"
     ],
     "E|1,1": [
      3,
-     7,
+     8,
      "terrain"
     ],
     "E|2,1": [
      4,
-     7,
+     8,
      "terrain"
     ],
     "E|0,2": [
      5,
-     7,
+     8,
      "terrain"
     ],
     "E|1,2": [
      6,
-     7,
+     8,
      "terrain"
     ],
     "E|2,2": [
      7,
-     7,
+     8,
      "terrain"
     ],
     "S|0,0": [
      8,
-     7,
+     8,
      "terrain"
     ],
     "S|1,0": [
      9,
-     7,
+     8,
      "terrain"
     ],
     "S|2,0": [
      10,
-     7,
+     8,
      "terrain"
     ],
     "S|0,1": [
      11,
-     7,
+     8,
      "terrain"
     ],
     "S|1,1": [
      12,
-     7,
+     8,
      "terrain"
     ],
     "S|2,1": [
      13,
-     7,
+     8,
      "terrain"
     ],
     "S|0,2": [
      14,
-     7,
+     8,
      "terrain"
     ],
     "S|1,2": [
      15,
-     7,
+     8,
      "terrain"
     ],
     "S|2,2": [
      0,
-     8,
+     9,
      "terrain"
     ],
     "W|0,0": [
      1,
-     8,
+     9,
      "terrain"
     ],
     "W|1,0": [
      2,
-     8,
+     9,
      "terrain"
     ],
     "W|2,0": [
      3,
-     8,
+     9,
      "terrain"
     ],
     "W|0,1": [
      4,
-     8,
+     9,
      "terrain"
     ],
     "W|1,1": [
      5,
-     8,
+     9,
      "terrain"
     ],
     "W|2,1": [
      6,
-     8,
+     9,
      "terrain"
     ],
     "W|0,2": [
      7,
-     8,
+     9,
      "terrain"
     ],
     "W|1,2": [
      8,
-     8,
+     9,
      "terrain"
     ],
     "W|2,2": [
      9,
-     8,
+     9,
      "terrain"
     ]
    }
@@ -558,182 +642,182 @@
    "parts": {
     "N|0,0": [
      10,
-     8,
+     9,
      "terrain"
     ],
     "N|1,0": [
      11,
-     8,
+     9,
      "terrain"
     ],
     "N|2,0": [
      12,
-     8,
+     9,
      "terrain"
     ],
     "N|0,1": [
      13,
-     8,
+     9,
      "terrain"
     ],
     "N|1,1": [
      14,
-     8,
+     9,
      "terrain"
     ],
     "N|2,1": [
      15,
-     8,
+     9,
      "terrain"
     ],
     "N|0,2": [
      0,
-     9,
+     10,
      "terrain"
     ],
     "N|1,2": [
      1,
-     9,
+     10,
      "terrain"
     ],
     "N|2,2": [
      2,
-     9,
+     10,
      "terrain"
     ],
     "E|0,0": [
      3,
-     9,
+     10,
      "terrain"
     ],
     "E|1,0": [
      4,
-     9,
+     10,
      "terrain"
     ],
     "E|2,0": [
      5,
-     9,
+     10,
      "terrain"
     ],
     "E|0,1": [
      6,
-     9,
+     10,
      "terrain"
     ],
     "E|1,1": [
      7,
-     9,
+     10,
      "terrain"
     ],
     "E|2,1": [
      8,
-     9,
+     10,
      "terrain"
     ],
     "E|0,2": [
      9,
-     9,
+     10,
      "terrain"
     ],
     "E|1,2": [
      10,
-     9,
+     10,
      "terrain"
     ],
     "E|2,2": [
      11,
-     9,
+     10,
      "terrain"
     ],
     "S|0,0": [
      12,
-     9,
+     10,
      "terrain"
     ],
     "S|1,0": [
      13,
-     9,
+     10,
      "terrain"
     ],
     "S|2,0": [
      14,
-     9,
+     10,
      "terrain"
     ],
     "S|0,1": [
      15,
-     9,
+     10,
      "terrain"
     ],
     "S|1,1": [
      0,
-     10,
+     11,
      "terrain"
     ],
     "S|2,1": [
      1,
-     10,
+     11,
      "terrain"
     ],
     "S|0,2": [
      2,
-     10,
+     11,
      "terrain"
     ],
     "S|1,2": [
      3,
-     10,
+     11,
      "terrain"
     ],
     "S|2,2": [
      4,
-     10,
+     11,
      "terrain"
     ],
     "W|0,0": [
      5,
-     10,
+     11,
      "terrain"
     ],
     "W|1,0": [
      6,
-     10,
+     11,
      "terrain"
     ],
     "W|2,0": [
      7,
-     10,
+     11,
      "terrain"
     ],
     "W|0,1": [
      8,
-     10,
+     11,
      "terrain"
     ],
     "W|1,1": [
      9,
-     10,
+     11,
      "terrain"
     ],
     "W|2,1": [
      10,
-     10,
+     11,
      "terrain"
     ],
     "W|0,2": [
      11,
-     10,
+     11,
      "terrain"
     ],
     "W|1,2": [
      12,
-     10,
+     11,
      "terrain"
     ],
     "W|2,2": [
      13,
-     10,
+     11,
      "terrain"
     ]
    }
@@ -743,192 +827,192 @@
   "512": {
    "0": [
     10,
-    2,
+    3,
     "terrain"
    ],
    "1": [
     11,
-    2,
+    3,
     "terrain"
    ],
    "2": [
     12,
-    2,
+    3,
     "terrain"
    ],
    "3": [
     13,
-    2,
+    3,
     "terrain"
    ],
    "4": [
     14,
-    2,
+    3,
     "terrain"
    ],
    "neutral": [
     15,
-    2,
+    3,
     "terrain"
    ]
   },
   "1024": {
    "0": [
     0,
-    3,
+    4,
     "terrain"
    ],
    "1": [
     1,
-    3,
+    4,
     "terrain"
    ],
    "2": [
     2,
-    3,
+    4,
     "terrain"
    ],
    "3": [
     3,
-    3,
+    4,
     "terrain"
    ],
    "4": [
     4,
-    3,
+    4,
     "terrain"
    ],
    "neutral": [
     5,
-    3,
+    4,
     "terrain"
    ]
   },
   "2048": {
    "0": [
     6,
-    3,
+    4,
     "terrain"
    ],
    "1": [
     7,
-    3,
+    4,
     "terrain"
    ],
    "2": [
     8,
-    3,
+    4,
     "terrain"
    ],
    "3": [
     9,
-    3,
+    4,
     "terrain"
    ],
    "4": [
     10,
-    3,
+    4,
     "terrain"
    ],
    "neutral": [
     11,
-    3,
+    4,
     "terrain"
    ]
   },
   "4096": {
    "0": [
     12,
-    3,
+    4,
     "terrain"
    ],
    "1": [
     13,
-    3,
+    4,
     "terrain"
    ],
    "2": [
     14,
-    3,
+    4,
     "terrain"
    ],
    "3": [
     15,
-    3,
+    4,
     "terrain"
    ],
    "4": [
     0,
-    4,
+    5,
     "terrain"
    ],
    "neutral": [
     1,
-    4,
+    5,
     "terrain"
    ]
   },
   "8192": {
    "0": [
     2,
-    4,
+    5,
     "terrain"
    ],
    "1": [
     3,
-    4,
+    5,
     "terrain"
    ],
    "2": [
     4,
-    4,
+    5,
     "terrain"
    ],
    "3": [
     5,
-    4,
+    5,
     "terrain"
    ],
    "4": [
     6,
-    4,
+    5,
     "terrain"
    ],
    "neutral": [
     7,
-    4,
+    5,
     "terrain"
    ]
   },
   "134217728": {
    "0": [
     8,
-    4,
+    5,
     "terrain"
    ],
    "1": [
     9,
-    4,
+    5,
     "terrain"
    ],
    "2": [
     10,
-    4,
+    5,
     "terrain"
    ],
    "3": [
     11,
-    4,
+    5,
     "terrain"
    ],
    "4": [
     12,
-    4,
+    5,
     "terrain"
    ],
    "neutral": [
     13,
-    4,
+    5,
     "terrain"
    ]
   }

@@ -167,7 +167,11 @@ function drawTile(ctx, doc, cells, x, y, px, py, size, opts) {
     // Buildings, woods and mountains are drawn as transparent art meant to sit
     // on open ground, so lay the ground down first. Without it a building
     // stands on a solid square of its owner's colour.
-    if (id !== GROUND) {
+    //
+    // Not reef: its art is coral over water, and a plains tile underneath put
+    // it on a bright green square. Water terrain keeps the flat `base` colour
+    // already painted above until the pack has sea art of its own.
+    if (id !== GROUND && !info.onWater) {
       const under = spriteFor('terrain', GROUND, { variant: variantFor(x, y) });
       if (under) blit(ctx, under, px, py, size);
     }
