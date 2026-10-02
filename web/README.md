@@ -52,6 +52,26 @@ picture of a map can use it unchanged. `thumbnail(doc, w, h)` fits a map into a
 box; `poster(doc, tilePx)` draws it at a fixed tile size, which is what Export
 bundle puts in the zip.
 
+## Tests
+
+```bash
+node --test "web/test/*.test.mjs"
+```
+
+Node's built-in runner, no dependency and no browser. `edit.js`, `fixes.js`
+and `zip.js` touch no DOM, which is deliberate (decision #48) and is what makes
+this possible - and what will let them survive the move into a framework app.
+
+What is *not* covered is the DOM wiring in `index.html`; that needs a browser.
+`tests/test_editor_syntax.py` at least proves it parses, which is the failure
+that actually happened: the editor ran dead for five commits because a string
+literal broke the inline script and the only check asked whether a button
+existed in the HTML.
+
+`tests/test_zip_interop.py` has node write a bundle and Python read it, because
+two independent implementations agreeing is the only way a format test means
+much.
+
 ## Exporting
 
 > **Use Export bundle unless you have a reason not to.** It is the one that

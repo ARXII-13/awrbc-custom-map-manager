@@ -43,6 +43,16 @@ jobs:
       - name: Run the suite
         run: python -m unittest discover -s . -t . -v
 
+      # The editor's modules are plain ES modules with no DOM (#48), so node's
+      # built-in runner covers them with nothing installed. The editor once ran
+      # dead for five commits; this is the half that syntax checking cannot see.
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Run the editor tests
+        run: node --test "web/test/*.test.mjs"
+
       - name: Check the CLI starts
         run: |
           python -m awrbc --help
