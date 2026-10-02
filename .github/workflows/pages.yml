@@ -42,7 +42,10 @@ jobs:
           # Not part of a published site: the dev server, the tests, and the
           # sprite directory's documentation. `sprites/` itself holds no art in
           # git - see the note below.
-          rm -rf site/test site/serve.py site/README.md site/sprites
+          # Not part of a published site. The sprite pack itself stays -
+          # it is what the editor draws with.
+          rm -rf site/test site/serve.py site/README.md
+          rm -f site/sprites/README.md site/sprites/manifest.example.json
 
           if [ -n "$INTAKE_URL" ]; then
             python - "$INTAKE_URL" <<'PY'
@@ -61,41 +64,16 @@ jobs:
             echo "::notice title=No intake server::INTAKE_URL is not set, so the editor deploys without a Submit button. Set it under Settings > Secrets and variables > Actions > Variables."
           fi
 
-      # The sprite pack is not in git, on purpose: third-party art stays out
-      # of permanent history, where removing it would mean a rewrite rather
-      # than a delete. It is served from a release instead, which can be
-      # deleted in one click if that ever needs undoing.
-      #
-      # A missing pack must not fail the deploy. The editor without one renders
-      # terrain as letters on flat colour - drab, but a working tool, and far
-      # better than no site at all.
-      - name: Fetch the sprite pack
+      # The pack ships in the repository (decision #56), so there is nothing
+      # to fetch - but a deploy that silently lost it would render terrain as
+      # letters and look broken rather than fail, so it is checked.
+      - name: Check the sprite pack made it
         shell: bash
-        env:
-          TAG: ${{ vars.SPRITE_RELEASE_TAG || 'sprites' }}
         run: |
-          base="https://github.com/${{ github.repository }}/releases/download/$TAG"
-          mkdir -p site/sprites
-          ok=1
-          for f in manifest.json units.png terrain.png; do
-            if ! curl -fsSL --retry 2 -o "site/sprites/$f" "$base/$f"; then
-              echo "::warning title=No sprite pack::Could not fetch $f from release '$TAG'. The editor will render terrain as letters on flat colour."
-              ok=0
-              break
-            fi
-          done
-          if [ "$ok" = "1" ]; then
-            # A manifest that is really an HTML error page would deploy a
-            # broken pack rather than no pack, which is worse: the editor
-            # would try to use it and draw nothing.
-            if python -c "import json; json.load(open('site/sprites/manifest.json', encoding='utf-8'))"; then
-              echo "sprite pack in place: $(du -ch site/sprites/* | tail -1 | cut -f1)"
-            else
-              echo "::warning title=Bad sprite pack::manifest.json from release '$TAG' is not valid JSON; serving without a pack."
-              rm -rf site/sprites
-            fi
+          if python -c "import json; json.load(open('site/sprites/manifest.json', encoding='utf-8'))" 2>/dev/null; then
+            echo "sprite pack: $(du -ch site/sprites/* | tail -1 | cut -f1)"
           else
-            rm -rf site/sprites
+            echo "::warning title=No sprite pack::site/sprites/manifest.json is missing or unreadable; the editor will render terrain as letters on flat colour."
           fi
 
       - uses: actions/configure-pages@v5

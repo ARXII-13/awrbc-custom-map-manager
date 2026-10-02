@@ -31,7 +31,7 @@ Thumbs.db
 # Local map fixtures for developing the viewer; these are personal save data.
 web/samples/
 
-# Sprite packs are local only; see web/sprites/README.md for why.
-web/sprites/*
-!web/sprites/README.md
-!web/sprites/manifest.example.json
+# The sprite pack is committed (decision #56). The builders that produced it
+# are not: they read a checkout of somebody else's project and are a record of
+# how the pack was made, not something this repository can run.
+web/sprites/build_*.py

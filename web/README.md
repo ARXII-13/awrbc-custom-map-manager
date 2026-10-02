@@ -104,10 +104,10 @@ The renderer draws from the sprite pack in `web/sprites/`. There is no
 substitute-art path: without a pack, terrain falls back to a letter on a
 colour, which is legible and not meant to be pretty.
 
-The pack is gitignored, so no third-party art is committed to this repository.
-What does leave this machine is a bundle's `preview.png`, which carries
-whatever the renderer drew - so the pack you load is what the archive shows.
-That is the intent (decision #46), not an accident.
+The pack is **committed** (decision #56), so a clone and the deployed site
+both render properly without anyone fetching anything. A bundle's
+`preview.png` carries whatever the renderer drew, so the pack is also what the
+archive shows. Both are intent, not accident.
 
 `inkFor()` in `render.js` picks label ink from the background's luma rather
 than always using white. Neutral properties are light grey and Yellow Comet is

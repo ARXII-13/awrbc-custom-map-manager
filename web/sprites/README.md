@@ -5,8 +5,13 @@ alternative any more (decision #46) - the fallback for an id a pack does not
 cover is a letter on a flat colour, so a partial pack is fine but a missing one
 is drab.
 
-**Nothing in this directory is committed** except this file and
-`manifest.example.json`. That is deliberate: see "What not to commit" below.
+**The pack here is committed** (decision #56): `manifest.json`, `units.png`
+and `terrain.png`. A clone renders properly with no extra step, and so does
+the deployed editor.
+
+The builders that produced it are not committed. They read a checkout of
+somebody else's project, so they are a record of how the pack was made rather
+than something this repository can run.
 
 ## Setting one up
 
@@ -43,18 +48,24 @@ Reload; the sidebar names the pack that loaded.
 A pack that fails to load - missing file, bad JSON - is ignored with a console
 warning. The viewer never breaks because of a pack.
 
-## What not to commit
+## What this is, and what it costs
 
-`.gitignore` excludes the images and `manifest.json`, and that boundary is the
-point of this whole mechanism rather than an afterthought.
+The committed pack is derived from [Commander Wars][cw], whose own credits
+describe its art as Advance Wars derived. So these sprites are, at one remove,
+Nintendo and Intelligent Systems copyright.
 
-Sprites ripped from Advance Wars, on any platform, are Nintendo and Intelligent
-Systems copyright. Using them locally is one thing and is the user's own call.
-Committing them puts them in a public repository, and from there into the
-archive and the website in phases 3 and 5 - which is precisely the exposure this
-project was scoped to avoid. Other Advance Wars sites ship ripped assets and
-have not been troubled, but that is tolerance, not a licence, and it is not
-something this repository should rely on.
+That was the argument for keeping them out of git, and it is still the
+argument. It was overruled deliberately, in stages, by the person who owns the
+risk: drawn substitute art was rejected (#46), the desktop build was allowed to
+ship the pack (#54), and finally the repository itself (#56). Each step was
+taken knowing the next became easier.
 
-So: use whatever art you like on your own machine. Keep the repository shipping
-a letter on a flat colour, which is legible but not the intent.
+What is worth understanding is the one-way door. A release can be deleted and a
+binary can be withdrawn; **a committed file stays in git history**, and taking
+it back out means rewriting history rather than deleting a file - which breaks
+every clone and fork that already exists.
+
+Other Advance Wars sites ship ripped assets and have not been troubled. That is
+tolerance rather than a licence, and the project now rests on it.
+
+[cw]: https://github.com/Robosturm/Commander_Wars
