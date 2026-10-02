@@ -61,14 +61,41 @@ jobs:
             echo "::notice title=No intake server::INTAKE_URL is not set, so the editor deploys without a Submit button. Set it under Settings > Secrets and variables > Actions > Variables."
           fi
 
-          # The sprite pack is gitignored, so a deploy from this repository has
-          # no art and terrain falls back to a letter on a flat colour. That is
-          # legible but drab, and it is a deliberate consequence of keeping
-          # third-party art out of git - see decisions #46 and #54. If the pack
-          # should be served, it has to arrive here from somewhere that is not
-          # the repository.
-          if [ ! -f site/sprites/manifest.json ]; then
-            echo "::warning title=No sprite pack::The deployed editor will render terrain as letters on flat colour. The pack is not in git by design; it has to be added to the site here if it should be served."
+      # The sprite pack is not in git, on purpose: third-party art stays out
+      # of permanent history, where removing it would mean a rewrite rather
+      # than a delete. It is served from a release instead, which can be
+      # deleted in one click if that ever needs undoing.
+      #
+      # A missing pack must not fail the deploy. The editor without one renders
+      # terrain as letters on flat colour - drab, but a working tool, and far
+      # better than no site at all.
+      - name: Fetch the sprite pack
+        shell: bash
+        env:
+          TAG: ${{ vars.SPRITE_RELEASE_TAG || 'sprites' }}
+        run: |
+          base="https://github.com/${{ github.repository }}/releases/download/$TAG"
+          mkdir -p site/sprites
+          ok=1
+          for f in manifest.json units.png terrain.png; do
+            if ! curl -fsSL --retry 2 -o "site/sprites/$f" "$base/$f"; then
+              echo "::warning title=No sprite pack::Could not fetch $f from release '$TAG'. The editor will render terrain as letters on flat colour."
+              ok=0
+              break
+            fi
+          done
+          if [ "$ok" = "1" ]; then
+            # A manifest that is really an HTML error page would deploy a
+            # broken pack rather than no pack, which is worse: the editor
+            # would try to use it and draw nothing.
+            if python -c "import json; json.load(open('site/sprites/manifest.json', encoding='utf-8'))"; then
+              echo "sprite pack in place: $(du -ch site/sprites/* | tail -1 | cut -f1)"
+            else
+              echo "::warning title=Bad sprite pack::manifest.json from release '$TAG' is not valid JSON; serving without a pack."
+              rm -rf site/sprites
+            fi
+          else
+            rm -rf site/sprites
           fi
 
       - uses: actions/configure-pages@v5
