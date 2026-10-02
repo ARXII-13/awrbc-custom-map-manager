@@ -19,6 +19,9 @@ export interface Rejection {
   ok: false;
   code: string;
   error: string;
+  /** The archive folder this is about, when there is one - on a `conflict`,
+   *  the map that already holds the name. Empty otherwise. */
+  folder?: string;
   findings: Array<{ code: string; severity: string; message: string }>;
 }
 

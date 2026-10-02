@@ -84,10 +84,70 @@ export function attachSaves({ panel, poster, loadMap, currentDoc }) {
       textContent: 'Add the current map' });
     add.onclick = addCurrent;
 
+    // Every write here takes a backup of its own, so these are for the times
+    // that is not enough: before a run of edits, and after one went wrong.
+    const takeBackup = el('button', { className: 'cellbtn',
+      title: 'Copy this save somewhere safe, right now',
+      textContent: 'Back up now' });
+    takeBackup.onclick = backupNow;
+
+    const roll = el('button', { className: 'cellbtn',
+      title: 'Put an earlier copy of this save back',
+      textContent: 'Restore…' });
+    roll.onclick = restorePrompt;
+
     panel.replaceChildren(
       el('div', { className: 'sub', textContent:
         `${entries.length} map${entries.length === 1 ? '' : 's'} in this save` }),
-      add, ...rows);
+      add,
+      el('div', {}, takeBackup, roll),
+      ...rows);
+  }
+
+  async function backupNow() {
+    const got = await saves.backupNow(savePath);
+    if (!got.ok) return alert(got.error);
+    alert(`Backed up as ${got.name}.`);
+  }
+
+  /**
+   * Choose a snapshot to put back.
+   *
+   * A numbered list and a prompt rather than a dialog, because this panel is
+   * a toolbar column and the framework rebuild (decision #47) is where a real
+   * one belongs. The names carry a timestamp, so they sort newest-last and
+   * reading them is the whole of the choice.
+   */
+  async function restorePrompt() {
+    const got = await saves.snapshots(savePath);
+    if (!got.ok) return alert(got.error);
+    if (!got.snapshots.length) {
+      return alert('No backups of this save yet.\n\n' +
+                   'One is taken automatically before every write, and ' +
+                   '"Back up now" takes one on demand.');
+    }
+
+    const list = got.snapshots.map(
+      (s, i) => `${i + 1}. ${s.name}  (${s.taken})`).join('\n');
+    const answer = prompt(
+      'Restore which backup?\n\n' + list +
+      '\n\nType its number. The save as it is now is kept as a backup too, ' +
+      'so this is itself undoable.', String(got.snapshots.length));
+    if (answer === null) return;
+
+    const pick = got.snapshots[Number(answer) - 1];
+    if (!pick) return alert(`There is no backup ${answer}.`);
+    if (!confirm(`Replace the current save with ${pick.name}?\n\n` +
+                 'The game must be closed.')) return;
+
+    say('Restoring…');
+    const done = await saves.restore(savePath, pick.name);
+    if (!done.ok) {
+      alert(done.error);
+      return open(savePath);
+    }
+    await open(savePath);
+    alert(`Restored ${done.restored}.`);
   }
 
   async function addCurrent() {

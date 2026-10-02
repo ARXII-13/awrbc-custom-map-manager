@@ -36,9 +36,13 @@ class Rejected(Exception):
     to act on. Carries findings so the caller can show them all at once rather
     than one per round trip."""
 
-    def __init__(self, message, findings=None, code="rejected"):
+    def __init__(self, message, findings=None, code="rejected", folder=""):
         self.findings = findings or []
         self.code = code
+        #: The archive folder this is about, when there is one - the map a
+        #: conflict collided with. Lets a caller offer to revise it instead of
+        #: asking the submitter to retype a path out of the message.
+        self.folder = folder
         super().__init__(message)
 
 
@@ -112,9 +116,22 @@ def prepare(blob, catalog, author, update=None):
 
     # The author is the Discord account that signed in, not whatever the file
     # claims. A file is a claim; a session is not.
-    placement = archive.plan(m, catalog, update=update, author=author["id"])
+    #
+    # The username, not the id: `plan` compares this against the catalog's
+    # `author`, which comes from `doc["author"]`, which is what the line below
+    # writes. Passing the id meant that comparison could never match, so
+    # revising your own map through the intake was refused as somebody else's.
+    # Nothing exercised the path until the editor could offer it.
+    #
+    # The cost is that a Discord rename loses you the ability to revise your
+    # older maps without a maintainer. The alternative is recording the account
+    # id beside the name in every map file, which puts a permanent identifier
+    # in a public archive to save a rare inconvenience.
+    placement = archive.plan(m, catalog, update=update,
+                             author=author["username"])
     if not placement.ok:
-        raise Rejected(placement.reason, code=placement.kind)
+        raise Rejected(placement.reason, code=placement.kind,
+                       folder=placement.folder)
 
     m.version = placement.version
     built = schema.build_document(m, author=author["username"])

@@ -27,6 +27,22 @@ const AWRBC = process.env.AWRBC_COMMAND ?? 'awrbc';
 // reproducing it here.
 const installed = (await available(AWRBC)) === null;
 
+// Locally a skip is reasonable - `awrbc` may not be on PATH, and node reports
+// a skipped *suite* as `skipped 0` because the `it`s inside were never built,
+// so the summary gives no hint that nine tests vanished. On CI it is not
+// reasonable: the workflow installs the tool, and a skip there means the whole
+// duplicate-detection and revision path went unchecked while the run stayed
+// green. Set AWRBC_COMMAND to run them against something else, e.g.
+// `AWRBC_COMMAND="python -m awrbc"`.
+describe('what the bridge tests need', () => {
+  it('is installed on CI', () => {
+    if (!process.env['CI']) return;
+    assert.ok(installed,
+      `${AWRBC} is not runnable, so the python bridge suite skipped. ` +
+      'CI must install the tool, or set AWRBC_COMMAND.');
+  });
+});
+
 const tempDir = mkdtempSync(join(tmpdir(), 'awrbc-'));
 const emptyCatalog = join(tempDir, 'catalog.json');
 writeFileSync(emptyCatalog, JSON.stringify({ schema: 1, maps: {} }));
@@ -140,6 +156,63 @@ describe('the python bridge', { skip: !installed ? 'awrbc is not installed' : fa
     assert.equal(again.ok, false);
     if (again.ok) return;
     assert.equal(again.code, 'duplicate');
+  });
+
+  /** A catalog holding a different map already called Daibi. The hash is
+   *  deliberately not this map's, so it reads as a name clash rather than a
+   *  duplicate - that distinction is the whole of the two-step below. */
+  function catalogHolding(author: string) {
+    const dir = mkdtempSync(join(tmpdir(), 'awrbc-cat-'));
+    const catalog = join(dir, 'catalog.json');
+    writeFileSync(catalog, JSON.stringify({
+      schema: 1,
+      maps: {
+        'maps/2p/daibi': {
+          category: '2p', slug: 'daibi', name: 'Daibi', author,
+          versions: [{ version: 1, hash: '0000000000000000', cols: 14,
+                       rows: 10, players: 2 }],
+        },
+      },
+    }));
+    return catalog;
+  }
+
+  it('names the folder a clash collided with, then takes the revision',
+     async () => {
+    // The two-step the editor walks. The browser cannot work the folder out
+    // for itself - slugs and categories are Python's rules - so the refusal
+    // has to hand it over, and the second attempt has to be accepted.
+    const catalog = catalogHolding('debbie');
+    const body = Buffer.from(JSON.stringify(aMap()));
+
+    const clash = await prepare(body, AUTHOR, undefined,
+                                { catalog, command: AWRBC });
+    assert.equal(clash.ok, false);
+    if (clash.ok) return;
+    assert.equal(clash.code, 'conflict');
+    assert.equal(clash.folder, 'maps/2p/daibi',
+                 'the refusal must say which folder, as data');
+
+    const revision = await prepare(body, AUTHOR, clash.folder,
+                                   { catalog, command: AWRBC });
+    assert.equal(revision.ok, true);
+    if (!revision.ok) return;
+    assert.equal(revision.kind, 'revision');
+    assert.equal(revision.version, 2);
+    assert.equal(revision.path, 'maps/2p/daibi/v2.json');
+  });
+
+  it('refuses to revise a map published by somebody else', async () => {
+    // The folder is a pointer, not permission. Decided here, where the
+    // publisher is known; the browser has no way to tell.
+    const got = await prepare(Buffer.from(JSON.stringify(aMap())), AUTHOR,
+                              'maps/2p/daibi',
+                              { catalog: catalogHolding('somebody-else'),
+                                command: AWRBC });
+    assert.equal(got.ok, false);
+    if (got.ok) return;
+    assert.equal(got.code, 'conflict');
+    assert.match(got.error, /maintainer/);
   });
 
   it('carries non-blocking warnings through', async () => {

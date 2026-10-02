@@ -98,6 +98,7 @@
   <button id="bundle" title="Map JSON and a preview image, zipped for submitting">Export bundle</button>
   <button id="submit" hidden title="Send this map to the public archive">Submit</button>
   <span id="who" class="sub" hidden></span>
+  <button id="signout" hidden title="Forget this sign-in in this browser">Sign out</button>
   <span class="sep"></span>
   <button data-tool="paint" aria-pressed="true" title="Paint terrain (B)">Paint</button>
   <button data-tool="fill" aria-pressed="false" title="Flood fill (G)">Fill</button>
@@ -813,6 +814,7 @@ attachSubmit({
                      ?.content?.trim() || ""),
   button: document.getElementById("submit"),
   label: document.getElementById("who"),
+  signOut: document.getElementById("signout"),
   currentDoc: exportDocument,
   stats,
   async bundle() {

@@ -658,7 +658,8 @@ def cmd_prepare(args, out):
         prepared = submission.prepare(blob, index, author, update=args.update)
     except submission.Rejected as exc:
         json.dump({"ok": False, "code": exc.code, "error": str(exc),
-                   "findings": exc.findings}, out, indent=2)
+                   "folder": exc.folder, "findings": exc.findings},
+                  out, indent=2)
         out.write("\n")
         # A refusal is this command working, not failing - the caller reads
         # `ok`. A non-zero exit is reserved for the command itself breaking.

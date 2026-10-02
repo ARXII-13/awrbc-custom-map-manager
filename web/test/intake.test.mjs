@@ -163,6 +163,62 @@ describe('submitting', () => {
       });
   });
 
+  it('carries the folder a name clash collided with', async () => {
+    // The caller offers "submit this as a new version of that one", so the
+    // folder has to arrive as data. Reading it back out of the sentence would
+    // be a contract nobody wrote down.
+    await assert.rejects(
+      () => submit(BASE, {
+        bundle, agree: true,
+        fetchImpl: serving(422, {
+          error: 'maps/2p/daibi already exists; pass --update maps/2p/daibi',
+          code: 'conflict', folder: 'maps/2p/daibi',
+        }),
+      }),
+      (err) => {
+        assert.equal(err.code, 'conflict');
+        assert.equal(err.folder, 'maps/2p/daibi');
+        return true;
+      });
+  });
+
+  it('leaves the folder empty when the server sent none', async () => {
+    await assert.rejects(
+      () => submit(BASE, {
+        bundle, agree: true,
+        fetchImpl: serving(422, { error: 'no', code: 'invalid' }),
+      }),
+      (err) => {
+        assert.equal(err.folder, '', 'never undefined, so callers can test it');
+        return true;
+      });
+  });
+
+  it('sends the folder back as `update` when revising', async () => {
+    let sent = null;
+    await submit(BASE, {
+      bundle, agree: true, update: 'maps/2p/daibi',
+      fetchImpl: async (url, init) => {
+        sent = init.body;
+        return { ok: true, status: 200, json: async () => ({ ok: true }) };
+      },
+    });
+    assert.equal(sent.get('update'), 'maps/2p/daibi');
+  });
+
+  it('sends no `update` at all for a first submission', async () => {
+    // An empty one would read as "revise the folder called nothing".
+    let sent = null;
+    await submit(BASE, {
+      bundle, agree: true,
+      fetchImpl: async (url, init) => {
+        sent = init.body;
+        return { ok: true, status: 200, json: async () => ({ ok: true }) };
+      },
+    });
+    assert.equal(sent.has('update'), false);
+  });
+
   it('says plainly when the server cannot be reached', async () => {
     await assert.rejects(
       () => submit(BASE, { bundle, agree: true, fetchImpl: failing() }),

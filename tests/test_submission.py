@@ -130,6 +130,79 @@ class Preparing(unittest.TestCase):
         self.assertEqual(list(got["files"]), ["maps/2p/daibi/v1.json"])
 
 
+class RevisingAfterANameClash(unittest.TestCase):
+    """The two-step the editor walks: refused for the name, then accepted as
+    the next version of it.
+
+    The first refusal has to carry the folder as data, because the browser
+    offers to resubmit against it and parsing the path out of the sentence is
+    not a contract."""
+
+    def theirs(self, author="debbie"):
+        """A catalog holding a *different* map already called Daibi."""
+        from awrbc.core import archive, schema
+        _, other = a_map(name="Daibi", teams=2, cols=14)
+        return {"maps/2p/daibi": {
+            "category": "2p", "slug": "daibi", "name": "Daibi",
+            "author": author,
+            "versions": [{"version": 1, "cols": 14, "rows": 10, "players": 2,
+                          "hash": archive.map_hash(schema.from_json(other))}]}}
+
+    def test_the_clash_carries_the_folder(self):
+        _, doc = a_map(name="Daibi")
+        with self.assertRaises(submit.Rejected) as caught:
+            submit.prepare(a_bundle(doc, a_preview()), self.theirs(), USER)
+        self.assertEqual(caught.exception.code, "conflict")
+        self.assertEqual(caught.exception.folder, "maps/2p/daibi")
+
+    def test_resubmitting_against_that_folder_becomes_version_two(self):
+        _, doc = a_map(name="Daibi")
+        catalog = self.theirs()
+        got = submit.prepare(a_bundle(doc, a_preview()), catalog, USER,
+                             update="maps/2p/daibi")
+        self.assertEqual(got["placement"].kind, "revision")
+        self.assertEqual(got["placement"].version, 2)
+        self.assertIn("maps/2p/daibi/v2.json", got["files"])
+
+    def test_your_own_map_is_recognised_as_yours(self):
+        """The ownership check compares what `plan` is given against the
+        catalog's `author`, which is the username the file carries. Handing it
+        the Discord id instead made that comparison never match, so every
+        revision of your own map came back as somebody else's."""
+        _, doc = a_map(name="Daibi")
+        catalog = self.theirs(author=USER["username"])
+        got = submit.prepare(a_bundle(doc, a_preview()), catalog, USER,
+                             update="maps/2p/daibi")
+        self.assertEqual(got["placement"].kind, "revision")
+
+    def test_it_is_still_refused_when_the_map_is_someone_elses(self):
+        """The folder is a pointer, not permission. Answering "yes, that one
+        is mine" to a map somebody else published is caught here, where the
+        publisher is known - never in the browser, which cannot know."""
+        _, doc = a_map(name="Daibi")
+        catalog = self.theirs(author="original-author")
+        with self.assertRaises(submit.Rejected) as caught:
+            submit.prepare(a_bundle(doc, a_preview()), catalog, USER,
+                           update="maps/2p/daibi")
+        self.assertEqual(caught.exception.code, "conflict")
+        self.assertIn("maintainer", str(caught.exception))
+
+    def test_a_revision_that_changed_nothing_is_still_a_duplicate(self):
+        """Saying "this is version 2" does not make it one."""
+        from awrbc.core import archive, schema
+        _, doc = a_map(name="Daibi")
+        same = archive.map_hash(schema.from_json(doc))
+        catalog = {"maps/2p/daibi": {
+            "category": "2p", "slug": "daibi", "name": "Daibi",
+            "author": "debbie",
+            "versions": [{"version": 1, "cols": 12, "rows": 10, "players": 2,
+                          "hash": same}]}}
+        with self.assertRaises(submit.Rejected) as caught:
+            submit.prepare(a_bundle(doc, a_preview()), catalog, USER,
+                           update="maps/2p/daibi")
+        self.assertEqual(caught.exception.code, "duplicate")
+
+
 class ThePullRequest(unittest.TestCase):
     def test_it_says_who_submitted_and_what(self):
         _, doc = a_map(name="Daibi")

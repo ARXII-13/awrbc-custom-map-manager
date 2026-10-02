@@ -74,11 +74,15 @@ export async function signOut(base, fetchImpl = fetch) {
  * their editor again.
  */
 export class SubmitRejected extends Error {
-  constructor(message, code, findings) {
+  constructor(message, code, findings, folder = '') {
     super(message);
     this.name = 'SubmitRejected';
     this.code = code;
     this.findings = findings ?? [];
+    /** On a `conflict`, the archive folder that already holds this name -
+     *  so a caller can offer to revise it rather than making somebody read
+     *  a path out of the message. */
+    this.folder = folder;
   }
 }
 
@@ -115,7 +119,8 @@ export async function submit(base, { bundle, agree, update, fetchImpl = fetch })
     throw new SubmitRejected(
       body?.error || `the server said ${res.status}`,
       body?.code || String(res.status),
-      body?.findings);
+      body?.findings,
+      body?.folder || '');
   }
   return body;
 }

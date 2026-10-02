@@ -248,6 +248,26 @@ class Publishing(unittest.TestCase):
         self.assertEqual(p.kind, archive.CONFLICT)
         self.assertIn("--update", p.reason)
 
+    def test_a_taken_name_says_which_folder_it_collided_with(self):
+        """Structured, not only inside the sentence.
+
+        The editor offers "submit this as a new version of that one", and
+        reading the path back out of English is not a thing to build on."""
+        m, doc = a_map(name="Daibi")
+        cat = catalog_of(("maps/2p/daibi", "someone-else", [(1, "other")]))
+        self.assertEqual(archive.plan(m, cat).folder, "maps/2p/daibi")
+
+    def test_carrying_the_folder_is_not_a_promise_it_may_be_revised(self):
+        """Planning it as an update is a separate decision, and it refuses."""
+        m, doc = a_map(name="Daibi")
+        cat = catalog_of(("maps/2p/daibi", "original-author", [(1, "old")]))
+        clash = archive.plan(m, cat, author="someone-else")
+        self.assertEqual(clash.folder, "maps/2p/daibi")
+
+        again = archive.plan(m, cat, update=clash.folder, author="someone-else")
+        self.assertEqual(again.kind, archive.CONFLICT)
+        self.assertIn("maintainer", again.reason)
+
     def test_updating_something_that_is_not_there(self):
         m, doc = a_map()
         p = archive.plan(m, {}, update="2p/nothing")

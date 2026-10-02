@@ -322,9 +322,15 @@ def plan(m, catalog=None, update=None, author=None):
         # Deliberately does not guess which of the two this is. The common case
         # is your own map, revised and submitted without saying so; the case
         # that matters is a stranger's. They read identically from here.
+        # `folder` is carried so a caller can offer "submit as a new
+        # version of this" without parsing the sentence for it. It is not a
+        # promise the revision would be accepted - if the map belongs to
+        # somebody else, planning it as an update refuses again, and that
+        # check is the one that matters.
         return Placement(CONFLICT,
                          "%s already exists; pass --update %s if this is a new "
-                         "version of it, or rename this map" % (folder, folder))
+                         "version of it, or rename this map" % (folder, folder),
+                         folder=folder)
     return Placement(NEW, "new map at %s" % folder,
                      path="/".join([folder, version_file(1)]),
                      folder=folder, version=1)

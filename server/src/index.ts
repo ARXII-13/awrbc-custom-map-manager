@@ -225,7 +225,12 @@ export function createApp() {
     }
 
     if (!outcome.ok) {
+      // `folder` goes back so the editor can offer "submit as a new
+      // version of that one" instead of asking somebody to retype a path
+      // out of a sentence. Whether that revision is allowed is decided by
+      // prepare on the next request, not here.
       res.status(422).json({ error: outcome.error, code: outcome.code,
+                             folder: outcome.folder ?? '',
                              findings: outcome.findings });
       return;
     }
