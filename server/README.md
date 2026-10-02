@@ -9,16 +9,37 @@ upload a map; a bot does the branch, the commit and the pull request.
 
 ## Running it
 
+TypeScript on Node, with the Python tool beside it.
+
 ```bash
-pip install -e ".[server]"
-python -m server.app
+pip install -e .          # the rules, as a command
+cd server && npm install && npm run build && npm start
 ```
 
-The tool itself stays dependency-free — Flask is an optional extra, and only
-someone running a server installs it.
-
 `GET /health` says whether it is configured and what is missing, so a bad
-deploy is visible before anyone clicks anything.
+deploy is visible before anyone clicks anything. On startup it also checks it
+can actually run the validator and **exits** if it cannot — that is not
+something to discover at somebody's first upload, after they have written a
+map.
+
+### Why two runtimes
+
+This server knows nothing about what a valid map is, where one belongs, or how
+a map's identity is computed. It shells out to `awrbc prepare`, which is
+Python, and reads JSON back.
+
+That is deliberate. Those rules are ~1,200 lines in `awrbc.core`, covered by
+its tests and re-run by the library's CI. Reimplementing them here would mean
+two answers to the same question — and the most important of them is a content
+hash. A hash that drifted would not throw. De-duplication would quietly stop
+working and the archive would fill with copies of one map.
+
+A process per submission costs about 200ms. At a handful of uploads a day that
+is nothing, and it buys one implementation of the rules.
+
+`AWRBC_COMMAND` may carry arguments, so `python -m awrbc` or an absolute path
+into a venv both work — useful in a container where the console script need
+not be on `PATH`.
 
 ## What you have to set up
 
@@ -27,6 +48,7 @@ deploy is visible before anyone clicks anything.
 | `DISCORD_CLIENT_ID` / `DISCORD_CLIENT_SECRET` | A Discord application. Add `PUBLIC_URL/auth/callback` as a redirect URI |
 | `GITHUB_TOKEN` | A **bot account's** token with push access to the library repo |
 | `SESSION_SECRET` | Any long random string. Without one a fresh key is generated per restart, which signs everybody out |
+| `AWRBC_COMMAND` | How to run the tool. Default `awrbc`; may carry arguments, e.g. `python -m awrbc` |
 | `PUBLIC_URL` | Where this is reachable, e.g. `https://intake.example` |
 | `EDITOR_URL` | Where to send people after they sign in |
 | `LIBRARY_REPO` | `owner/name` of the archive |
@@ -103,3 +125,16 @@ hop.
   rendering server-side, which is in the architecture and not built.
 - **One instance only.** Sessions are cookies so that is fine, but the rate
   limiter is not shared.
+
+## Tests
+
+```bash
+npm test                  # after npm run build
+```
+
+The bridge tests call the **real** `awrbc prepare` rather than stubbing it.
+Stubbing the subprocess would test the stub, and would stay green through
+exactly the breakage this design exists to prevent — the two sides disagreeing
+about what a map is. They skip when the tool is not installed, which is
+checked at module load: a `before` hook would run too late and skip the whole
+suite while reporting success.

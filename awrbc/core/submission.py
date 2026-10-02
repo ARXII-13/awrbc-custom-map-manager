@@ -1,9 +1,18 @@
 """Turning an upload into a pull request.
 
-Everything a submission is checked against lives in ``awrbc.core`` already,
-because it is the same set of rules ``awrbc publish`` applies and the library's
-CI re-runs. This module decides *where* a map goes and what the pull request
-says; it does not invent a second opinion about what a valid map is.
+Reached two ways: by ``awrbc prepare``, which is how the TypeScript intake
+server asks this question, and directly by anything in Python.
+
+That indirection is the point. The intake server is TypeScript and could have
+reimplemented these checks; instead it shells out, so the rules - what a valid
+map is, where it goes, whether it is already here, and above all the content
+hash - exist exactly once. A second implementation of the hash would not throw
+when it drifted. De-duplication would simply stop working and the archive would
+fill with copies of the same map.
+
+This module decides *where* a map goes and what the pull request says. It does
+not invent a second opinion about what a valid map is; that is ``validate`` and
+``archive``.
 
 The browser is not trusted. It may have run the same checks for a nicer error
 message; that is a convenience, not a gate.
@@ -12,7 +21,7 @@ import json
 import re
 import zipfile
 
-from awrbc.core import archive, preview, schema, validate
+from . import archive, preview, schema, validate
 
 #: Bigger than any real bundle - a 64x64 map is about 20 KB of JSON and the
 #: preview a few hundred. Past this, something is wrong or hostile.

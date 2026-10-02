@@ -12,7 +12,7 @@ import subprocess
 import sys
 
 from ..core import (archive, backup, catalog, identify, locate, preview, repo,
-                    savefile, schema, validate)
+                    savefile, schema, submission, validate)
 from ..core.errors import (AwrbcError, MapNotFound, PublishRefused, SaveInUse,
                            SaveNotFound, ValidationFailed)
 
@@ -620,6 +620,68 @@ def _facts(entry):
     return bits
 
 
+def cmd_prepare(args, out):
+    """Decide what a submission would become. Writes nothing, anywhere.
+
+    This is the contract the TypeScript intake server calls across. It exists
+    so that server never has to reimplement a rule - above all the content
+    hash, which would not raise when it drifted, it would just quietly stop
+    de-duplicating.
+
+    Reads the bundle from a path or from stdin, and answers in JSON on stdout:
+    either a complete description of the branch, the commit message and the
+    files to write, or a refusal with the findings behind it. File contents are
+    base64 because a preview is binary and this has to survive JSON.
+    """
+    import base64
+
+    if args.file == "-":
+        stdin = getattr(sys.stdin, "buffer", sys.stdin)
+        blob = stdin.read()
+    else:
+        with open(args.file, "rb") as fh:
+            blob = fh.read()
+
+    author = {"id": args.author_id or "", "username": args.author_name or ""}
+
+    if args.catalog:
+        with open(args.catalog, encoding="utf-8") as fh:
+            index = json.load(fh).get("maps", {})
+    elif args.library:
+        index, _ = repo.load_local(args.library)
+    else:
+        index, _ = repo.fetch_catalog(args.base)
+
+    try:
+        prepared = submission.prepare(blob, index, author, update=args.update)
+    except submission.Rejected as exc:
+        json.dump({"ok": False, "code": exc.code, "error": str(exc),
+                   "findings": exc.findings}, out, indent=2)
+        out.write("\n")
+        # A refusal is this command working, not failing - the caller reads
+        # `ok`. A non-zero exit is reserved for the command itself breaking.
+        return EXIT_OK
+
+    placement = prepared["placement"]
+    title, body = submission.pull_request_text(prepared, author)
+    json.dump({
+        "ok": True,
+        "kind": placement.kind,
+        "path": placement.path,
+        "folder": placement.folder,
+        "version": placement.version,
+        "branch": submission.branch_name(placement, author),
+        "title": title,
+        "body": body,
+        "files": {p: base64.b64encode(c).decode("ascii")
+                  for p, c in prepared["files"].items()},
+        "warnings": prepared["warnings"],
+        "hasPreview": prepared["has_preview"],
+    }, out, indent=2)
+    out.write("\n")
+    return EXIT_OK
+
+
 def cmd_search(args, out):
     index, stale = _catalog_for(args)
     _warn_stale(out, stale)
@@ -856,6 +918,16 @@ def build_parser():
                                       help="details for one map"))
     sh.add_argument("slug", help="slug, 2p/slug, or slug@v2")
 
+    pre = archive_flags(sub.add_parser(
+        "prepare", parents=[common],
+        help="decide what a submission would become, as JSON (writes nothing)"))
+    pre.add_argument("file", help="bundle zip or map JSON; - for stdin")
+    pre.add_argument("--author-id", help="the submitter's account id")
+    pre.add_argument("--author-name", help="the name to publish")
+    pre.add_argument("--update", metavar="FOLDER",
+                     help="publish as the next version of an existing map")
+    pre.add_argument("--catalog", help="a catalog.json to read instead")
+
     rm = sub.add_parser("remove", parents=[common], help="delete a map")
     rm.add_argument("index", type=int, help="map index from `list`")
     rm.add_argument("--dry-run", action="store_true")
@@ -883,7 +955,7 @@ def main(argv=None, out=None):
                 "backup": cmd_backup, "restore": cmd_restore,
                 "publish": cmd_publish, "catalog": cmd_catalog,
                 "verify": cmd_verify, "search": cmd_search,
-                "show": cmd_show}
+                "show": cmd_show, "prepare": cmd_prepare}
     try:
         return handlers[args.command](args, out)
     except PublishRefused as exc:

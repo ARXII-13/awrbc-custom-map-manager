@@ -35,10 +35,8 @@ jobs:
         with:
           python-version: ${{ matrix.python }}
 
-      # With the extra, so the server tests run rather than skipping. The
-      # package itself still declares no dependencies.
       - name: Install
-        run: pip install -e ".[server]"
+        run: pip install -e .
 
       # No save file and no game: the suite builds its own documents from the
       # type table, which is what lets it run on a clean runner at all.
@@ -60,6 +58,18 @@ jobs:
       - name: Run the editor tests
         shell: bash
         run: node --test web/test/*.test.mjs
+
+      # The intake server. Its bridge tests call the real `awrbc prepare`, so
+      # they need the tool installed above and on PATH - which `pip install -e`
+      # arranges.
+      - name: Build and test the intake server
+        shell: bash
+        working-directory: server
+        run: |
+          npm ci || npm install
+          npm run check
+          npm run build
+          npm test
 
       - name: Check the CLI starts
         run: |

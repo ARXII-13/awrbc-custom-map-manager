@@ -1,0 +1,27 @@
+{
+  "name": "awrbc-intake",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Discord sign-in and map upload for the AWRBC map library",
+  "type": "module",
+  "engines": { "node": ">=20" },
+  "scripts": {
+    "build": "tsc",
+    "start": "node dist/index.js",
+    "dev": "tsc --watch",
+    "test": "node --test dist/*.test.js",
+    "check": "tsc --noEmit"
+  },
+  "dependencies": {
+    "cookie-session": "^2.1.0",
+    "express": "^4.21.2",
+    "multer": "^1.4.5-lts.1"
+  },
+  "devDependencies": {
+    "@types/cookie-session": "^2.0.49",
+    "@types/express": "^4.17.21",
+    "@types/multer": "^1.4.12",
+    "@types/node": "^22.10.0",
+    "typescript": "^5.7.0"
+  }
+}
