@@ -19,6 +19,11 @@ import * as intake from './intake.js';
  * being edited. The caller owns both, which is what keeps this portable.
  */
 export function attachSubmit({ base, button, label, bundle, currentDoc, stats }) {
+  // No intake server configured: no Submit button. A checkout, or a deploy
+  // without one, is edit-and-export only - which is a complete tool on its
+  // own. A button that cannot work is worse than no button.
+  if (!base) return { refresh: async () => {} };
+
   let who = intake.SIGNED_OUT;
 
   function show() {

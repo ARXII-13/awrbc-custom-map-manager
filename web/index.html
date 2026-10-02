@@ -3,6 +3,10 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
+<!-- Where the intake server is. Left empty here and filled in when the
+     site is deployed; empty means no Submit button, which is the right
+     behaviour for a checkout or a deploy without one. -->
+<meta name="awrbc-intake" content="">
 <title>AWRBC Map Editor</title>
 <style>
   :root {
@@ -784,7 +788,12 @@ document.getElementById("bundle").onclick = async () => {
 // Submitting to the archive. The wiring lives in submit-ui.js; this hands it
 // what it needs and nothing more, so it ports to the framework app unchanged.
 attachSubmit({
-  base: intakeBase(location.search, "http://127.0.0.1:5000"),
+  // ?intake= wins (for development), then whatever the deploy wrote
+  // into the meta tag. No fallback to localhost: a hosted editor that
+  // quietly pointed at 127.0.0.1 would look broken for everyone.
+  base: intakeBase(location.search,
+                   document.querySelector('meta[name="awrbc-intake"]')
+                     ?.content?.trim() || ""),
   button: document.getElementById("submit"),
   label: document.getElementById("who"),
   currentDoc: exportDocument,
