@@ -117,6 +117,32 @@ class ThePack(unittest.TestCase):
                       "the unsuffixed file is the isolated reef, and the only "
                       "variant dirsFor can currently ask for")
 
+    def test_reef_sits_inside_its_tile_rather_than_filling_it(self):
+        """Edge to edge it read as a solid block of coral; inset, it has sea
+        around it.
+
+        This also pins the frame width. Reef art is an eight-frame strip, and
+        the builder used to cut frame 0 at the display width rather than the
+        source width - taking two frames, and getting away with it only
+        because the overhang was clipped at the cell edge. Centring a sprite
+        does not clip, so a frame carrying two would sit off to one side and
+        show up here as art touching an edge.
+        """
+        tile = self.crop(self.manifest["terrain"][REEF]["dirs"][""])
+        self.assertIsNotNone(tile, "the reef frame's sheet is missing")
+        box = tile.getchannel("A").getbbox()
+        self.assertIsNotNone(box, "the reef frame is empty")
+        left, top, right, bottom = box
+        self.assertGreater(left, 0, "reef touches the left edge of its tile")
+        self.assertLess(right, tile.width,
+                        "reef touches the right edge of its tile")
+        # The art is one tile tall and sits in the lower half of a two-tile
+        # cell, so the floor is the top of that tile rather than the cell.
+        self.assertGreater(top, tile.height // 2,
+                           "reef reaches above its own tile")
+        self.assertLess(bottom, tile.height,
+                        "reef touches the bottom edge of its tile")
+
     def test_reef_is_drawn_to_sit_on_water(self):
         """Its surround is sea rather than the plains the renderer would
         otherwise lay underneath, which is what `onWater` in terrain.js turns
