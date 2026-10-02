@@ -37,6 +37,23 @@ UNDEFINED_TOLERANCE = 24
 #: Reef, which is coral in open water rather than anything standing on grass.
 REEF = "64"
 
+#: Whether a skip here is acceptable. Locally it is - Pillow is a build
+#: dependency, not a runtime one, and `pip install -e .` does not bring it.
+#: On CI it is not: these checks skipped on every matrix leg for the whole of
+#: their existence, because nothing installed Pillow and `OK (skipped=N)` reads
+#: as a pass. GitHub Actions sets CI.
+ON_CI = bool(os.environ.get("CI"))
+
+
+class WhatTheseChecksNeed(unittest.TestCase):
+    def test_ci_installs_it(self):
+        """A skip on CI is a hole, so say so rather than going quiet."""
+        if not ON_CI:
+            self.skipTest("only enforced on CI")
+        self.assertIsNotNone(
+            Image, "CI must install .[dev]; without Pillow every check in "
+                   "this file skips and the run still reports OK")
+
 
 def near(pixel, colour, tolerance):
     return all(abs(pixel[i] - colour[i]) <= tolerance for i in range(3))
