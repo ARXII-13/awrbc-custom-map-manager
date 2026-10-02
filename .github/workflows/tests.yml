@@ -48,10 +48,16 @@ jobs:
       # dead for five commits; this is the half that syntax checking cannot see.
       - uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          node-version: '22'
 
+      # `shell: bash` and an unquoted glob on purpose. Node only learned to
+      # expand a glob after --test itself in v21, and the Windows runner's
+      # default shell is PowerShell, which does not expand globs for native
+      # commands at all. Letting bash do it works on every runner and does not
+      # depend on which node is installed.
       - name: Run the editor tests
-        run: node --test "web/test/*.test.mjs"
+        shell: bash
+        run: node --test web/test/*.test.mjs
 
       - name: Check the CLI starts
         run: |
