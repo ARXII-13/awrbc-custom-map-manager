@@ -13,7 +13,10 @@ const TIMEOUT = 30_000;
 
 export class GitHubError extends Error {
   constructor(readonly status: number, message: string, readonly url = '') {
-    super(`GitHub ${status}: ${message}`);
+    // The url is in the message because a GitHub failure is read from a log,
+    // where "which call" is most of the diagnosis. It stays a field too, so a
+    // caller can branch on it without parsing prose.
+    super(`GitHub ${status}: ${message}${url ? ` (${url})` : ''}`);
     this.name = 'GitHubError';
   }
 }

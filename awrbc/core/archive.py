@@ -19,7 +19,7 @@ CLI, the editor and the library's CI can agree on them without agreeing on
 anything else - and so the submission pipeline is testable without a repo.
 """
 import re
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 
 from . import identity
 from .validate import ERROR, WARNING, Report
@@ -246,7 +246,6 @@ class Placement:
     folder: str = ""
     version: int = 0
     existing: str = ""
-    findings: list = field(default_factory=list)
 
     @property
     def ok(self):

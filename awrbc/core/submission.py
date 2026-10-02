@@ -42,7 +42,7 @@ class Rejected(Exception):
         super().__init__(message)
 
 
-def read_upload(blob, filename=""):
+def read_upload(blob):
     """Unpack what the browser sent: a bundle zip, or a bare map JSON.
 
     Returns ``(document, preview_bytes_or_None)``.
@@ -89,13 +89,13 @@ def _findings(report):
             for f in report.findings]
 
 
-def prepare(blob, catalog, author, update=None, filename=""):
+def prepare(blob, catalog, author, update=None):
     """Check an upload and work out what would be committed.
 
     Returns a dict describing the submission. Does not talk to GitHub, so it is
     the whole of the decision and can be tested without a network.
     """
-    doc, image = read_upload(blob, filename)
+    doc, image = read_upload(blob)
 
     try:
         m = schema.from_json(doc)

@@ -58,9 +58,8 @@ export interface Options {
    * every real form and avoids inviting a shell.
    */
   command?: string;
-  /** Where to read the archive index from, if not the public one. */
+  /** A catalog.json to read the archive index from, instead of the net. */
   catalog?: string;
-  base?: string;
   /** Milliseconds before the child is killed. */
   timeoutMs?: number;
 }
@@ -77,7 +76,6 @@ export async function prepare(
                 '--author-name', author.username];
   if (update) argv.push('--update', update);
   if (options.catalog) argv.push('--catalog', options.catalog);
-  else if (options.base) argv.push('--base', options.base);
 
   const [exe, ...prefix] = (options.command ?? 'awrbc').split(/\s+/);
   // No shell: argv goes straight to the process, so nothing a submitter

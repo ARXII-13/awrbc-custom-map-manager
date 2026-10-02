@@ -78,9 +78,13 @@ const VISUAL_LINKS = {
   // is "N+S"; reading it as a connection list turns every bridge ninety
   // degrees, which is exactly what it looked like.
   256: { links: new Set([256, 128]), rails: true },
-  // Pipes join pipes, seams and the structures they feed.
+  // Pipes join pipes, seams and the structures they feed, and a seam joins
+  // exactly what a pipe does - it is a weld in a pipeline, not a different
+  // kind of thing. Both sets mirror LINKS_TO in autotile.py, which is what
+  // actually writes the flags; a seam next to a cannon used to draw here as
+  // though it joined nothing.
   32768: { links: new Set([32768, 65536, 524288, 1048576, 2097152, 8388608]) },
-  65536: { links: new Set([32768, 65536]) },
+  65536: { links: new Set([32768, 65536, 524288, 1048576, 2097152, 8388608]) },
 };
 
 /**
@@ -312,7 +316,7 @@ export function drawMap(ctx, doc, opts = {}) {
   if (opts.units !== false) {
     for (const u of doc.units || []) {
       if (u.x < x0 || u.x >= x1 || u.y < y0 || u.y >= y1) continue;
-      drawUnit(ctx, u, ox + u.x * size, oy + u.y * size, size, opts);
+      drawUnit(ctx, u, ox + u.x * size, oy + u.y * size, size);
     }
   }
 }

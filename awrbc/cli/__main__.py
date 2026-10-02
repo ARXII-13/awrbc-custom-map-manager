@@ -650,7 +650,9 @@ def cmd_prepare(args, out):
     elif args.library:
         index, _ = repo.load_local(args.library)
     else:
-        index, _ = repo.fetch_catalog(args.base)
+        # --refresh matters most here: the server asks whether a submission
+        # duplicates something, and an hour-stale catalog answers that wrong.
+        index, _ = repo.fetch_catalog(args.base, refresh=args.refresh)
 
     try:
         prepared = submission.prepare(blob, index, author, update=args.update)
