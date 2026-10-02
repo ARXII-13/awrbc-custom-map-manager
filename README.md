@@ -36,6 +36,8 @@ awrbc remove 3                    delete a map
 awrbc backup                      snapshot the save
 awrbc restore [name]              list snapshots, or roll one back
 
+python -m awrbc.desktop            the editor with save access, in a window
+
 awrbc search "4p fog"             find maps in the public archive
 awrbc show renew                  what one map is, and its versions
 awrbc import renew                fetch it from the archive into your save
@@ -76,7 +78,9 @@ Run from a checkout with `python -m awrbc <command>`, or install it with `pip in
 
 ```
 awrbc/core/    codec, save reading, domain model - never prints, never exits
-awrbc/cli/     the only place that formats output or picks exit codes
+awrbc/cli/     the scriptable surface; formats output and picks exit codes
+awrbc/desktop/ the editor in a window, with save access (pip install .[desktop])
+server/        the intake endpoint - TypeScript, shells out to `awrbc prepare`
 web/           the browser map editor; becoming part of the app (see docs)
 tools/         bfcheck.ps1 and nrbfcheck - format validators
 tests/
