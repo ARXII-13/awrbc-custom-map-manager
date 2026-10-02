@@ -35,8 +35,12 @@ jobs:
         with:
           python-version: ${{ matrix.python }}
 
+      # `.[dev]` rather than `.` so the sprite-pack checks actually run. They
+      # need Pillow to read the committed sheet, and a plain install does not
+      # have it - so they skipped on every leg, silently, and `OK (skipped=N)`
+      # looked like a pass. The shipped tool still has no dependencies.
       - name: Install
-        run: pip install -e .
+        run: pip install -e ".[dev]"
 
       # No save file and no game: the suite builds its own documents from the
       # type table, which is what lets it run on a clean runner at all.

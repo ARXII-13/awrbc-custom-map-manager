@@ -13,6 +13,10 @@ dependencies = []
 # only someone running it installs it.
 [project.optional-dependencies]
 desktop = ["pywebview>=5.0"]
+# Reading the committed sprite sheet's pixels, which tests/test_sprite_pack.py
+# does and nothing shipped does. Without it those tests skip - which is how
+# they managed to never run on CI at all.
+dev = ["pillow"]
 
 [project.scripts]
 awrbc = "awrbc.cli.__main__:main"

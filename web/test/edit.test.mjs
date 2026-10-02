@@ -379,8 +379,15 @@ describe('stats', () => {
     }
     ed.commit();
     const s = stats(doc);
-    const said = (s.reasons.concat(s.notes || [])).join(' ');
-    assert.ok(/\b50\b|units/.test(said), `expected a unit-cap note, got: ${said}`);
+
+    // Match the cap message itself, not the word "units". The fixture has no
+    // production, so team 1 always draws "team 1 has no units or production" -
+    // and an alternation loose enough to match that passed with the cap check
+    // deleted outright.
+    assert.ok(s.perTeam[0].units > MAX_UNITS_PER_TEAM,
+              `the fixture must exceed the cap; placed ${s.perTeam[0].units}`);
+    assert.ok(s.reasons.some((r) => /^team 0 has \d+ units, over the \d+ limit$/.test(r)),
+              `expected a unit-cap reason, got: ${s.reasons.join(' | ')}`);
   });
 
   it('ignores a team on terrain that cannot be owned', () => {

@@ -92,11 +92,12 @@ class ThePack(unittest.TestCase):
 
     def test_no_sprite_was_resolved_through_a_palette_that_lacks_its_ramps(self):
         """Magenta is the palettes' marker for an index they do not define."""
-        bad = []
+        bad, looked = [], 0
         for label, frame in self.frames():
             tile = self.crop(frame)
             if tile is None:
                 continue
+            looked += 1
             px = tile.load()
             for y in range(tile.height):
                 for x in range(tile.width):
@@ -107,6 +108,12 @@ class ThePack(unittest.TestCase):
                 else:
                     continue
                 break
+        # Count what was examined. Skipping a frame whose sheet is missing is
+        # right, but skipping every frame and reporting an empty list is a
+        # pass with nothing behind it - and a build that dropped the sheets is
+        # exactly the case pages.yml warns about.
+        self.assertGreater(looked, 0, "no frames were examined; is the sheet "
+                                      "missing?")
         self.assertEqual(bad, [], "wrong biome palette for: " + "; ".join(bad))
 
     def test_reef_is_art_rather_than_a_letter_on_flat_colour(self):
