@@ -50,8 +50,7 @@ jobs:
           python -m unittest discover -s . -t . -v 2>&1 | tee suite.log
           status=${PIPESTATUS[0]}
           if [ "$status" -ne 0 ]; then
-            echo "::error title=Python suite failed::$(grep -E '^(FAIL|ERROR):' suite.log | head -5 | tr '
-' ' ')"
+            echo "::error title=Python suite failed::$(grep -E '^(FAIL|ERROR):' suite.log | head -5 | paste -sd' ' -)"
             grep -B2 -A15 -E '^(FAIL|ERROR):' suite.log | head -60
           fi
           exit $status
