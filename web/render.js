@@ -83,6 +83,20 @@ const VISUAL_LINKS = {
   65536: { links: new Set([32768, 65536]) },
 };
 
+/**
+ * The direction key a palette swatch should draw `id` with.
+ *
+ * Terrain that links to its neighbours shows best as a full junction: a
+ * crossroads says "road" faster than a stub does. Terrain the renderer never
+ * keys by direction is drawn the way a brush stroke actually paints it, which
+ * is the unsuffixed file. Reef is the reason this is not just a constant - its
+ * suffixed files mean adjacent *land*, so asking for a junction advertises a
+ * variant painting can never produce.
+ */
+export function paletteDirs(id) {
+  return VISUAL_LINKS[id] ? 'N+E+S+W' : '';
+}
+
 function dirsFor(terrain, x, y, id) {
   const rule = VISUAL_LINKS[id];
   if (!rule) return '';

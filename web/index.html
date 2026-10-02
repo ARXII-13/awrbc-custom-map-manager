@@ -166,7 +166,7 @@
 </div>
 
 <script type="module">
-import { drawMap, fitTile, cellIndex, poster } from "./render.js";
+import { drawMap, fitTile, cellIndex, paletteDirs, poster } from "./render.js";
 import { UNITS, TEAMS, TERRAIN_PALETTE, STRUCTURES, NEUTRAL_STRUCTURES,
          DIRECTIONAL, MULTI_TILE, STRUCTURE_SPAN, RUNS, MAX_COLS, MAX_ROWS,
          terrain, team } from "./terrain.js";
@@ -355,14 +355,31 @@ function swatch(kind, id) {
 
   const pick = kind === "unit"
     ? { team: brushTeam }
-    : { team: brushTeam, dirs: "N+E+S+W", variant: 0, facing: brushFacing };
+    : { team: brushTeam, dirs: paletteDirs(id), variant: 0, facing: brushFacing };
   const art = assemble(kind === "terrain" && info.property ? "property" : kind,
                        id, pick);
   if (art) {
-    const box = contentBox(art) || { x: 0, y: 0, w: art.width, h: art.height };
+    let box = contentBox(art) || { x: 0, y: 0, w: art.width, h: art.height };
     // Fit the whole thing inside the swatch rather than cropping to the tile,
     // leaving a margin so art that fills its tile does not reach the edge and
     // read as a texture swatch.
+    //
+    // Except when the art is one tile and stays inside it: then the tile is
+    // the thing to show, because fitting to content would scale the art up
+    // until it filled the swatch and the swatch would stop matching what the
+    // brush paints. Reef is inset inside its tile on purpose, and this is
+    // what keeps that true in the palette.
+    //
+    // One tile means exactly this canvas shape: a tile, plus a tile of
+    // overhang space above it. A run of pipe is three tiles wide and a 3x3
+    // structure is three of each, so neither is asking the question this
+    // answers. Art that does overhang - buildings, mountains - still fits to
+    // content, and so do units, where the silhouette is the subject rather
+    // than the tile around it.
+    const tile = art.width;
+    if (kind !== "unit" && art.height === tile * 2 && box.y >= tile) {
+      box = { x: 0, y: tile, w: tile, h: tile };
+    }
     const pad = 2;
     const scale = Math.min((S - pad * 2) / box.w, (S - pad * 2) / box.h);
     const w = Math.max(1, Math.round(box.w * scale));
