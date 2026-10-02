@@ -15,7 +15,8 @@ hardware.
 
 **Phase 2 (editor)** — a browser map editor in `web/`. Paint terrain, place
 units and structures, live validity, export JSON the CLI imports and the game
-loads. No install and no save access: it speaks map JSON only.
+loads. In a browser it needs no install and has no save access: it speaks map
+JSON only. The desktop app below hosts that same editor with your save in it.
 
 Next is the archive. See `../docs/` for the plan, `../docs/format.md` for the
 save format record, and `web/README.md` for the editor.
@@ -160,5 +161,8 @@ complaining about an unsupported version number. `awrbc doctor` reports both.
 - Importing a map that places units additionally needs the save to contain at
   least one unit somewhere, to model them on.
 - `AIWaypoints`, `MagmaTargets` and transport contents are not represented in
-  the map JSON. A map using any of them is refused rather than silently
-  flattened.
+  the map JSON. Every map seen so far has them empty. `schema.from_json`
+  refuses JSON that carries them, which catches a hand-written or converted
+  file - but nothing in this package ever writes those keys, so a
+  *game-authored* map that used one would be flattened on export and the
+  check would not see it. Reading them is the fix if such a map turns up.

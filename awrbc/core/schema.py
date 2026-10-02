@@ -21,8 +21,6 @@ from .model import CAPTURABLE, NEUTRAL_TEAM, Coord, Map, Tile, Unit
 
 SCHEMA_VERSION = 1
 
-#: Members we refuse to silently drop. None has ever been non-empty in an
-#: observed map, but losing them quietly would corrupt an archive.
 #: Members of LevelSaveData this schema cannot represent.
 #:
 #: The guard below only ever fires on hand-written or converted JSON, because

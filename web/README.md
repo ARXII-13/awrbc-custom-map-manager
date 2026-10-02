@@ -1,8 +1,13 @@
 # Map editor
 
-Opens, edits and exports the map JSON the CLI reads. No save access - so it
-cannot damage anything, and anyone can design a map whether or not they own the
-game.
+Opens, edits and exports the map JSON the CLI reads. In a browser it has no
+save access - so it cannot damage anything, and anyone can design a map whether
+or not they own the game.
+
+That boundary is structural rather than a promise: the save panel appears only
+when `window.pywebview.api` is there, which is the desktop app hosting these
+same files (see `saves.js` and `awrbc/desktop/README.md`). Hosted, there is no
+such object and no code path to a file at all.
 
 > **This is the phase 2 editor, as built.** It is being folded into one
 > application with a map viewer, with a build step and a backend behind it
@@ -48,9 +53,10 @@ python -m awrbc export 0 -o ALL.json
 | `index.html` | The viewer shell - loading, pan, zoom, hover, stats. |
 
 `render.js` is deliberately free of editing state, so anything that needs a
-picture of a map can use it unchanged. `thumbnail(doc, w, h)` fits a map into a
-box; `poster(doc, tilePx)` draws it at a fixed tile size, which is what Export
-bundle puts in the zip.
+picture of a map can use it unchanged. `drawMap(ctx, doc, opts)` is the
+renderer; `fitTile(doc, w, h)` works out the tile size that fits a map into a
+box, and `poster(doc, tilePx)` draws a whole map at a fixed tile size, which is
+what Export bundle puts in the zip.
 
 ## Tests
 
@@ -239,8 +245,9 @@ flags imports to a save the game's own deserializer accepts.
   fog off, water colour 0. (Name and author *are* editable - see "Fill in your
   name" above.)
 - **Pipe and pipe seam are drawn from their connections**, so a run reads as a
-  run: `dirsFor` hands the sprite lookup the same `N+E+S+W` set the autotile rule
-  uses, which is why a corner bends and a seam shows its collar. Any terrain that
+  run: `dirsFor` mirrors the link sets in `autotile.py` - which owns the flags that
+  reach a save, while this only picks a sprite - which is why a corner bends and
+  a seam shows its collar. Any terrain that
   runs rather than sits can use that.
 - Pipe art in a sprite pack may need its own resolver. The pack built by
   `sprites/build_terrain.py` carries one: pipeline sprites encode their shade in the

@@ -1,8 +1,9 @@
 """Typed errors raised by core.
 
 core never prints and never exits. It raises from here and the CLI maps these
-to messages and exit codes. A local server was scoped once and never built; if
-one appears it maps the same errors to HTTP status codes.
+to messages and exit codes. The intake server maps them again, out of process:
+it reads the CLI's exit code and turns it into an HTTP status, so these codes
+are a contract across two languages - see `server/src/index.ts`.
 """
 
 

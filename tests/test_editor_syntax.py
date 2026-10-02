@@ -1,9 +1,11 @@
 """The editor's JavaScript at least parses.
 
-There is no JavaScript test runner here, and that gap has cost real time: a
-string literal in `index.html` picked up a real newline where an escape was
-meant, the whole inline module failed to parse, and the editor ran nothing at
-all for five commits while checks that looked like verification passed anyway.
+Parsing is the half that behaviour tests cannot reach: `web/test/` covers the
+editor's modules under node, but nothing there loads `index.html`. That gap has
+cost real time - a string literal in it picked up a real newline where an escape
+was meant, the whole inline module failed to parse, and the editor ran nothing
+at all for five commits while checks that looked like verification passed
+anyway.
 The check that missed it asked whether a button *existed* - it did, because it
 is in the HTML - rather than whether the code behind it had ever run.
 
