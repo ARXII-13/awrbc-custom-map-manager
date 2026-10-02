@@ -17,6 +17,7 @@ import cookieSession from 'cookie-session';
 import multer from 'multer';
 import { randomBytes } from 'node:crypto';
 
+import { corsFor, parseOrigins } from './cors.js';
 import * as discord from './discord.js';
 import * as github from './github.js';
 import { available, filesToCommit, prepare, PrepareFailed } from './prepare.js';
@@ -36,6 +37,11 @@ export const config = {
   // survives into production and lets anyone forge a session.
   sessionSecret: env('SESSION_SECRET') || randomBytes(32).toString('hex'),
   insecureCookies: env('INSECURE_COOKIES') === '1',
+  // The editor is a different origin, so it has to be named. EDITOR_URL is
+  // included automatically because it is already the one origin we know for
+  // certain is ours.
+  allowedOrigins: parseOrigins(process.env['ALLOWED_ORIGINS'],
+                               env('EDITOR_URL', 'http://127.0.0.1:8731/')),
 };
 
 /** Bigger than any real bundle; past this something is wrong or hostile. */
@@ -92,6 +98,7 @@ export function createApp() {
   });
 
   app.set('trust proxy', 1);
+  app.use(corsFor(config.allowedOrigins));
   app.use(cookieSession({
     name: 'awrbc',
     keys: [config.sessionSecret],
@@ -103,7 +110,10 @@ export function createApp() {
 
   app.get('/health', (_req, res) => {
     const missing = missingConfig();
-    res.json({ ok: true, configured: missing.length === 0, missing });
+    // The allowed origins are reported because getting them wrong is the
+    // failure that looks like nothing happening at all.
+    res.json({ ok: true, configured: missing.length === 0, missing,
+               allowedOrigins: config.allowedOrigins });
   });
 
   // --- sign in -----------------------------------------------------------

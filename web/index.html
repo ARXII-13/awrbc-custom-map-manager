@@ -92,6 +92,8 @@
   <label class="btn">Open<input id="file" type="file" accept=".json" hidden></label>
   <button id="export">Export</button>
   <button id="bundle" title="Map JSON and a preview image, zipped for submitting">Export bundle</button>
+  <button id="submit" hidden title="Send this map to the public archive">Submit</button>
+  <span id="who" class="sub" hidden></span>
   <span class="sep"></span>
   <button data-tool="paint" aria-pressed="true" title="Paint terrain (B)">Paint</button>
   <button data-tool="fill" aria-pressed="false" title="Flood fill (G)">Fill</button>
@@ -165,6 +167,8 @@ import { loadPack, packLabel, spriteFor } from "./sprites.js";
 import { createEditor, emptyMap, stats } from "./edit.js";
 import { available as repairsFor } from "./fixes.js";
 import { zip } from "./zip.js";
+import { intakeBase } from "./intake.js";
+import { attachSubmit } from "./submit-ui.js";
 
 const canvas = document.getElementById("c");
 const ctx = canvas.getContext("2d");
@@ -772,6 +776,25 @@ document.getElementById("bundle").onclick = async () => {
     "preview.png": await png.arrayBuffer(),
   }), baseName() + ".zip");
 };
+
+// Submitting to the archive. The wiring lives in submit-ui.js; this hands it
+// what it needs and nothing more, so it ports to the framework app unchanged.
+attachSubmit({
+  base: intakeBase(location.search, "http://127.0.0.1:5000"),
+  button: document.getElementById("submit"),
+  label: document.getElementById("who"),
+  currentDoc: exportDocument,
+  stats,
+  async bundle() {
+    const out = exportDocument();
+    const canvas = poster(out, PREVIEW_TILE);
+    const png = await new Promise((r) => canvas.toBlob(r, "image/png"));
+    return zip({
+      "map.json": JSON.stringify(out, null, 1),
+      "preview.png": await png.arrayBuffer(),
+    });
+  },
+});
 
 addEventListener("keydown", (e) => {
   if (e.target.tagName === "INPUT") return;

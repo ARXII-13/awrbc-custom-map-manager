@@ -49,6 +49,7 @@ not be on `PATH`.
 | `GITHUB_TOKEN` | A **bot account's** token with push access to the library repo |
 | `SESSION_SECRET` | Any long random string. Without one a fresh key is generated per restart, which signs everybody out |
 | `AWRBC_COMMAND` | How to run the tool. Default `awrbc`; may carry arguments, e.g. `python -m awrbc` |
+| `ALLOWED_ORIGINS` | Comma-separated origins allowed to call this. `EDITOR_URL` is included automatically |
 | `PUBLIC_URL` | Where this is reachable, e.g. `https://intake.example` |
 | `EDITOR_URL` | Where to send people after they sign in |
 | `LIBRARY_REPO` | `owner/name` of the archive |
@@ -64,6 +65,27 @@ token to one repository.
 kind of thing that survives into production and lets anybody forge a session.
 A random key per restart is inconvenient and safe; a shared default is
 convenient and not.
+
+### If the editor can never sign in
+
+Check `ALLOWED_ORIGINS` first, and `/health` reports what it resolved to.
+
+The editor and this server are different origins - different ports in
+development, probably different subdomains in production - so without the right
+CORS headers the browser will not send the session cookie or let the page read
+the reply. The editor treats an unreachable server as "signed out", which is
+correct (editing has never needed a server), so a *present* server with wrong
+CORS looks exactly like no server: the button says "Sign in to submit" forever,
+including immediately after signing in successfully. Nothing errors.
+
+Two things the allowlist must never become: `*`, which browsers refuse with
+credentials anyway and which would let any site read authenticated replies; and
+a reflection of whatever `Origin` arrived, which would let any page act as a
+signed-in user.
+
+If the editor and the server are on different registrable domains rather than
+different subdomains, the session cookie also needs `SameSite=None; Secure`,
+which this does not currently set.
 
 ## Endpoints
 
