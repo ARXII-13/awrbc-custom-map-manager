@@ -12,6 +12,7 @@ import json
 import os
 import shutil
 import tempfile
+import time
 import unittest
 
 from awrbc.core import repo
@@ -158,7 +159,13 @@ class TheCache(unittest.TestCase):
     def serve(self, payload):
         repo._get = lambda url: json.dumps(payload).encode("utf-8")
 
-    def fail(self):
+    def offline(self):
+        """Cut the network off.
+
+        Not named `fail`: TestCase.fail is what every assertion calls when it
+        trips, so shadowing it turns an ordinary assertion failure into a
+        TypeError about argument counts and hides what actually went wrong.
+        """
         def boom(url):
             raise OSError("no network")
         repo._get = boom
@@ -169,7 +176,7 @@ class TheCache(unittest.TestCase):
         self.assertEqual(len(index), 3)
         self.assertIsNone(stale)
 
-        self.fail()                       # second call must not need the net
+        self.offline()                       # second call must not need the net
         index, stale = repo.fetch_catalog()
         self.assertEqual(len(index), 3)
         self.assertIsNone(stale)
@@ -178,14 +185,35 @@ class TheCache(unittest.TestCase):
         """A map you downloaded yesterday is still a map you can play."""
         self.serve({"maps": CATALOG})
         repo.fetch_catalog()
-        self.fail()
+        self.offline()
 
         index, stale = repo.fetch_catalog(max_age=0)
         self.assertEqual(len(index), 3)
         self.assertIsNotNone(stale)       # the caller can warn
 
+    def test_a_cache_stamped_in_the_future_can_still_go_stale(self):
+        """Its age is clamped at zero rather than going negative.
+
+        A negative age compares as fresher than any limit, so such a cache
+        could never expire. This is not hypothetical: time.time() is granular
+        to about 16ms on Windows while the filesystem is far finer, so a file
+        just written can be stamped ahead of the clock - which is what made
+        the test below it fail on CI and pass everywhere else.
+        """
+        self.serve({"maps": CATALOG})
+        repo.fetch_catalog()
+        path = os.path.join(self.tmp, repo.CATALOG)
+        future = time.time() + 3600
+        os.utime(path, (future, future))
+
+        self.offline()
+        index, stale = repo.fetch_catalog(max_age=0)
+        self.assertEqual(len(index), 3)
+        self.assertIsNotNone(stale, "a future mtime must not read as fresh")
+        self.assertGreaterEqual(stale, 0)
+
     def test_no_cache_and_no_network_is_an_error(self):
-        self.fail()
+        self.offline()
         with self.assertRaises(ArchiveUnreachable) as caught:
             repo.fetch_catalog()
         self.assertIn("--library", str(caught.exception))

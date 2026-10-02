@@ -75,7 +75,13 @@ def fetch_catalog(base=DEFAULT_BASE, max_age=MAX_AGE, refresh=False):
     path = os.path.join(cache_root(), CATALOG)
     age = None
     if os.path.exists(path):
-        age = time.time() - os.path.getmtime(path)
+        # Never negative. A file can carry an mtime ahead of the clock -
+        # time.time() is granular to about 16ms on Windows while the
+        # filesystem is far finer, so a file just written can be stamped in
+        # the future, and so can one copied from a machine whose clock is
+        # ahead. A negative age compares as fresher than any limit, which
+        # would make such a cache impossible to expire.
+        age = max(0.0, time.time() - os.path.getmtime(path))
         if not refresh and age < max_age:
             with open(path, encoding="utf-8") as fh:
                 return json.load(fh).get("maps", {}), None
