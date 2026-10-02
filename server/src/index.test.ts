@@ -152,10 +152,33 @@ describe('the http surface', () => {
   });
 
   it('refuses an upload before it reads the file', async () => {
-    // Order matters: an unauthenticated request must not get as far as
-    // spawning a validator.
-    const res = await fetch(`${base}/submit`,
-                            { method: 'POST', body: new FormData() });
+    // Order matters, and an empty body cannot show it: sending nothing gets a
+    // 401 whether the session is checked before the upload middleware or
+    // after. An oversized file can only be refused for being oversized if
+    // something read it, so a 401 here is the ordering, observed.
+    //
+    // It used to fail inside multer first and come back as a 500 HTML page
+    // with a stack trace in it, which the editor cannot parse either.
+    const form = new FormData();
+    form.set('file', new Blob([new Uint8Array(9 * 1024 * 1024)]), 'big.zip');
+    const res = await fetch(`${base}/submit`, { method: 'POST', body: form });
+
     assert.equal(res.status, 401);
+    assert.match(res.headers.get('content-type') ?? '', /application\/json/);
+    assert.equal((await res.json()).code, 'unauthenticated');
+  });
+
+  it('answers an unknown route as JSON, not an HTML page', async () => {
+    // Express's defaults send HTML for both a 404 and an unhandled throw,
+    // and the second kind carries a stack trace. A client that only parses
+    // JSON reads either as a transport failure.
+    const res = await fetch(`${base}/no-such-endpoint`);
+    assert.equal(res.status, 404);
+    assert.match(res.headers.get('content-type') ?? '', /application\/json/);
+
+    const body = await res.text();
+    assert.doesNotMatch(body, /<pre>|<html/i,
+                        'a response must not be an HTML error page');
+    assert.equal(JSON.parse(body).code, 'not-found');
   });
 });

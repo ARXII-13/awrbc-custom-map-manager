@@ -175,12 +175,20 @@ export function createApp() {
 
   // --- submitting --------------------------------------------------------
 
-  app.post('/submit', upload.single('file'), async (req, res) => {
-    const user = req.session?.user;
-    if (!user) {
+  // Signed in *before* multer, not after. The upload middleware buffers the
+  // whole file into memory as it runs, so checking afterwards meant anyone at
+  // all could make this process hold 8MB per request, and meant an oversized
+  // upload failed inside multer before the 401 was ever reached.
+  const signedIn: express.RequestHandler = (req, res, next) => {
+    if (!req.session?.user) {
       res.status(401).json({ error: 'sign in first', code: 'unauthenticated' });
       return;
     }
+    next();
+  };
+
+  app.post('/submit', signedIn, upload.single('file'), async (req, res) => {
+    const user = req.session!.user!;
 
     const slow = rateLimited(user.id);
     if (slow) {
@@ -244,6 +252,36 @@ export function createApp() {
       warnings: outcome.warnings,
       hasPreview: outcome.hasPreview,
     });
+  });
+
+  // An unknown route answers JSON too. Express's default is an HTML page,
+  // and a client that only ever parses JSON reads that as a transport
+  // failure rather than as "no such endpoint".
+  app.use((_req, res) => {
+    res.status(404).json({ error: 'no such endpoint', code: 'not-found' });
+  });
+
+  // Errors answer JSON, like every other response here. Without this Express
+  // falls back to its own handler, which sends an HTML page with a stack
+  // trace in it - unreadable to the editor, which parses JSON, and more than
+  // a stranger needs to know about the inside of this process.
+  //
+  // Multer's "file too large" arrives here rather than at the route, because
+  // it is thrown while the middleware reads the body.
+  app.use((err: Error & { code?: string }, _req: express.Request,
+           res: express.Response, _next: express.NextFunction) => {
+    if (err?.code === 'LIMIT_FILE_SIZE') {
+      res.status(413).json({ error: `that upload is larger than the ${MAX_UPLOAD} byte limit`,
+                             code: 'too-large' });
+      return;
+    }
+    if (err?.name === 'MulterError') {
+      res.status(400).json({ error: 'that upload was not readable as a file',
+                             code: 'bad-upload' });
+      return;
+    }
+    console.error('unhandled:', err);
+    res.status(500).json({ error: 'something went wrong', code: 'internal' });
   });
 
   return app;

@@ -13,7 +13,22 @@ import type { AddressInfo } from 'node:net';
 import type { Server } from 'node:http';
 
 import { parseOrigins } from './cors.js';
-import { createApp } from './index.js';
+
+// Configure, then import. `config` in index.ts is a module-level const, built
+// the first time that module is imported - so a `process.env` assignment
+// inside before() runs too late and changes nothing. This is the same
+// module-load ordering trap prepare.test.ts documents.
+//
+// The values are deliberately nothing like the fallbacks. Setting EDITOR_URL
+// to the default it already has made the dead assignment invisible: every
+// assertion below passed against a server that ignored the environment and
+// hardcoded the dev origin.
+const EDITOR = 'https://editor.example';
+const ALSO_OURS = 'https://staging.example';
+process.env['EDITOR_URL'] = EDITOR + '/editor/';
+process.env['ALLOWED_ORIGINS'] = ALSO_OURS;
+
+const { createApp } = await import('./index.js');
 
 describe('parsing the allowlist', () => {
   it('takes a comma-separated list', () => {
@@ -57,10 +72,8 @@ describe('parsing the allowlist', () => {
 describe('the headers a browser needs', () => {
   let server: Server;
   let base: string;
-  const EDITOR = 'http://127.0.0.1:8731';
 
   before(async () => {
-    process.env['EDITOR_URL'] = EDITOR;
     server = createApp().listen(0);
     await new Promise((r) => server.once('listening', r));
     base = `http://127.0.0.1:${(server.address() as AddressInfo).port}`;
@@ -120,6 +133,17 @@ describe('the headers a browser needs', () => {
     // it should be visible without reading logs.
     const body = await (await fetch(`${base}/health`)).json() as
       { allowedOrigins: string[] };
-    assert.ok(body.allowedOrigins.includes(EDITOR));
+    assert.ok(body.allowedOrigins.includes(EDITOR),
+              `EDITOR_URL should be allowed; got ${body.allowedOrigins}`);
+    assert.ok(body.allowedOrigins.includes(ALSO_OURS),
+              `ALLOWED_ORIGINS should be allowed; got ${body.allowedOrigins}`);
+  });
+
+  it('allows a second origin named in ALLOWED_ORIGINS', async () => {
+    // EDITOR_URL alone is not the whole list, and nothing used to check that
+    // ALLOWED_ORIGINS was read at all.
+    const res = await fetch(`${base}/auth/me`, {
+      headers: { origin: ALSO_OURS } });
+    assert.equal(res.headers.get('access-control-allow-origin'), ALSO_OURS);
   });
 });
