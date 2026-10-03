@@ -1,169 +1,95 @@
-# awrbc-custom-map-manager
+# Advance Wars 1+2: Re-Boot Camp — map editor and archive
 
-Custom map tools for *Advance Wars 1+2: Re-Boot Camp*.
+Make custom maps in a browser, and publish them to a public archive.
 
-Read the custom maps out of a save file, write them back, and exchange them as a
-neutral JSON format. Works with Ryujinx save data and with JKSV dumps from real
-hardware.
+**Not affiliated with Nintendo or WayForward.** This holds map data — grids of
+numbers describing terrain and ownership — and the tools to edit and share it.
+No game assets, no code from the game, nothing extracted from a cartridge.
 
-> Not affiliated with or endorsed by Nintendo or WayForward. Distributes no game
-> assets, code, or keys. You need your own copy of the game.
+Getting a map **into your save** is a separate tool in a separate repository:
+[awrbc-save-editor](https://github.com/ARXII-13/awrbc-save-editor). That split
+is deliberate. A tool that writes to a save file and a public archive of maps
+are different things with different risks, and nothing in either repository
+depends on the other.
 
-## Status
+## The map editor
 
-**Phase 1 (core and CLI)** — read, export, import, remove, backup and restore.
+In a browser, nothing to install:
+<https://arxii-13.github.io/awrbc-custom-map-manager/>
 
-**Phase 2 (editor)** — a browser map editor in `web/`. Paint terrain, place
-units and structures, live validity, export JSON the CLI imports and the game
-loads. In a browser it needs no install and has no save access: it speaks map
-JSON only. The desktop app below hosts that same editor with your save in it.
+Paint terrain, place units and structures, live validity checks. **Export
+bundle** gives you a zip holding the map and a picture of it — that zip is what
+the save editor imports, and what gets submitted here.
 
-Next is the archive. See `../docs/` for the plan, `../docs/format.md` for the
-save format record, and `web/README.md` for the editor.
+Locally:
 
-Maps are capped at 64x64. That is a policy limit rather than a measured one:
-64x64 is the largest size confirmed to load, and 40x30 the largest played to
-completion.
-
-## Usage
-
+```bash
+python web/serve.py 8731 127.0.0.1
 ```
-awrbc doctor                      find save data and report what is readable
-awrbc list                        list the custom maps in a save
-awrbc export 3 -o map.json        write one map out as JSON
-awrbc export --all -o ./maps/     write them all out
-awrbc import map.json             add a map from JSON
-awrbc remove 3                    delete a map
-awrbc backup                      snapshot the save
-awrbc restore [name]              list snapshots, or roll one back
 
-python -m awrbc.desktop            the editor with save access, in a window
-python tools/build_desktop.py      package that as a zip somebody can run
+## The archive
 
-awrbc search "4p fog"             find maps in the public archive
+Maps live in
+[awrbc-custom-map-library](https://github.com/ARXII-13/awrbc-custom-map-library),
+one folder per map, versions as files inside it, with a generated
+`catalog.json` so a client can search without cloning.
+
+```bash
+pip install .
+
+awrbc search 4p                   find maps in the public archive
 awrbc show renew                  what one map is, and its versions
-awrbc import renew                fetch it from the archive into your save
-
-awrbc publish map.json            place a map in a library checkout
-awrbc catalog                     rebuild the index and folder READMEs
+awrbc publish map.zip --library . place a map in a library checkout
+awrbc catalog --library .         rebuild the index and folder READMEs
+awrbc verify --library .          what CI runs on a pull request
+awrbc prepare bundle.zip          decide what a submission would become
 ```
 
-`import` and `remove` take `--dry-run` and `--force`. `import` accepts a file
-on disk or a slug from the archive - an existing path always wins, so a file
-you can see is never passed over in favour of a download.
+`prepare` is the contract the intake server calls across: it answers in JSON
+and writes nothing, so the server never reimplements a rule — above all the
+content hash, which would not raise when it drifted, it would just quietly stop
+de-duplicating.
 
-The archive commands take `--base` (a different archive), `--library` (a local
-checkout, which also works offline) and `--refresh`. The catalog is cached for
-an hour; when the network is down a stale copy is used with a warning rather
-than failing.
+## The intake server
 
-Flags: `--save-dir` (Ryujinx folder, JKSV dump, or a maps file), `--profile`,
-`--json`. Export also takes `--author` and `--keep-creator`.
+`server/` turns an upload into a pull request on the archive, so a contributor
+never needs a GitHub account or any git at all. TypeScript on Node, shelling
+out to `awrbc prepare` for every decision about what a valid map is.
 
-Imported maps are marked with the game's own `IsDownload` flag, which
-distinguishes a map that came from somebody else.
+See [server/README.md](server/README.md) for running and deploying it, and for
+`OPEN_SUBMISSIONS`, which takes maps with nobody signed in.
 
-**The creator name is scrubbed by default.** The save stores the console profile
-name, which for many people is their real name; `--keep-creator` opts in.
-
-Export is advisory: an unplayable map still exports, with its findings printed.
-Import blocks on validation errors unless you pass `--force`.
-
-**Every write takes a backup first**, into a user data directory (override with
-`AWRBC_BACKUP_DIR`). Writes are serialized fully in memory and then swapped into
-place, so a partial save is never left behind. Import also refuses while the game
-is running, because the title flushes its own copy over external edits.
-
-Run from a checkout with `python -m awrbc <command>`, or install it with `pip install -e .` for a plain `awrbc`.
-
-## Layout
+## What is in here
 
 ```
-awrbc/core/    codec, save reading, domain model - never prints, never exits
-awrbc/cli/     the scriptable surface; formats output and picks exit codes
-awrbc/desktop/ the editor in a window, with save access (pip install .[desktop])
-server/        the intake endpoint - TypeScript, shells out to `awrbc prepare`
-web/           the browser map editor; becoming part of the app (see docs)
-tools/         bfcheck.ps1 and nrbfcheck - format validators
-tests/
+awrbc/core/    the map document: schema, validation, identity, the archive's
+               placement rules, the catalog, the archive client
+awrbc/cli/     publish, verify, catalog, search, show, prepare
+web/           the map editor, and the renderer it draws with
+server/        the intake endpoint
 ```
 
-## A note on the `docs/` references
+## The shared layer
 
-Comments and docstrings in here cite `docs/format.md`, `docs/decisions.md` and
-the phase documents. **Those files are not in this repository.** The design
-notes, the save-format research record and the decision register are kept
-outside version control, and only the code is published.
+`awrbc/core/{model,schema,validate,identity,derive,anonymize,autotile}.py` and
+`web/{render,terrain,sprites}.js` exist here *and* in the save editor. The two
+repositories are independent on purpose, and the cost of that is two copies.
 
-So those citations are to a document set you do not have. They are left in
-because they say *why* a piece of code is the shape it is, and a reader is
-better served knowing a reason was written down somewhere than seeing the
-reason deleted. If something here looks arbitrary, it probably has an entry in
-that register.
-
-## Validating output
-
-**Nothing goes near a save without passing `tools/bfcheck.ps1`.** It deserializes
-a file with the real .NET BinaryFormatter, which is the only validator that
-agrees with the game — our own parser accepts broken files, and .NET 9's
-`NrbfDecoder` gets it wrong in both directions.
-
-```
-powershell -File tools/bfcheck.ps1 path/to/maps
-```
+`tests/test_shared_format.py` is the guard, and it is kept byte-identical in
+both: it pins the content hash of a fixed map to a literal. A hash that drifts
+does not raise — de-duplication quietly stops working — so whichever copy
+changes fails its own suite instead.
 
 ## Tests
 
-```
-python -m unittest discover -s . -p "test_*.py"
-```
-
-Runs anywhere with no save present: `tests/fixture.py` builds a complete, valid
-save from `tests/fixtures/typetable.json`, which holds **only** the game's class
-definitions — member names and types, no map content and no creator names. Real
-saves are never committed.
-
-Point `AWRBC_TEST_SAVE` at a maps file to additionally run everything against
-the genuine article. Tests always work on a throwaway copy.
-
-On Windows the suite also runs every save it writes through the real
-BinaryFormatter, so the failure mode that shows the player zero custom maps is
-caught automatically rather than by remembering to check.
-
-Regenerate the type table from a save with:
-
-```
-python tools/extract_types.py <maps-file> tests/fixtures/typetable.json
+```bash
+python -m unittest discover -s . -t . -q    # the archive and the map document
+node --test web/test/*.test.mjs             # the editor's modules
+cd server && npm test                       # the intake endpoint
 ```
 
-## Is this the right save?
-
-Two independent signals confirm a file belongs to this game before anything
-reads or writes it:
-
-| Signal | Where | Availability |
-|---|---|---|
-| root class `AW.UserGeneratedContent` from `Assembly-CSharp` | inside the maps file | always |
-| title id `0100300012F2A000` | `ExtraData0`, three levels up | only with the full Ryujinx save tree |
-
-The root class is the primary check. A wrong title id rejects even when the root
-matches; a *missing* one proves nothing, because a JKSV dump of `SaveData` alone
-has no `ExtraData`.
-
-Pointing the tool at another title's save — or at this game's own `gameState`,
-which is also `Assembly-CSharp` NRBF — now says so plainly instead of
-complaining about an unsupported version number. `awrbc doctor` reports both.
-
-## Known limitations
-
-- `import` needs the target save to already hold one custom map, whose
-  LevelSaveData supplies the shapes of the always-empty AIWaypoints /
-  MagmaTargets / TransportedUnits members.
-- Importing a map that places units additionally needs the save to contain at
-  least one unit somewhere, to model them on.
-- `AIWaypoints`, `MagmaTargets` and transport contents are not represented in
-  the map JSON. Every map seen so far has them empty. `schema.from_json`
-  refuses JSON that carries them, which catches a hand-written or converted
-  file - but nothing in this package ever writes those keys, so a
-  *game-authored* map that used one would be flattened on export and the
-  check would not see it. Reading them is the fix if such a map turns up.
+The editor's suite runs under node with no DOM, because its modules are plain
+ES modules that take what they need rather than reaching for globals. The
+editor once ran dead for five commits behind a check that only asked whether a
+button existed; `tests/test_editor_syntax.py` is the half that syntax checking
+can see, and `web/test/` is the half it cannot.

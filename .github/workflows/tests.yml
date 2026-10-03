@@ -87,7 +87,7 @@ jobs:
           npm run build
           npm test
 
+      # `doctor` went to awrbc-save-editor with the rest of the save tooling,
+      # so there is nothing here that needs a save to answer.
       - name: Check the CLI starts
-        run: |
-          python -m awrbc --help
-          python -m awrbc doctor || true   # no save on a runner; must not crash
+        run: python -m awrbc --help

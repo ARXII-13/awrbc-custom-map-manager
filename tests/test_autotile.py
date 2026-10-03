@@ -3,15 +3,15 @@
 Flags select sprites, so the editor has to author them or maps render wrong.
 These pin the rules derived in docs/format.md.
 
-The fidelity test needs real maps and is skipped without AWRBC_TEST_SAVE; the
-rule tests below run everywhere.
+The fidelity test that compares these against what the game itself wrote needs
+to read a save, so it lives with the save editor now. These are the rules.
 """
 import os
 import random
 import unittest
 
 from awrbc.core import autotile as A
-from awrbc.core import savefile, schema
+from awrbc.core import schema
 
 P, S, R, V, H, B, D, O = 1, 2, 16, 32, 128, 256, 8192, 2
 
@@ -332,70 +332,6 @@ class OwnershipThatDoesNotExist(unittest.TestCase):
         built = schema.build_document(schema.from_json(doc))
         hq = next(c for c in built["cells"] if c["x"] == 0 and c["y"] == 0)
         self.assertEqual(hq["team"], 2)
-
-
-class FidelityAgainstRealMaps(unittest.TestCase):
-    """The rules must reproduce what the game itself wrote."""
-
-    def setUp(self):
-        path = os.environ.get("AWRBC_TEST_SAVE")
-        if not path or not os.path.isfile(path):
-            self.skipTest("set AWRBC_TEST_SAVE to a real maps file")
-        self.maps = [schema.build_document(m)
-                     for m in savefile.read(path).maps]
-
-    def test_structure_tiles_reproduce_exactly_without_their_flags(self):
-        """Terrain, offset and facing are enough to rebuild a cannon."""
-        kinds = A.DIRECTIONAL
-        total = same = 0
-        for d in self.maps:
-            stripped = {k: v for k, v in d.items() if k != "flags"}
-            m = schema.from_json(stripped)
-            for y, row in enumerate(d["terrain"]):
-                for x, kind in enumerate(row):
-                    if kind not in kinds:
-                        continue
-                    total += 1
-                    same += d["flags"][y][x] == m.tiles[x][y].flags
-        if not total:
-            self.skipTest("no cannons in this save")
-        self.assertEqual(same, total, "%d/%d structure tiles exact" % (same, total))
-
-    def test_dropping_flags_and_recomputing_reproduces_the_mask(self):
-        """The editor will export maps with no flags at all; this is that path."""
-        structures = A.STRUCTURE_ANCHOR | A.STRUCTURE_BODY
-        total = same = 0
-        for d in self.maps:
-            stripped = {k: v for k, v in d.items() if k != "flags"}
-            m = schema.from_json(stripped)
-            for y, row in enumerate(d["flags"]):
-                for x, want in enumerate(row):
-                    if want & structures:
-                        continue
-                    total += 1
-                    same += (want & 0x1E) == (m.tiles[x][y].flags & 0x1E)
-        if total < 200:
-            self.skipTest("save too small to measure against")
-        self.assertGreater(same / total, 0.97, "%d/%d" % (same, total))
-
-    def test_connection_mask_matches_the_game(self):
-        structures = A.STRUCTURE_ANCHOR | A.STRUCTURE_BODY
-        total = same = 0
-        for d in self.maps:
-            terrain, flags = d["terrain"], d["flags"]
-            teams = {(c["x"], c["y"]): c["team"] for c in d["cells"]
-                     if c.get("team") is not None}
-            ours = A.compute(terrain, teams, random.Random(1))
-            for y, row in enumerate(flags):
-                for x, f in enumerate(row):
-                    if f & structures:
-                        continue            # membership is not derivable
-                    total += 1
-                    same += (f & 0x1E) == (ours[y][x] & 0x1E)
-        if total < 200:
-            self.skipTest("save too small to measure against")
-        self.assertGreater(same / total, 0.97,
-                           "connection mask fidelity %d/%d" % (same, total))
 
 
 if __name__ == "__main__":

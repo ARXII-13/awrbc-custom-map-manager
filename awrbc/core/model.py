@@ -1,7 +1,8 @@
 """Domain objects.
 
 Plain dataclasses with no serialization logic. Every other module speaks these:
-savefile reads the game's NRBF into them, schema converts them to and from JSON,
+The save editor's codec reads the game's NRBF into them, schema converts
+them to and from JSON,
 validate and derive inspect them.
 
 Values are stored **raw**, exactly as the game holds them. Friendly names for

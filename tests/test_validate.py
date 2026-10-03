@@ -9,6 +9,7 @@ warning is a design choice. Getting that boundary wrong is worse than missing
 a check, because it either blocks maps that play fine or waves through maps
 that do not.
 """
+import os
 import unittest
 
 from awrbc.core import schema, validate
@@ -167,7 +168,8 @@ class RealMapsStayValid(unittest.TestCase):
         import json
         import os
 
-        from .support import REPO
+        REPO = os.path.dirname(os.path.dirname(
+            os.path.abspath(__file__)))
 
         # Anchored to the repo, not the working directory: a cwd-relative glob
         # turns this guard into a silent skip depending on where it was run from.

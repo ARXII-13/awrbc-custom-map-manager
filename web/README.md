@@ -1,13 +1,14 @@
 # Map editor
 
-Opens, edits and exports the map JSON the CLI reads. In a browser it has no
-save access - so it cannot damage anything, and anyone can design a map whether
-or not they own the game.
+Opens, edits and exports map JSON. No save access at all - so it cannot damage
+anything, and anyone can design a map whether or not they own the game.
 
-That boundary is structural rather than a promise: the save panel appears only
-when `window.pywebview.api` is there, which is the desktop app hosting these
-same files (see `saves.js` and `awrbc/desktop/README.md`). Hosted, there is no
-such object and no code path to a file at all.
+That is now structural in the strongest sense: the code that could reach a save
+is not in this repository. It lives in
+[awrbc-save-editor](https://github.com/ARXII-13/awrbc-save-editor), which is a
+separate download with no archive in it. What the two share is the renderer -
+`render.js`, `terrain.js`, `sprites.js` and the sprite pack - because drawing a
+map is drawing a map, and both have to do it.
 
 > **This is the phase 2 editor, as built.** It is being folded into one
 > application with a map viewer, with a build step and a backend behind it
