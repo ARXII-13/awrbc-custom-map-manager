@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "awrbc-custom-map-manager"
-version = "0.1.0"
+version = "0.1.0rc1"
 description = "Custom map tools for Advance Wars 1+2: Re-Boot Camp"
 requires-python = ">=3.9"
 dependencies = []
