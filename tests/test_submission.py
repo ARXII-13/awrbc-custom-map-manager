@@ -130,6 +130,71 @@ class Preparing(unittest.TestCase):
         self.assertEqual(list(got["files"]), ["maps/2p/daibi/v1.json"])
 
 
+class WhenNobodySignedIn(unittest.TestCase):
+    """An open server vouches for nobody.
+
+    The author field in the editor is then the only name there is, so it has
+    to survive to the archive - and a reviewer has to be told that is all it
+    is. Everything else about a submission is unchanged.
+    """
+
+    NOBODY = {"id": "ip:203.0.113.7", "username": ""}
+
+    def test_the_name_in_the_file_is_what_gets_published(self):
+        _, doc = a_map(name="Daibi")
+        doc["author"] = "debbie"
+        got = submit.prepare(a_bundle(doc, a_preview()), {}, self.NOBODY)
+        self.assertEqual(got["document"]["author"], "debbie")
+
+    def test_a_file_with_no_author_falls_back_to_the_placeholder(self):
+        _, doc = a_map(name="Daibi")
+        doc["author"] = ""
+        got = submit.prepare(a_bundle(doc, a_preview()), {}, self.NOBODY)
+        self.assertEqual(got["document"]["author"], "anonymous")
+
+    def test_a_signed_in_submission_still_overrides_the_file(self):
+        """The rule when there *is* a session is unchanged: a file is a claim
+        and a session is not."""
+        _, doc = a_map(name="Daibi")
+        doc["author"] = "not-me"
+        got = submit.prepare(a_bundle(doc, a_preview()), {}, USER)
+        self.assertEqual(got["document"]["author"], "debbie")
+
+    def test_the_pull_request_says_nothing_checked_the_name(self):
+        _, doc = a_map(name="Daibi")
+        doc["author"] = "debbie"
+        got = submit.prepare(a_bundle(doc, a_preview()), {}, self.NOBODY)
+        _, body = submit.pull_request_text(got, self.NOBODY)
+        self.assertIn("no sign-in", body)
+        self.assertNotIn("Discord", body)
+
+    def test_a_signed_in_pull_request_still_names_the_account(self):
+        _, doc = a_map(name="Daibi")
+        got = submit.prepare(a_bundle(doc, a_preview()), {}, USER)
+        _, body = submit.pull_request_text(got, USER)
+        self.assertIn("debbie", body)
+        self.assertIn("Discord", body)
+        self.assertNotIn("no sign-in", body)
+
+    def test_the_claimed_name_still_has_to_match_to_revise(self):
+        """Claim against claim is weak, and weaker than nothing is worse: it
+        stops an accidental collision even though it cannot stop a deliberate
+        one."""
+        from awrbc.core import archive, schema
+        _, other = a_map(name="Daibi", cols=14)
+        catalog = {"maps/2p/daibi": {
+            "category": "2p", "slug": "daibi", "name": "Daibi",
+            "author": "someone-else",
+            "versions": [{"version": 1, "cols": 14, "rows": 10, "players": 2,
+                          "hash": archive.map_hash(schema.from_json(other))}]}}
+        _, doc = a_map(name="Daibi")
+        doc["author"] = "debbie"
+        with self.assertRaises(submit.Rejected) as caught:
+            submit.prepare(a_bundle(doc, a_preview()), catalog, self.NOBODY,
+                           update="maps/2p/daibi")
+        self.assertIn("maintainer", str(caught.exception))
+
+
 class RevisingAfterANameClash(unittest.TestCase):
     """The two-step the editor walks: refused for the name, then accepted as
     the next version of it.

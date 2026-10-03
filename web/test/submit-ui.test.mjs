@@ -51,7 +51,8 @@ const accepted = { body: { ok: true, pullRequest: 'https://x/pull/7' } };
  *
  * `submits` is consumed one per POST /submit; the last one repeats.
  */
-function wire({ submits = [accepted], signedIn = true, doc, confirms = [] }) {
+function wire({ submits = [accepted], signedIn = true, open = false,
+                doc, confirms = [] }) {
   const calls = [];
   const asked = [];
   const alerts = [];
@@ -75,8 +76,10 @@ function wire({ submits = [accepted], signedIn = true, doc, confirms = [] }) {
 
     if (href.endsWith('/auth/me')) {
       return { ok: true, status: 200, json: async () => (
-        signedIn ? { signedIn: true, user: { username: 'debbie' } }
-                 : { signedIn: false }) };
+        signedIn
+          ? { signedIn: true, user: { username: 'debbie' },
+              openSubmissions: open }
+          : { signedIn: false, openSubmissions: open }) };
     }
     if (href.endsWith('/auth/logout')) {
       return { ok: true, status: 200, json: async () => ({}) };
@@ -186,6 +189,51 @@ describe('the licence question', () => {
     await click(w);
     assert.equal(w.sent().length, 0,
                  'declining must not upload');
+  });
+});
+
+describe('a server that takes submissions without signing in', () => {
+  it('offers Submit rather than Sign in', async () => {
+    const w = wire({ signedIn: false, open: true });
+    await w.api.refresh();
+    assert.equal(w.button.textContent, 'Submit');
+  });
+
+  it('says the author field is the only name it will get', async () => {
+    // Otherwise the first anyone hears of it is the pull request.
+    const w = wire({ signedIn: false, open: true });
+    await w.api.refresh();
+    assert.equal(w.label.hidden, false);
+    assert.match(w.label.textContent, /Author/i);
+  });
+
+  it('uploads instead of redirecting to sign-in', async () => {
+    const w = wire({ signedIn: false, open: true });
+    await click(w);
+    assert.equal(w.sent().length, 1, 'it should have submitted');
+    assert.equal(globalThis.location.href, '',
+                 'it must not bounce through sign-in');
+  });
+
+  it('offers no sign-out, because there is no session', async () => {
+    const w = wire({ signedIn: false, open: true });
+    await w.api.refresh();
+    assert.equal(w.signOut.hidden, true);
+  });
+
+  it('still asks the licence question before uploading', async () => {
+    const w = wire({ signedIn: false, open: true, confirms: [false] });
+    await click(w);
+    assert.equal(w.sent().length, 0);
+  });
+});
+
+describe('a server that does require signing in', () => {
+  it('sends you to sign in rather than uploading', async () => {
+    const w = wire({ signedIn: false, open: false });
+    await click(w);
+    assert.equal(w.sent().length, 0);
+    assert.match(globalThis.location.href, /\/auth\/login$/);
   });
 });
 

@@ -26,8 +26,15 @@ export function intakeBase(search = location.search, fallback = '') {
   }
 }
 
-/** Nobody is signed in, and that is not an error. */
-export const SIGNED_OUT = Object.freeze({ signedIn: false, user: null });
+/** Nobody is signed in, and that is not an error.
+ *
+ *  `open` is whether this server takes submissions anyway. False here is the
+ *  safe reading: a server that could not be reached has not said it is open,
+ *  and offering Submit on that guess would fail at the upload instead of at
+ *  the button. */
+export const SIGNED_OUT = Object.freeze({
+  signedIn: false, user: null, open: false,
+});
 
 /**
  * Who is signed in, as far as the server is concerned.
@@ -45,9 +52,10 @@ export async function whoAmI(base, fetchImpl = fetch) {
     });
     if (!res.ok) return SIGNED_OUT;
     const body = await res.json();
+    const open = body?.openSubmissions === true;
     return body?.signedIn
-      ? { signedIn: true, user: body.user }
-      : SIGNED_OUT;
+      ? { signedIn: true, user: body.user, open }
+      : { signedIn: false, user: null, open };
   } catch {
     return SIGNED_OUT;
   }

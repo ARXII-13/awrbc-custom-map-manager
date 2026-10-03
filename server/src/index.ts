@@ -42,10 +42,44 @@ export const config = {
   // certain is ours.
   allowedOrigins: parseOrigins(process.env['ALLOWED_ORIGINS'],
                                env('EDITOR_URL', 'http://127.0.0.1:8731/')),
+  // Accept submissions with nobody signed in. Off unless asked for, because
+  // what it turns off is not decoration:
+  //
+  //   - The author becomes whatever the file says. A signed-in submission
+  //     is credited to the account that signed in precisely because a file
+  //     is a claim (decision #28); open, there is nothing behind the name.
+  //   - A revision of somebody else's map is checked by comparing one claim
+  //     against another, so the only real gate is a person reading the pull
+  //     request. `pull_request_text` says so in the body.
+  //   - Rate limiting falls back to the client address, which is weaker and
+  //     is shared by everyone behind one NAT.
+  //
+  // It exists because standing up an identity provider to find out whether
+  // anyone wants the thing is the wrong order. Reachable from the internet,
+  // this lets any stranger make the bot open pull requests; merging is still
+  // a person, so the cost is noise rather than a corrupted archive.
+  openSubmissions: env('OPEN_SUBMISSIONS') === '1',
 };
 
 /** Bigger than any real bundle; past this something is wrong or hostile. */
 const MAX_UPLOAD = 8 * 1024 * 1024;
+
+/**
+ * Who to treat a submission from nobody as.
+ *
+ * There is no identity here, so this is two things only: a rate-limit key,
+ * and an empty username. The username is empty on purpose - `awrbc prepare`
+ * reads that as "nobody vouched" and publishes the name inside the file
+ * instead, which keeps one source for it rather than inventing a second.
+ *
+ * The key is the client address, which is weaker than an account in both
+ * directions: everyone behind one NAT shares a bucket, and anyone with more
+ * than one address has more than one bucket. Behind a proxy it needs
+ * `trust proxy` set, or every request looks like it came from the proxy.
+ */
+export function anonymousFrom(req: { ip?: string | undefined }) {
+  return { id: `ip:${req.ip ?? 'unknown'}`, username: '' };
+}
 
 /** One a minute, ten an hour, per account. In memory, so it resets on restart
  *  and does not survive two processes - honest for one small instance, and
@@ -77,8 +111,14 @@ export function resetLimits(): void {
  *  somebody's first click. */
 export function missingConfig(): string[] {
   const missing: string[] = [];
-  if (!config.discordId) missing.push('DISCORD_CLIENT_ID');
-  if (!config.discordSecret) missing.push('DISCORD_CLIENT_SECRET');
+  // Only needed to sign anybody in. An open server never does, so reporting
+  // them missing would mean /health said "not configured" about a server that
+  // is working exactly as asked.
+  if (!config.openSubmissions) {
+    if (!config.discordId) missing.push('DISCORD_CLIENT_ID');
+    if (!config.discordSecret) missing.push('DISCORD_CLIENT_SECRET');
+  }
+  // Needed either way: without it nothing can be pushed anywhere.
   if (!config.githubToken) missing.push('GITHUB_TOKEN');
   return missing;
 }
@@ -170,7 +210,12 @@ export function createApp() {
 
   app.get('/auth/me', (req, res) => {
     const user = req.session?.user;
-    res.json(user ? { signedIn: true, user } : { signedIn: false });
+    // `openSubmissions` is reported so the editor can offer Submit to someone
+    // who is not signed in. It asks rather than being told at build time,
+    // because the same deployed editor may point at either kind of server.
+    res.json(user
+      ? { signedIn: true, user, openSubmissions: config.openSubmissions }
+      : { signedIn: false, openSubmissions: config.openSubmissions });
   });
 
   // --- submitting --------------------------------------------------------
@@ -179,8 +224,11 @@ export function createApp() {
   // whole file into memory as it runs, so checking afterwards meant anyone at
   // all could make this process hold 8MB per request, and meant an oversized
   // upload failed inside multer before the 401 was ever reached.
+  //
+  // Unless submissions are open, in which case there is nobody to check - see
+  // `openSubmissions` in the config for what that gives up.
   const signedIn: express.RequestHandler = (req, res, next) => {
-    if (!req.session?.user) {
+    if (!req.session?.user && !config.openSubmissions) {
       res.status(401).json({ error: 'sign in first', code: 'unauthenticated' });
       return;
     }
@@ -188,7 +236,7 @@ export function createApp() {
   };
 
   app.post('/submit', signedIn, upload.single('file'), async (req, res) => {
-    const user = req.session!.user!;
+    const user = req.session?.user ?? anonymousFrom(req);
 
     const slow = rateLimited(user.id);
     if (slow) {

@@ -127,14 +127,27 @@ def prepare(blob, catalog, author, update=None):
     # older maps without a maintainer. The alternative is recording the account
     # id beside the name in every map file, which puts a permanent identifier
     # in a public archive to save a rare inconvenience.
+    # When nobody signed in, nobody is vouched for, and the only name there
+    # is sits inside the file. `from_json` already kept it as `m.creator`, so
+    # `keep_creator` publishes it rather than overwriting it with the
+    # placeholder - which is what the flag is for.
+    #
+    # The ownership check then compares one claim against another. That is
+    # weaker than a session and is not pretending otherwise: it stops an
+    # accidental collision, not a deliberate one, and `pull_request_text`
+    # tells the reviewer which kind of submission they are looking at.
+    vouched = (author.get("username") or "").strip()
+    claimed = vouched or (m.creator or "").strip()
+
     placement = archive.plan(m, catalog, update=update,
-                             author=author["username"])
+                             author=claimed or None)
     if not placement.ok:
         raise Rejected(placement.reason, code=placement.kind,
                        folder=placement.folder)
 
     m.version = placement.version
-    built = schema.build_document(m, author=author["username"])
+    built = schema.build_document(m, author=vouched or None,
+                                  keep_creator=not vouched)
 
     files = {placement.path: (json.dumps(built, indent=1, ensure_ascii=False)
                               + "\n").encode("utf-8")}
@@ -174,9 +187,21 @@ def pull_request_text(prepared, author):
     if any(True for _ in m.iter_units()):
         facts.append("predeployed")
 
+    # Who the caller vouched for, if anyone. An open server vouches for
+    # nobody, and a reviewer has to know which of the two they are reading:
+    # the name below is then only what the submitter typed.
+    vouched = (author.get("username") or "").strip()
+    if vouched:
+        who = ("Submitted through the map editor by **%s** (Discord `%s`)."
+               % (vouched, author.get("id")))
+    else:
+        who = ("Submitted through the map editor with **no sign-in**, so the "
+               "author below is the submitter's own claim and nothing has "
+               "checked it. Merging this is the only thing standing behind "
+               "that name.")
+
     lines = [
-        "Submitted through the map editor by **%s** (Discord `%s`)."
-        % (author.get("username"), author.get("id")),
+        who,
         "",
         "| | |",
         "|---|---|",

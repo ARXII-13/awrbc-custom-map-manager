@@ -34,6 +34,15 @@ export function attachSubmit({ base, button, label, signOut, bundle,
       label.hidden = false;
       label.textContent = 'as ' + who.user.username;
       label.title = 'Submitting opens a pull request on the archive';
+    } else if (who.open) {
+      // No sign-in on this server, so the author field is the only name the
+      // archive will get. Say that here rather than letting someone find out
+      // from the pull request.
+      button.textContent = 'Submit';
+      label.hidden = false;
+      label.textContent = 'as whoever you put in Author';
+      label.title = 'This server takes submissions without signing in, so ' +
+                    'the author field is what gets published';
     } else {
       button.textContent = 'Sign in to submit';
       label.hidden = true;
@@ -118,7 +127,7 @@ export function attachSubmit({ base, button, label, signOut, bundle,
   }
 
   button.onclick = async () => {
-    if (!who.signedIn) {
+    if (!who.signedIn && !who.open) {
       location.href = intake.signInUrl(base);
       return;
     }

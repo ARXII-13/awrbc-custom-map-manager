@@ -75,6 +75,70 @@ it copies are enough: installing `pyproject.toml`, `README.md` and `awrbc/`
 into a clean environment gives a working `awrbc`, and the bridge suite passes
 against that install. The container itself is unproven until someone builds it.
 
+### Without signing anybody in
+
+`OPEN_SUBMISSIONS=1` accepts uploads with no session, and the two Discord
+variables become unnecessary.
+
+Sign-in was mostly a way to get a trustworthy author name. Open, the name is
+whatever the contributor typed in the editor — self-declared, which it largely
+was anyway. The editor says so on the button (`as whoever you put in Author`)
+and the pull request body says it plainly, so a reviewer knows which kind of
+submission they are reading before they merge it.
+
+It is off unless asked for, because what it turns off is not decoration:
+
+- Nothing stands behind the published author.
+- A revision of somebody else's map compares one claim against another. That
+  stops an accidental collision, not a deliberate one.
+- Rate limiting keys on the client address, so everyone behind one NAT shares
+  a bucket. Behind a proxy that needs `trust proxy` set, or every request looks
+  like it came from the proxy.
+
+Merging is still a person, so exposed to the internet this costs noise rather
+than a corrupted archive. Auth can go back in later without the archive
+changing shape — it is one flag and the identity it hands to `awrbc prepare`.
+
+### Running the whole thing on one machine
+
+Both halves local, which needs no domain, no certificate and no tunnel:
+
+```bash
+# one terminal: the editor
+python web/serve.py 8731 127.0.0.1
+
+# another: the intake server
+cd server && OPEN_SUBMISSIONS=1 INSECURE_COOKIES=1 \
+  PUBLIC_URL=http://127.0.0.1:5000 \
+  EDITOR_URL=http://127.0.0.1:8731/ \
+  AWRBC_COMMAND="python -m awrbc" \
+  GITHUB_TOKEN=... \
+  SESSION_SECRET=$(python -c "import secrets;print(secrets.token_hex(32))") \
+  npm start
+```
+
+Then open `http://127.0.0.1:8731/index.html?intake=http://127.0.0.1:5000`. The
+Submit button appears and reads `as whoever you put in Author`. Drop
+`OPEN_SUBMISSIONS`, fill in the Discord variables instead, and it says "Sign in
+to submit" and runs the signed-in flow.
+
+`INSECURE_COOKIES=1` only matters for the signed-in flow — the session cookie
+is `Secure` otherwise and a browser silently drops it over plain HTTP. Open
+submissions hold no session at all, so they work either way. It belongs here
+and nowhere else.
+
+**This setup serves exactly one machine.** The editor has to be the local copy,
+not the deployed one: a page served from `https://` could not reach
+`http://127.0.0.1:5000` in testing — the request was blocked before it left the
+browser. Whether that was mixed-content policy, Private Network Access or
+something about the particular browser was not pinned down, and it does not
+need to be, because running both halves locally avoids the question. What it
+means is that the published editor cannot talk to a server on somebody's
+laptop, so a laptop deployment is for trying the thing out, not for other
+people to submit to. That needs a public HTTPS address, which needs a hostname
+that does not change — Discord's redirect URI is registered exactly once and
+has to keep matching.
+
 ## What you have to set up
 
 | Variable | What it is |
