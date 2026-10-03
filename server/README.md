@@ -41,6 +41,40 @@ is nothing, and it buys one implementation of the rules.
 into a venv both work — useful in a container where the console script need
 not be on `PATH`.
 
+## Deploying it
+
+```bash
+docker build -f server/Dockerfile -t awrbc-intake .   # from the repo root
+docker run --rm -p 5000:5000 --env-file server/.env awrbc-intake
+```
+
+Built from the repository root rather than from `server/`, because the image
+needs the Python package too and a build cannot reach above its context.
+
+A container rather than a platform's build pack, because this process is two
+runtimes and nothing serverless fits: it spawns `awrbc` per upload, so it needs
+a real process with a real `PATH`, not a function. That also means it runs
+anywhere a container does — Fly, Render, Railway, a VPS with compose — and
+nothing in the Dockerfile names a host.
+
+Two failure modes are closed at build and start rather than at someone's first
+upload: `awrbc --help` runs during the build, so an image whose validator did
+not install fails to build at all, and `index.ts` exits 1 on startup if the
+command is not runnable, so a container missing it never begins listening.
+
+Set every variable in `.env.example`. `PUBLIC_URL` must be the address the
+container is actually reachable at, because it is also the Discord redirect
+URI, and `EDITOR_URL` must be where the editor is served — it is what decides
+CORS, and getting it wrong looks like the editor never being able to sign in.
+Then set the `INTAKE_URL` repository variable to `PUBLIC_URL` so the deployed
+editor grows a Submit button.
+
+**Not yet run anywhere.** The image has not been built on this machine — Docker
+was not available when it was written. What has been checked is that the files
+it copies are enough: installing `pyproject.toml`, `README.md` and `awrbc/`
+into a clean environment gives a working `awrbc`, and the bridge suite passes
+against that install. The container itself is unproven until someone builds it.
+
 ## What you have to set up
 
 | Variable | What it is |

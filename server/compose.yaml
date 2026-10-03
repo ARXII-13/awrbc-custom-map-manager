@@ -1,0 +1,22 @@
+# Running the intake server locally, the way it runs deployed.
+#
+#     cp server/.env.example server/.env    # and fill it in
+#     docker compose -f server/compose.yaml up --build
+#
+# The build context is the repository root, because the image needs the Python
+# package as well as this directory.
+
+services:
+  intake:
+    build:
+      context: ..
+      dockerfile: server/Dockerfile
+    env_file: .env
+    environment:
+      # Local development is plain HTTP, so the session cookie cannot carry
+      # the Secure flag or no session survives. Never set this deployed; the
+      # .env.example says so too, in the one other place somebody would look.
+      INSECURE_COOKIES: "1"
+    ports:
+      - "5000:5000"
+    restart: unless-stopped

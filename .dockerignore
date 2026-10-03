@@ -1,0 +1,19 @@
+# The build context is the repository root, because the image needs both the
+# server and the Python package. Everything else is weight on every build.
+.git
+.github
+dist
+build
+node_modules
+server/node_modules
+server/dist
+server/.env
+tests
+tools
+web/test
+web/samples
+web/sprites/cache
+**/__pycache__
+**/*.pyc
+*.egg-info
+.venv
