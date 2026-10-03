@@ -1,15 +1,21 @@
 """Starting the desktop app.
 
-None of this is about maps. It is about the two ways a packaged build fails
-where a source checkout does not, both of which are invisible until somebody
+None of this is about maps. It is about the ways a packaged build fails where
+a source checkout does not, all of which are invisible until somebody
 double-clicks the thing:
 
 Finding its own files. Frozen, `web/` is wherever PyInstaller unpacked it, not
 three directories above this source file.
 
 Saying so when it cannot start. The packaged build has `console=False`, so
-stderr goes nowhere - the WebView2 diagnostic that exists precisely so a person
-can act on it would be written into the void.
+stderr goes nowhere - a diagnostic that exists precisely so a person can act
+on it would be written into the void.
+
+Saying the *right* thing. v0.1.0-rc.1 blamed a missing WebView2 runtime for
+every failure to open a window. The real cause was that Windows marks files
+extracted from a downloaded zip as Internet-zone and .NET then refuses to load
+the bundled assembly - so the first person to run it was sent to install a
+runtime they already had.
 
 pywebview is an optional dependency and is not installed on CI, so it is faked
 here rather than imported.
@@ -94,6 +100,76 @@ class SayingSoWithoutAConsole(unittest.TestCase):
             raise RuntimeError("no window manager")
         with quiet():
             app.report("the original problem\n", box=broken)
+
+
+class ZoneMarkedFiles(unittest.TestCase):
+    """Windows stamps a Zone.Identifier stream on anything extracted from a
+    downloaded zip, and .NET will not load an assembly carrying one."""
+
+    def setUp(self):
+        self.tmp = tempfile.mkdtemp()
+        self.addCleanup(shutil.rmtree, self.tmp, ignore_errors=True)
+
+    def write(self, name, zone=None):
+        path = os.path.join(self.tmp, name)
+        with open(path, "wb") as fh:
+            fh.write(b"not really a dll")
+        if zone is not None:
+            # The stream is written by opening `file:Zone.Identifier`, which
+            # is how Explorer marks a download and how this is detected.
+            with open(path + ":Zone.Identifier", "wb") as fh:
+                fh.write(b"[ZoneTransfer]\r\nZoneId=%d\r\n" % zone)
+        return path
+
+    @unittest.skipUnless(sys.platform == "win32",
+                         "alternate data streams are an NTFS thing")
+    def test_it_finds_a_marked_assembly(self):
+        self.write("clean.dll")
+        marked = self.write("downloaded.dll", zone=3)
+        self.assertEqual(app.blocked_files(self.tmp), [marked])
+
+    @unittest.skipUnless(sys.platform == "win32", "windows only")
+    def test_a_local_zone_mark_is_not_a_problem(self):
+        """Zone 1 is the local intranet and loads fine; only 3 is the
+        internet. Reporting every stream would cry wolf."""
+        self.write("intranet.dll", zone=1)
+        self.assertEqual(app.blocked_files(self.tmp), [])
+
+    @unittest.skipUnless(sys.platform == "win32", "windows only")
+    def test_it_ignores_files_dotnet_would_never_load(self):
+        self.write("notes.txt", zone=3)
+        self.assertEqual(app.blocked_files(self.tmp), [])
+
+    def test_nothing_to_find_is_not_an_error(self):
+        self.assertEqual(app.blocked_files(self.tmp), [])
+        self.assertEqual(app.blocked_files(os.path.join(self.tmp, "gone")), [])
+        self.assertEqual(app.blocked_files(""), [])
+
+
+class WhatItSaysWhenNoWindowOpens(unittest.TestCase):
+    def setUp(self):
+        self.tmp = tempfile.mkdtemp()
+        self.addCleanup(shutil.rmtree, self.tmp, ignore_errors=True)
+
+    def test_an_unexplained_failure_still_suggests_webview2(self):
+        said = app.why_no_window(RuntimeError("no idea"), self.tmp)
+        self.assertIn("WebView2", said)
+        self.assertIn("no idea", said, "the real error has to be in there")
+
+    @unittest.skipUnless(sys.platform == "win32", "windows only")
+    def test_a_zone_marked_bundle_is_named_as_the_cause(self):
+        path = os.path.join(self.tmp, "Python.Runtime.dll")
+        with open(path, "wb") as fh:
+            fh.write(b"x")
+        with open(path + ":Zone.Identifier", "wb") as fh:
+            fh.write(b"[ZoneTransfer]\r\nZoneId=3\r\n")
+
+        said = app.why_no_window(RuntimeError("Failed to resolve"), self.tmp)
+        self.assertNotIn("WebView2", said,
+                         "blaming the runtime here is what sent somebody to "
+                         "install one they already had")
+        self.assertIn("Unblock-File", said, "it has to say how to fix it")
+        self.assertIn("Python.Runtime.dll", said, "and which files")
 
 
 class FakeWebview:

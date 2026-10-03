@@ -100,6 +100,68 @@ def report(message, box=None):
         pass
 
 
+def blocked_files(folder, limit=3):
+    """Files Windows has marked as having come from the internet.
+
+    Extracting a downloaded zip stamps every file with a Zone.Identifier
+    stream, and the .NET loader then refuses to load an assembly from the
+    Internet zone. pywebview reaches WebView2 through pythonnet, so the whole
+    app falls over on a file nobody can see is marked.
+
+    Reads the alternate data stream directly: a path of the form
+    ``file:Zone.Identifier`` is the stream, and opening it fails when there
+    is none. Only NTFS has them, and only Windows, so anywhere else this is
+    an empty list.
+    """
+    if sys.platform != "win32" or not os.path.isdir(folder):
+        return []
+    found = []
+    for root, _dirs, names in os.walk(folder):
+        for name in names:
+            if not name.lower().endswith((".dll", ".exe", ".pyd")):
+                continue
+            path = os.path.join(root, name)
+            try:
+                with open(path + ":Zone.Identifier", "rb") as fh:
+                    if b"ZoneId=3" in fh.read(512):
+                        found.append(path)
+            except OSError:
+                continue            # no stream, or not a filesystem with them
+            if len(found) >= limit:
+                return found
+    return found
+
+
+def why_no_window(exc, folder):
+    """The message for a window that would not open.
+
+    Written as a diagnosis rather than a guess. The first release blamed a
+    missing WebView2 runtime for every failure, and the actual cause was a
+    zone mark on the bundled .NET assembly - so the one person who hit it was
+    sent to install a runtime they already had.
+    """
+    blocked = blocked_files(folder)
+    if blocked:
+        return (
+            "could not open a window: %s\n\n"
+            "This build was extracted from a downloaded zip, and Windows has "
+            "marked its files as coming from the internet. .NET will not load "
+            "an assembly marked that way, and this app reaches the browser "
+            "engine through .NET.\n\n"
+            "Marked, for example:\n  %s\n\n"
+            "To fix it, in PowerShell:\n"
+            "    Get-ChildItem -Recurse '%s' | Unblock-File\n\n"
+            "Or delete this folder, right-click the .zip, tick Unblock in "
+            "Properties, and extract it again.\n"
+            % (exc, "\n  ".join(blocked), os.path.dirname(folder) or folder))
+
+    return (
+        "could not open a window: %s\n\n"
+        "On Windows this usually means the WebView2 runtime is missing. It "
+        "ships with Windows 11 and with Edge; otherwise install it from "
+        "Microsoft's 'WebView2 Runtime' download page.\n" % exc)
+
+
 def main(argv=None, box=None):
     argv = sys.argv[1:] if argv is None else argv
 
@@ -132,13 +194,12 @@ def main(argv=None, box=None):
     try:
         webview.start(debug=bool(os.environ.get("AWRBC_DEBUG")))
     except Exception as exc:                            # noqa: BLE001
-        # The usual cause on Windows is a missing WebView2 runtime. A window
-        # that never appears is not a diagnosis anybody can act on.
-        report("could not open a window: %s\n\n"
-               "On Windows this usually means the WebView2 runtime is missing. "
-               "It ships with Windows 11 and with Edge; otherwise install it "
-               "from Microsoft's 'WebView2 Runtime' download page.\n" % exc,
-               box)
+        # A window that never appears is not a diagnosis anybody can act on,
+        # and neither is the wrong one - see why_no_window.
+        # The bundle root, not the editor's folder: the marked file that
+        # matters is the .NET assembly in _internal, which is where
+        # sys._MEIPASS points. Unfrozen there is nothing to scan.
+        report(why_no_window(exc, getattr(sys, "_MEIPASS", "")), box)
         return 1
     del window
     return 0

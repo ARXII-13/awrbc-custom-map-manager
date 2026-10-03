@@ -28,9 +28,27 @@
 
 ## Before you run it
 
-Needs the **WebView2 runtime**, which ships with Windows 11 and with Edge.
-The app says so if it is missing rather than opening no window and leaving you
-to guess.
+**Unblock the zip first.** Right-click `awrbc-windows.zip` → Properties → tick
+**Unblock** → OK, *then* extract it.
+
+Windows marks everything extracted from a downloaded zip as coming from the
+internet, and .NET refuses to load an assembly marked that way. This app
+reaches the browser engine through .NET, so without unblocking it opens an
+error box instead of a window. That is what happened to the first person who
+tried `v0.1.0-rc.1`.
+
+If you have already extracted it, this fixes it without re-downloading:
+
+```powershell
+Get-ChildItem -Recurse 'path\to\awrbc' | Unblock-File
+```
+
+The app now detects this and says so, rather than blaming WebView2 — which is
+what the first candidate did, sending somebody to install a runtime they
+already had.
+
+It also needs the **WebView2 runtime**, which ships with Windows 11 and with
+Edge. The app says so if that is genuinely what is missing.
 
 It writes to your save. It takes a backup before every write and keeps them,
 but take your own first — this is a release candidate and it has not been

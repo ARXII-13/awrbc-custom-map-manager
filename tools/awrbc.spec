@@ -23,20 +23,33 @@ if not os.path.exists(os.path.join(WEB, "index.html")):
 
 # The editor, the sprite pack included (decision #54 - a build without it
 # renders terrain as letters on flat colour, which looks broken rather than
-# plain). The test directory and the dev server are not part of a shipped app.
+# plain). The tests, the dev server and the sprite builders are not part of a
+# shipped app.
+#
+# `samples` and `cache` are matched at any depth, not just the top. Matching
+# only the first component meant web/sprites/cache went in, and so did
+# web/samples - which .gitignore calls personal save data. A build on a
+# developer's machine was shipping their own maps inside the zip; CI escaped
+# it only because those paths are gitignored and so were never checked out.
+SKIP_DIRS = {"test", "cache", "samples", "__pycache__"}
+SKIP_FILES = {"serve.py", "README.md", "manifest.example.json"}
+
 web_files = []
-for folder, _dirs, names in os.walk(WEB):
+for folder, dirs, names in os.walk(WEB):
+    # Pruning `dirs` in place stops os.walk descending at all.
+    dirs[:] = [d for d in dirs if d not in SKIP_DIRS]
     rel = os.path.relpath(folder, WEB)
-    parts = rel.replace("\\", "/").split("/")
-    if parts[0] in ("test", "cache"):
-        continue
     for name in names:
-        if name in ("serve.py", "README.md", "manifest.example.json"):
+        if name in SKIP_FILES:
             continue
         if name.startswith("build_") and name.endswith(".py"):
             continue
         web_files.append((os.path.join(folder, name),
                           os.path.join("web", rel) if rel != "." else "web"))
+
+if not any(f.endswith("manifest.json") for f, _ in web_files):
+    raise SystemExit("no sprite pack in web/sprites - the build would render "
+                     "terrain as letters (decision #54)")
 
 a = Analysis(
     # tools/desktop_entry.py, not awrbc/desktop/__main__.py - see that file.

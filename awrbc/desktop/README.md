@@ -66,6 +66,18 @@ A packaged build is built with `console=False`, so there is no terminal for
 that message to appear in — `report()` puts it in a message box as well. A
 diagnostic written to a stream nobody can see is the same as no diagnostic.
 
+But saying the *wrong* thing is worse than saying nothing, and the first
+release candidate did. It blamed WebView2 for every failure to open a window,
+and the real cause was unrelated: Windows stamps a `Zone.Identifier` stream on
+everything extracted from a downloaded zip, and .NET refuses to load an
+assembly from the Internet zone. pywebview reaches WebView2 through pythonnet,
+so the app fell over on a mark nobody can see — and the one person who hit it
+was sent to install a runtime they already had.
+
+`why_no_window` looks for that mark before blaming anything, and prints the
+`Unblock-File` command that fixes it. A confident wrong answer is the one
+people act on.
+
 ## Packaging
 
 ```bash
