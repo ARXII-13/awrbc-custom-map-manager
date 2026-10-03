@@ -11,6 +11,7 @@
 # and the thing it produces is a release artifact rather than a test.
 
 import os
+import sys
 
 from PyInstaller.utils.hooks import collect_submodules
 
@@ -21,35 +22,14 @@ if not os.path.exists(os.path.join(WEB, "index.html")):
     raise SystemExit("run this from the repository root; no web/index.html "
                      "under %s" % ROOT)
 
-# The editor, the sprite pack included (decision #54 - a build without it
-# renders terrain as letters on flat colour, which looks broken rather than
-# plain). The tests, the dev server and the sprite builders are not part of a
-# shipped app.
-#
-# `samples` and `cache` are matched at any depth, not just the top. Matching
-# only the first component meant web/sprites/cache went in, and so did
-# web/samples - which .gitignore calls personal save data. A build on a
-# developer's machine was shipping their own maps inside the zip; CI escaped
-# it only because those paths are gitignored and so were never checked out.
-SKIP_DIRS = {"test", "cache", "samples", "__pycache__"}
-SKIP_FILES = {"serve.py", "README.md", "manifest.example.json"}
+# What the save editor ships is decided in tools/desktop_payload.py, which a
+# test also reads - see that file for why it is not a list in here. In short:
+# the first packaged build contained the whole map editor, archive submission
+# included, and nothing noticed.
+sys.path.insert(0, os.path.join(ROOT, "tools"))
+from desktop_payload import payload                       # noqa: E402
 
-web_files = []
-for folder, dirs, names in os.walk(WEB):
-    # Pruning `dirs` in place stops os.walk descending at all.
-    dirs[:] = [d for d in dirs if d not in SKIP_DIRS]
-    rel = os.path.relpath(folder, WEB)
-    for name in names:
-        if name in SKIP_FILES:
-            continue
-        if name.startswith("build_") and name.endswith(".py"):
-            continue
-        web_files.append((os.path.join(folder, name),
-                          os.path.join("web", rel) if rel != "." else "web"))
-
-if not any(f.endswith("manifest.json") for f, _ in web_files):
-    raise SystemExit("no sprite pack in web/sprites - the build would render "
-                     "terrain as letters (decision #54)")
+web_files = payload(WEB)
 
 a = Analysis(
     # tools/desktop_entry.py, not awrbc/desktop/__main__.py - see that file.

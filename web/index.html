@@ -138,8 +138,6 @@
     <div id="why"></div>
     <div class="sub" id="pack" hidden style="margin-top:4px"></div>
 
-    <h2 id="savehead" hidden>Save file</h2>
-    <div id="savepanel" hidden></div>
 
     <h2>Army</h2>
     <div class="teams" id="teams"></div>
@@ -177,7 +175,6 @@ import { available as repairsFor } from "./fixes.js";
 import { zip } from "./zip.js";
 import { intakeBase } from "./intake.js";
 import { attachSubmit } from "./submit-ui.js";
-import { attachIfDesktop } from "./save-ui.js";
 
 const canvas = document.getElementById("c");
 const ctx = canvas.getContext("2d");
@@ -831,14 +828,6 @@ attachSubmit({
 // The save panel, in the desktop app only. In a browser this resolves false
 // and nothing appears - the hosted build has no bridge and no way to reach a
 // file (decision #52).
-attachIfDesktop({
-  panel: document.getElementById("savepanel"),
-  heading: document.getElementById("savehead"),
-  poster,
-  loadMap: load,
-  currentDoc: exportDocument,
-});
-
 addEventListener("keydown", (e) => {
   if (e.target.tagName === "INPUT") return;
   const k = e.key.toLowerCase();

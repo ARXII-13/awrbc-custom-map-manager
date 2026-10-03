@@ -64,7 +64,7 @@ const A_MAP = {
  * `api` is what pywebview would inject; only the calls a test cares about
  * need to be present.
  */
-function panelOver(api, { confirms = [], prompts = [] } = {}) {
+function panelOver(api, { confirms = [], prompts = [], pickMap } = {}) {
   const asked = [];
   const alerts = [];
   global_('document', { createElement: (tag) => node(tag) });
@@ -81,8 +81,7 @@ function panelOver(api, { confirms = [], prompts = [] } = {}) {
   const api_ = attachSaves({
     panel,
     poster: () => ({ style: {}, width: 1, height: 1 }),
-    loadMap: () => {},
-    currentDoc: () => ({ name: 'Daibi' }),
+    pickMap: pickMap ?? (() => null),
   });
   return { panel, api: api_, asked, alerts };
 }
@@ -92,10 +91,74 @@ describe('the panel', () => {
     const p = panelOver({});
     await p.api.refresh();
     const labels = buttons(p.panel).map((b) => b.textContent);
-    assert.ok(labels.includes('Open'), labels.join(' | '));
-    assert.ok(labels.includes('Add the current map'));
+    assert.ok(labels.includes('Remove'), labels.join(' | '));
     assert.ok(labels.includes('Back up now'));
     assert.ok(labels.includes('Restore…'));
+  });
+
+  it('offers nothing that needs a map editor', async () => {
+    // The save editor is shipped apart from the map editor, so there is
+    // nothing here to open a map into and no "current map" to add. Maps come
+    // from a file the person picked.
+    const p = panelOver({});
+    await p.api.refresh();
+    const labels = buttons(p.panel).map((b) => b.textContent);
+    assert.ok(!labels.includes('Open'), 'nothing to open a map into');
+    assert.ok(!labels.includes('Add the current map'),
+              'there is no map being edited here');
+  });
+});
+
+describe('importing a map from a file', () => {
+  it('writes the picked document into the save', async () => {
+    let seen = null;
+    const doc = { name: 'Daibi', size: { cols: 12, rows: 10 } };
+    const p = panelOver({
+      import_map: async (path, document) => {
+        seen = [path, document];
+        return { ok: true, slot: 3, backup: 'b.bak' };
+      },
+    }, { pickMap: () => doc });
+
+    await p.api.refresh();
+    await p.api.addPicked();
+    assert.deepEqual(seen, ['C:/save/maps', doc]);
+  });
+
+  it('does nothing when no map was picked', async () => {
+    let called = false;
+    const p = panelOver({
+      import_map: async () => { called = true; return { ok: true }; },
+    }, { pickMap: () => null });
+
+    await p.api.refresh();
+    await p.api.addPicked();
+    assert.equal(called, false);
+  });
+
+  it('asks before writing, and does not write when declined', async () => {
+    let called = false;
+    const p = panelOver({
+      import_map: async () => { called = true; return { ok: true }; },
+    }, { pickMap: () => ({ name: 'Daibi' }), confirms: [false] });
+
+    await p.api.refresh();
+    await p.api.addPicked();
+    assert.equal(called, false);
+  });
+
+  it('shows the findings when the map is refused', async () => {
+    const p = panelOver({
+      import_map: async () => ({
+        ok: false, error: 'that map did not pass validation',
+        findings: [{ code: 'play.noHQ', message: 'team 0 has no HQ' }],
+      }),
+    }, { pickMap: () => ({ name: 'Daibi' }) });
+
+    await p.api.refresh();
+    await p.api.addPicked();
+    assert.ok(p.alerts.some((m) => m.includes('team 0 has no HQ')),
+              p.alerts.join(' | '));
   });
 });
 

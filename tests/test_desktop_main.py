@@ -72,8 +72,10 @@ class FindingThePage(unittest.TestCase):
         self.tmp = tempfile.mkdtemp()
         self.addCleanup(shutil.rmtree, self.tmp, ignore_errors=True)
 
-    def test_it_returns_the_index(self):
-        index = os.path.join(self.tmp, "index.html")
+    def test_it_returns_the_save_editors_own_page(self):
+        """Not index.html. That is the map editor, and loading it is how the
+        first packaged build came to contain archive submission."""
+        index = os.path.join(self.tmp, app.PAGE)
         with open(index, "w", encoding="utf-8") as fh:
             fh.write("<!doctype html>")
         self.assertEqual(app.entry_point(self.tmp), index)
@@ -83,6 +85,7 @@ class FindingThePage(unittest.TestCase):
         with self.assertRaises(SystemExit) as caught:
             app.entry_point(self.tmp)
         self.assertIn("cannot find the editor", str(caught.exception))
+        self.assertIn(app.PAGE, str(caught.exception))
 
 
 class SayingSoWithoutAConsole(unittest.TestCase):

@@ -63,9 +63,16 @@ def game_running():
     return "ryujinx" in out
 
 
+#: The save editor's own page, not the map editor's index.html. That page
+#: carries the editing engine, Export bundle and the archive submission path,
+#: and the first packaged build loaded it - so the save editor shipped all of
+#: them. See tools/desktop_payload.py.
+PAGE = "save.html"
+
+
 def entry_point(folder=WEB):
     """The page to load. A file:// URL, so there is no server and no port."""
-    index = os.path.join(folder, "index.html")
+    index = os.path.join(folder, PAGE)
     if not os.path.exists(index):
         raise SystemExit(
             "cannot find the editor at %s.\n"

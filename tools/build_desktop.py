@@ -19,6 +19,12 @@ import subprocess
 import sys
 import zipfile
 
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+from desktop_payload import FORBIDDEN     # noqa: E402
+
+#: The page the app loads; see awrbc/desktop/__main__.py.
+PAGE = "save.html"
+
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 SPEC = os.path.join(ROOT, "tools", "awrbc.spec")
 DIST = os.path.join(ROOT, "dist")
@@ -45,14 +51,25 @@ def smoke_test():
     It is invisible until launch, so it is checked here rather than reported
     by whoever downloads it.
     """
-    index = os.path.join(BUILT, "_internal", "web", "index.html")
-    if not os.path.exists(index):
+    # save.html, not index.html: the save editor has its own page, and
+    # index.html is the map editor it is deliberately shipped apart from.
+    page = os.path.join(BUILT, "_internal", "web", PAGE)
+    if not os.path.exists(page):
         # PyInstaller < 6 put data beside the executable.
-        index = os.path.join(BUILT, "web", "index.html")
-    if not os.path.exists(index):
+        page = os.path.join(BUILT, "web", PAGE)
+    if not os.path.exists(page):
         raise SystemExit(
-            "the build has no web/index.html in it - the editor was not "
-            "bundled, and the app would open to nothing.")
+            "the build has no web/%s in it - the app would open to nothing."
+            % PAGE)
+    index = page
+
+    stowaways = sorted(
+        n for n in FORBIDDEN
+        if os.path.exists(os.path.join(os.path.dirname(page), n)))
+    if stowaways:
+        raise SystemExit(
+            "the map editor got into the save editor: %s\n"
+            "See tools/desktop_payload.py." % ", ".join(stowaways))
 
     pack = os.path.join(os.path.dirname(index), "sprites", "manifest.json")
     if not os.path.exists(pack):

@@ -24,6 +24,32 @@ Chromium, or porting MS-NRBF to JavaScript — two implementations of a format
 that must agree forever. A Python GUI toolkit would mean a second map
 renderer. Both are mistakes this project has already made once and undone.
 
+## Not the map editor
+
+The save editor and the map editor are shipped apart on purpose: one is a
+download that writes to a file the game owns, the other is hosted and talks to
+a public archive of maps. Keeping the archive out of the download keeps them
+separable.
+
+The first packaged build did not do that. It loaded `web/index.html` — the map
+editor's own page — so the download contained the editing engine, Export
+bundle, and the path that submits a map to the archive, Submit button and CC
+BY licence dialog included.
+
+It now loads `web/save.html`, which imports the renderer and nothing else.
+What the two share is drawing a map, because a save manager has to show which
+one is which. `tools/desktop_payload.py` holds the list, and
+`tests/test_desktop_payload.py` fails if anything on the forbidden list gets
+back in — a convention nobody checks is how this happened the first time.
+
+Maps come from somewhere else now: the hosted editor, a friend, the archive.
+The panel imports a `.json` from disk rather than offering "add the map you
+are editing", because nothing is being edited here.
+
+The sprite pack does ship, which was weighed rather than assumed: it is
+Advance Wars derived art, and a preview that does not look like the game is
+harder to recognise.
+
 ## Save access follows the shell
 
 `api.py` exists only here. The hosted build of the editor has no object like it

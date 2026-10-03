@@ -1,12 +1,16 @@
 // The save panel.
 //
-// Appears only in the desktop app. Separated from index.html so it ports to
-// the framework application by changing who calls `attachSaves` (decision
-// #47), and so the half that talks to Python (saves.js) stays free of DOM.
+// Appears only in the desktop app, which is shipped apart from the map editor
+// on purpose: one writes to a file the game owns, the other talks to a public
+// archive. This file is on the save side of that line and knows nothing about
+// editing or about the archive.
 //
-// Previews are drawn by the editor's own renderer from the documents the
-// bridge returned - one renderer, with whatever sprite pack is loaded, same as
-// everywhere else.
+// Previews come from the same renderer the editor uses - a map is a map, and
+// a save manager has to show which one is which. That is the whole of what
+// the two share.
+//
+// `poster` is passed in rather than imported so this stays free of any opinion
+// about how a map is drawn (decision #47, which also makes it port).
 
 import * as saves from './saves.js';
 
@@ -15,10 +19,12 @@ const THUMB = 7;   // pixels per tile in the list; big enough to recognise
 /**
  * Wire up the save panel.
  *
- * `poster(doc, tilePx)` and `loadMap(doc)` are passed in rather than imported,
- * so this file knows nothing about how the editor draws or loads.
+ * `pickMap()` answers the map to import, or null - a document the caller got
+ * from somewhere else, because this tool does not make maps. It used to be
+ * `currentDoc()`, the map open in the editor, which is exactly the coupling
+ * the split removes.
  */
-export function attachSaves({ panel, poster, loadMap, currentDoc }) {
+export function attachSaves({ panel, poster, pickMap }) {
   let savePath = null;
   let entries = [];
 
@@ -60,11 +66,8 @@ export function attachSaves({ panel, poster, loadMap, currentDoc }) {
       canvas.style.cssText =
         'width:100%;image-rendering:pixelated;border-radius:3px';
 
-      const open = el('button', {
-        className: 'cellbtn', title: 'Open this map in the editor',
-        textContent: 'Open' });
-      open.onclick = () => loadMap(structuredClone(entry.document));
-
+      // No "Open": there is nothing here to open a map into. Editing lives in
+      // the map editor, which this tool is deliberately not.
       const drop = el('button', {
         className: 'cellbtn', title: 'Remove this map from the save',
         textContent: 'Remove' });
@@ -76,13 +79,8 @@ export function attachSaves({ panel, poster, loadMap, currentDoc }) {
         el('div', { className: 'sub',
                     textContent: `${entry.name || '(unnamed)'} — ` +
                                  saves.describe(entry) }),
-        el('div', {}, open, drop));
+        el('div', {}, drop));
     });
-
-    const add = el('button', { className: 'cellbtn',
-      title: 'Put the map you are editing into the save',
-      textContent: 'Add the current map' });
-    add.onclick = addCurrent;
 
     // Every write here takes a backup of its own, so these are for the times
     // that is not enough: before a run of edits, and after one went wrong.
@@ -99,7 +97,6 @@ export function attachSaves({ panel, poster, loadMap, currentDoc }) {
     panel.replaceChildren(
       el('div', { className: 'sub', textContent:
         `${entries.length} map${entries.length === 1 ? '' : 's'} in this save` }),
-      add,
       el('div', {}, takeBackup, roll),
       ...rows);
   }
@@ -150,10 +147,12 @@ export function attachSaves({ panel, poster, loadMap, currentDoc }) {
     alert(`Restored ${done.restored}.`);
   }
 
-  async function addCurrent() {
-    const doc = currentDoc();
-    // Warn about the thing that cannot be undone by Ctrl-Z: this writes to a
-    // file the game owns.
+  /** Put the map the caller picked into the save. */
+  async function addPicked() {
+    const doc = pickMap && pickMap();
+    if (!doc) return;
+    // Warn about the thing no undo reaches: this writes to a file the game
+    // owns.
     if (!confirm(`Add "${doc.name || 'Untitled'}" to the save?\n\n` +
                  'A backup is taken first, and the game must be closed.')) {
       return;
@@ -184,19 +183,19 @@ export function attachSaves({ panel, poster, loadMap, currentDoc }) {
   }
 
   refresh();
-  return { refresh };
+  return { refresh, addPicked };
 }
 
 /**
  * Show the panel only where a save can actually be reached.
  *
- * Returns false in a browser, which is not a failure - it is the boundary
- * doing its job.
+ * Returns null where there is no bridge, which is not a failure - it is the
+ * boundary doing its job. Otherwise the panel's own handle, so the page can
+ * hand it a map somebody picked.
  */
 export async function attachIfDesktop(options) {
-  if (!await saves.ready()) return false;
+  if (!await saves.ready()) return null;
   options.panel.hidden = false;
   if (options.heading) options.heading.hidden = false;
-  attachSaves(options);
-  return true;
+  return attachSaves(options);
 }
