@@ -126,24 +126,39 @@ class ZoneMarkedFiles(unittest.TestCase):
     def test_it_finds_a_marked_assembly(self):
         self.write("clean.dll")
         marked = self.write("downloaded.dll", zone=3)
-        self.assertEqual(app.blocked_files(self.tmp), [marked])
+        count, example = app.blocked_files(self.tmp)
+        self.assertEqual((count, example), (1, marked))
 
     @unittest.skipUnless(sys.platform == "win32", "windows only")
     def test_a_local_zone_mark_is_not_a_problem(self):
         """Zone 1 is the local intranet and loads fine; only 3 is the
         internet. Reporting every stream would cry wolf."""
         self.write("intranet.dll", zone=1)
-        self.assertEqual(app.blocked_files(self.tmp), [])
+        self.assertEqual(app.blocked_files(self.tmp)[0], 0)
 
     @unittest.skipUnless(sys.platform == "win32", "windows only")
     def test_it_ignores_files_dotnet_would_never_load(self):
         self.write("notes.txt", zone=3)
-        self.assertEqual(app.blocked_files(self.tmp), [])
+        self.assertEqual(app.blocked_files(self.tmp)[0], 0)
+
+    @unittest.skipUnless(sys.platform == "win32", "windows only")
+    def test_it_names_the_assembly_dotnet_actually_refuses(self):
+        """A bundle has dozens of api-ms-win-core-*.dll in it and none of them
+        explain anything. The first dialog listed three of those and buried
+        the one file a reader could act on."""
+        self.write("api-ms-win-core-console-l1-1-0.dll", zone=3)
+        wanted = self.write("Python.Runtime.dll", zone=3)
+        self.write("api-ms-win-core-debug-l1-1-0.dll", zone=3)
+
+        count, example = app.blocked_files(self.tmp)
+        self.assertEqual(count, 3)
+        self.assertEqual(example, wanted)
 
     def test_nothing_to_find_is_not_an_error(self):
-        self.assertEqual(app.blocked_files(self.tmp), [])
-        self.assertEqual(app.blocked_files(os.path.join(self.tmp, "gone")), [])
-        self.assertEqual(app.blocked_files(""), [])
+        self.assertEqual(app.blocked_files(self.tmp), (0, ""))
+        self.assertEqual(app.blocked_files(os.path.join(self.tmp, "gone")),
+                         (0, ""))
+        self.assertEqual(app.blocked_files(""), (0, ""))
 
 
 class WhatItSaysWhenNoWindowOpens(unittest.TestCase):

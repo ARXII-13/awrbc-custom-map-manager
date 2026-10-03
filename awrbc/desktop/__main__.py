@@ -100,22 +100,27 @@ def report(message, box=None):
         pass
 
 
-def blocked_files(folder, limit=3):
+#: The assembly .NET actually refuses to load. Naming it is worth more than
+#: listing whichever files `os.walk` happened to reach first - the bundle has
+#: dozens of api-ms-win-core-*.dll beside it and none of them explain anything.
+THE_ASSEMBLY = "python.runtime.dll"
+
+
+def blocked_files(folder):
     """Files Windows has marked as having come from the internet.
 
-    Extracting a downloaded zip stamps every file with a Zone.Identifier
-    stream, and the .NET loader then refuses to load an assembly from the
-    Internet zone. pywebview reaches WebView2 through pythonnet, so the whole
-    app falls over on a file nobody can see is marked.
+    Returns ``(count, example)``. Extracting a downloaded zip stamps every
+    file with a Zone.Identifier stream, and the .NET loader then refuses to
+    load an assembly from the Internet zone. pywebview reaches WebView2
+    through pythonnet, so the whole app falls over on a mark nobody can see.
 
     Reads the alternate data stream directly: a path of the form
-    ``file:Zone.Identifier`` is the stream, and opening it fails when there
-    is none. Only NTFS has them, and only Windows, so anywhere else this is
-    an empty list.
+    ``file:Zone.Identifier`` is the stream, and opening it fails when there is
+    none. Only NTFS has them, and only Windows, so anywhere else this is zero.
     """
     if sys.platform != "win32" or not os.path.isdir(folder):
-        return []
-    found = []
+        return 0, ""
+    count, example = 0, ""
     for root, _dirs, names in os.walk(folder):
         for name in names:
             if not name.lower().endswith((".dll", ".exe", ".pyd")):
@@ -123,13 +128,15 @@ def blocked_files(folder, limit=3):
             path = os.path.join(root, name)
             try:
                 with open(path + ":Zone.Identifier", "rb") as fh:
-                    if b"ZoneId=3" in fh.read(512):
-                        found.append(path)
+                    if b"ZoneId=3" not in fh.read(512):
+                        continue
             except OSError:
                 continue            # no stream, or not a filesystem with them
-            if len(found) >= limit:
-                return found
-    return found
+            count += 1
+            # Prefer the one that matters; otherwise the first seen.
+            if not example or name.lower() == THE_ASSEMBLY:
+                example = path
+    return count, example
 
 
 def why_no_window(exc, folder):
@@ -140,20 +147,25 @@ def why_no_window(exc, folder):
     zone mark on the bundled .NET assembly - so the one person who hit it was
     sent to install a runtime they already had.
     """
-    blocked = blocked_files(folder)
-    if blocked:
+    count, example = blocked_files(folder)
+    if count:
+        # The install root, not _internal: that is the folder a person has and
+        # the one the command below should be pointed at.
+        root = os.path.dirname(folder) or folder
         return (
-            "could not open a window: %s\n\n"
-            "This build was extracted from a downloaded zip, and Windows has "
-            "marked its files as coming from the internet. .NET will not load "
-            "an assembly marked that way, and this app reaches the browser "
-            "engine through .NET.\n\n"
-            "Marked, for example:\n  %s\n\n"
-            "To fix it, in PowerShell:\n"
+            "This app cannot start, and it is not broken - Windows has it "
+            "blocked.\n\n"
+            "It was extracted from a downloaded zip, so Windows marked its "
+            "files as coming from the internet. .NET refuses to load a marked "
+            "assembly, and this app reaches the browser engine through .NET. "
+            "%d files are marked, including:\n\n"
+            "    %s\n\n"
+            "To unblock them, paste this into PowerShell:\n\n"
             "    Get-ChildItem -Recurse '%s' | Unblock-File\n\n"
-            "Or delete this folder, right-click the .zip, tick Unblock in "
-            "Properties, and extract it again.\n"
-            % (exc, "\n  ".join(blocked), os.path.dirname(folder) or folder))
+            "Or delete that folder, right-click the .zip, tick Unblock in "
+            "Properties, and extract it again.\n\n"
+            "(%s)\n"
+            % (count, example or root, root, exc))
 
     return (
         "could not open a window: %s\n\n"
