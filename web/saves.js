@@ -57,7 +57,6 @@ export const removeMap = (path, index) => call('remove_map', path, index);
 export const snapshots = (path) => call('snapshots', path);
 export const backupNow = (path) => call('backup_now', path);
 export const restore = (path, name) => call('restore', path, name);
-export const mapIdentity = (document) => call('map_identity', document);
 
 /**
  * A one-line description of a map in a save, for a list.

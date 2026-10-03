@@ -169,16 +169,27 @@ class Backups(ApiCase):
         self.assertFalse(got["ok"])
 
 
-class Identity(ApiCase):
-    def test_the_hash_comes_from_python(self):
-        """One implementation of the content hash, here as everywhere - the
-        page asks rather than computing its own."""
-        from awrbc.core import archive, schema
-        doc = schema.build_document(a_map("Same"))
-        got = self.api.map_identity(doc)
-        self.assertTrue(got["ok"])
-        self.assertEqual(got["id"], archive.map_hash(schema.from_json(doc)))
-        self.assertTrue(got["folder"].startswith("maps/"))
+class NothingAboutTheArchive(ApiCase):
+    """The bridge is the save side of the split, and nothing else.
+
+    It used to carry `map_identity`, which computed a map's content hash and
+    the archive folder it would live in. Nothing ever called it - and it was
+    the single reason `awrbc.core.archive` ended up inside the downloaded save
+    editor, because PyInstaller follows imports.
+    """
+
+    def test_it_offers_nothing_that_talks_about_the_archive(self):
+        offered = [n for n in dir(self.api) if not n.startswith("_")]
+        self.assertNotIn("map_identity", offered)
+        for name in offered:
+            self.assertNotIn("archive", name)
+
+    def test_the_module_does_not_import_the_archive(self):
+        """What actually keeps it out of the bundle."""
+        import awrbc.desktop.api as api
+        source = open(api.__file__, encoding="utf-8").read()
+        self.assertNotIn("import archive", source)
+        self.assertNotIn("core import archive", source)
 
 
 if __name__ == "__main__":

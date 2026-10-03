@@ -17,7 +17,7 @@ whatever sprite pack is loaded - one renderer, as everywhere else.
 import os
 import traceback
 
-from ..core import archive, backup, derive, locate, savefile, schema, validate
+from ..core import backup, derive, locate, savefile, schema, validate
 from ..core.errors import AwrbcError
 
 
@@ -161,15 +161,3 @@ class SaveApi:
         n = backup.restore(match[0].path, path)
         return {"ok": True, "restored": match[0].name, "bytes": n}
 
-    # --- the archive -----------------------------------------------------
-
-    @_guard
-    def map_identity(self, document):
-        """The content hash, so the page can tell a map it already has.
-
-        Here rather than in JavaScript for the usual reason: one
-        implementation of the hash (see awrbc/core/identity.py).
-        """
-        m = schema.from_json(document)
-        return {"ok": True, "id": archive.map_hash(m),
-                "folder": archive.folder_for(m)}
