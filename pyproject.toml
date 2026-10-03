@@ -17,6 +17,9 @@ desktop = ["pywebview>=5.0"]
 # does and nothing shipped does. Without it those tests skip - which is how
 # they managed to never run on CI at all.
 dev = ["pillow"]
+# Building the desktop zip (tools/build_desktop.py). Needs the desktop extra
+# too, since it bundles what that installs.
+package = ["pyinstaller>=6.0", "pywebview>=5.0"]
 
 [project.scripts]
 awrbc = "awrbc.cli.__main__:main"

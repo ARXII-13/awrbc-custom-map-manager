@@ -62,9 +62,35 @@ Windows 11 and with Edge; otherwise it is a free download from Microsoft. The
 app says so rather than failing silently, because a window that never appears
 is not a diagnosis anybody can act on.
 
+A packaged build is built with `console=False`, so there is no terminal for
+that message to appear in — `report()` puts it in a message box as well. A
+diagnostic written to a stream nobody can see is the same as no diagnostic.
+
 ## Packaging
 
-Not built yet. The intent is PyInstaller `--onedir` in a zip — unzip and run,
-no installer (decision #55). Windows first; macOS and Linux are served by
-`pip install` until a bundled build there is worth an Apple developer account
-and WebKitGTK bundling respectively.
+```bash
+pip install -e ".[package]"
+python tools/build_desktop.py
+```
+
+PyInstaller `--onedir` in a zip — unzip and run, no installer (decision #55).
+An installer is a thing to trust, and this writes to a save file people care
+about; a folder they can look inside asks for less. `dist/awrbc-windows.zip`
+comes out around 13 MB and holds the executable, its runtime, and the editor
+with its sprite pack.
+
+Windows first. macOS and Linux keep using `pip install` until a bundled build
+there is worth an Apple developer account and WebKitGTK bundling respectively;
+the zip is named for its platform so those can land beside it.
+
+Two things in there are not incidental. The entry script is
+`tools/desktop_entry.py` rather than this package's `__main__.py`, because
+PyInstaller runs its entry script *as* `__main__`, with no parent package — so
+pointed straight at `__main__.py`, its relative imports fail on the first line.
+That build zipped cleanly and then died on launch.
+
+And the build runs what it has just made. `awrbc --check` does everything a
+launch does except open the window, so a bundle that cannot import itself, or
+cannot find its own editor, fails the build rather than the download. Checking
+that the files are in there is not the same as the thing starting — which is
+exactly how the import failure above got as far as a zip.

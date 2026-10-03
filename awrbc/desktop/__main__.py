@@ -20,8 +20,24 @@ import sys
 
 from .api import SaveApi
 
-WEB = os.path.join(os.path.dirname(os.path.dirname(
-    os.path.dirname(os.path.abspath(__file__)))), "web")
+def web_dir():
+    """Where the editor's files are.
+
+    Two layouts. From a checkout, `web/` sits at the repository root, three
+    directories above this file. Packaged, PyInstaller unpacks the bundled
+    copy and points `sys._MEIPASS` at it - the same attribute for a --onedir
+    build and a --onefile one, which is why neither is special-cased here.
+    """
+    bundled = getattr(sys, "_MEIPASS", None)
+    if bundled:
+        return os.path.join(bundled, "web")
+    return os.path.join(os.path.dirname(os.path.dirname(
+        os.path.dirname(os.path.abspath(__file__)))), "web")
+
+
+#: Read once, at import, so a test can point `entry_point` somewhere else
+#: without reaching into the module's internals.
+WEB = web_dir()
 
 TITLE = "Advance Wars 1+2 map tool"
 
@@ -47,28 +63,69 @@ def game_running():
     return "ryujinx" in out
 
 
-def entry_point(web_dir=WEB):
+def entry_point(folder=WEB):
     """The page to load. A file:// URL, so there is no server and no port."""
-    index = os.path.join(web_dir, "index.html")
+    index = os.path.join(folder, "index.html")
     if not os.path.exists(index):
         raise SystemExit(
             "cannot find the editor at %s.\n"
-            "Running from a source checkout? The editor lives in web/."
+            "A packaged build bundles it; from a checkout it lives in web/."
             % index)
     return index
 
 
-def main(argv=None):
+def report(message, box=None):
+    """Tell somebody who may have no console.
+
+    A packaged build is built with `console=False`, because a terminal window
+    sitting beside the app reads as a fault - which leaves stderr going
+    nowhere. Everything below is a startup failure where the whole point is
+    that the person can act on it, so on Windows it also goes to a message
+    box. `box` is injected so a test can see what would have been shown.
+    """
+    sys.stderr.write(message)
+    if box is None:
+        if not getattr(sys, "frozen", False) or sys.platform != "win32":
+            return
+        try:
+            import ctypes
+            box = lambda text: ctypes.windll.user32.MessageBoxW(  # noqa: E731
+                None, text, TITLE, 0x10)
+        except Exception:                                   # noqa: BLE001
+            return
+    try:
+        box(message)
+    except Exception:                                       # noqa: BLE001
+        # Reporting a failure must not become a second failure.
+        pass
+
+
+def main(argv=None, box=None):
+    argv = sys.argv[1:] if argv is None else argv
+
     try:
         import webview
     except ImportError:
-        sys.stderr.write(
-            "the desktop app needs pywebview:\n"
-            "    pip install \"awrbc-custom-map-manager[desktop]\"\n")
+        report("the desktop app needs pywebview:\n"
+               "    pip install \"awrbc-custom-map-manager[desktop]\"\n", box)
         return 1
 
-    index = entry_point()
+    try:
+        index = entry_point()
+    except SystemExit as exc:
+        report("%s\n" % exc, box)
+        return 1
+
     api = SaveApi(game_running=game_running)
+
+    # Everything a launch does except open the window, so a packaged build can
+    # be checked without a desktop. It is the only part of packaging that can
+    # fail silently: a bundle that cannot import itself or cannot find its own
+    # editor still zips, and the first person to know would be whoever
+    # double-clicked it.
+    if "--check" in argv:
+        sys.stdout.write("ok: editor at %s\n" % index)
+        return 0
 
     window = webview.create_window(TITLE, index, js_api=api,
                                    width=1280, height=860, min_size=(900, 600))
@@ -77,11 +134,11 @@ def main(argv=None):
     except Exception as exc:                            # noqa: BLE001
         # The usual cause on Windows is a missing WebView2 runtime. A window
         # that never appears is not a diagnosis anybody can act on.
-        sys.stderr.write(
-            "could not open a window: %s\n\n"
-            "On Windows this usually means the WebView2 runtime is missing. "
-            "It ships with Windows 11 and with Edge; otherwise install it "
-            "from Microsoft's 'WebView2 Runtime' download page.\n" % exc)
+        report("could not open a window: %s\n\n"
+               "On Windows this usually means the WebView2 runtime is missing. "
+               "It ships with Windows 11 and with Edge; otherwise install it "
+               "from Microsoft's 'WebView2 Runtime' download page.\n" % exc,
+               box)
         return 1
     del window
     return 0

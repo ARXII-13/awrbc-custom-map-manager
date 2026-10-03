@@ -38,6 +38,7 @@ awrbc backup                      snapshot the save
 awrbc restore [name]              list snapshots, or roll one back
 
 python -m awrbc.desktop            the editor with save access, in a window
+python tools/build_desktop.py      package that as a zip somebody can run
 
 awrbc search "4p fog"             find maps in the public archive
 awrbc show renew                  what one map is, and its versions
