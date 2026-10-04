@@ -166,6 +166,7 @@ def check(m: Map) -> Report:
 
     _check_river_width(m, r)
     _check_labels(m, r)
+    _check_name(m, r)
 
     return r
 
@@ -185,6 +186,65 @@ DERIVED_TAGS = frozenset([
 ])
 
 MAX_TAGS = 8
+
+#: Longer than any name the game's own editor produced. The real maps sampled
+#: run 3 to 14 characters, so this is generous rather than measured - the
+#: game's actual limit is not known, which is why passing it is a warning and
+#: not a refusal. A map with a long name still plays; it may just be cut off
+#: on screen.
+LONG_NAME = 24
+
+#: Past this, a name is not a name. Nothing types 200 characters into a map
+#: title by accident, and a save carrying one is either corrupt or hostile.
+MAX_NAME = 200
+
+#: Characters that do not belong in a one-line label.
+#:
+#: C0 controls and DEL break a single line in two or move the cursor about.
+#: The bidi overrides are the interesting ones: they reorder the text around
+#: them, so a name can be made to display as something it is not - which
+#: matters here precisely *because* nothing is escaped. The renderer puts
+#: names in with textContent, which cannot execute anything, but it will
+#: happily honour a right-to-left override.
+BAD_IN_NAME = (
+    [chr(c) for c in range(0x20)] + [""]
+    + ["‪", "‫", "‬", "‭", "‮",   # bidi embedding
+       "⁦", "⁧", "⁨", "⁩"]              # bidi isolates
+)
+
+
+def _check_name(m: Map, r: Report) -> None:
+    """The name is shown to people, so it has to behave like a line of text.
+
+    This is not about script injection. Every surface that displays a name -
+    the save editor's list, the archive's generated READMEs - puts it in as
+    text rather than as markup, so there is nothing to inject into. What is
+    worth refusing is a "name" that is not one: a control character that
+    breaks the line, an override that reorders what is around it, or a length
+    nobody typed on purpose.
+    """
+    name = m.name or ""
+
+    found = sorted({c for c in name if c in BAD_IN_NAME})
+    if found:
+        r.add("name.control", ERROR,
+              "the name contains %s, which does not belong in a label"
+              % ", ".join("U+%04X" % ord(c) for c in found), "name")
+
+    if len(name) > MAX_NAME:
+        r.add("name.tooLong", ERROR,
+              "the name is %d characters; %d is already far past anything "
+              "typed on purpose" % (len(name), MAX_NAME), "name")
+    elif len(name) > LONG_NAME:
+        r.add("name.long", WARNING,
+              "the name is %d characters; the game's own editor produces much "
+              "shorter ones and this may be cut off on screen" % len(name),
+              "name")
+
+    if name != name.strip():
+        r.add("name.space", WARNING,
+              "the name has space around it, which is invisible and easy to "
+              "lose track of", "name")
 
 
 def _check_labels(m: Map, r: Report) -> None:

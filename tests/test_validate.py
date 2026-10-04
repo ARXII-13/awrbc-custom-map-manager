@@ -185,5 +185,84 @@ class RealMapsStayValid(unittest.TestCase):
                                         [f.message for f in report.errors]))
 
 
+class TheName(unittest.TestCase):
+    """A name is shown to people, so it has to behave like a line of text.
+
+    Not about script injection: every surface that displays a name puts it in
+    as text rather than markup, so there is nothing to inject into. These are
+    about names that are not names.
+    """
+
+    def named(self, name):
+        m = a_map()
+        m.name = name
+        return codes(validate.check(m))
+
+    def test_an_ordinary_name_is_fine(self):
+        self.assertNotIn("name.long", self.named("Twin Rivers"))
+        self.assertNotIn("name.control", self.named("Twin Rivers"))
+
+    def test_an_empty_name_is_not_an_error(self):
+        """Maps in a save often have none, and the display says Untitled."""
+        found = self.named("")
+        self.assertNotIn("name.control", found)
+        self.assertNotIn("name.tooLong", found)
+
+    def test_a_newline_is_refused(self):
+        """It breaks one line into two wherever the name is shown."""
+        self.assertIn("name.control", self.named("two\nlines"))
+
+    def test_a_tab_is_refused(self):
+        self.assertIn("name.control", self.named("a\tb"))
+
+    def test_a_right_to_left_override_is_refused(self):
+        """The one that matters. It reorders the text around it, so a name can
+        be made to display as something it is not - and nothing escapes it,
+        because textContent renders it faithfully."""
+        self.assertIn("name.control", self.named("gnp.\u202exe"))
+
+    def test_a_bidi_isolate_is_refused_too(self):
+        self.assertIn("name.control", self.named("a\u2066b"))
+
+    def test_the_message_names_the_codepoint(self):
+        """"Remove the invisible character" is not an actionable instruction
+        unless it says which one."""
+        m = a_map()
+        m.name = "a\u202eb"
+        said = [f.message for f in validate.check(m).findings
+                if f.code == "name.control"]
+        self.assertTrue(said)
+        self.assertIn("U+202E", said[0])
+
+    def test_a_long_name_warns_rather_than_refusing(self):
+        """The game's own limit is not known. Refusing on a guess would block
+        maps that play."""
+        found = self.named("x" * (validate.LONG_NAME + 1))
+        self.assertIn("name.long", found)
+        self.assertNotIn("name.tooLong", found)
+
+    def test_a_name_at_the_limit_does_not_warn(self):
+        self.assertNotIn("name.long", self.named("x" * validate.LONG_NAME))
+
+    def test_an_absurd_name_is_refused(self):
+        found = self.named("x" * (validate.MAX_NAME + 1))
+        self.assertIn("name.tooLong", found)
+
+    def test_surrounding_space_is_flagged(self):
+        """Invisible, and it changes the slug the archive would give it."""
+        self.assertIn("name.space", self.named("  Daibi  "))
+
+    def test_the_long_warning_does_not_block_publishing(self):
+        m = a_map()
+        m.name = "x" * (validate.LONG_NAME + 5)
+        report = validate.check(m)
+        self.assertEqual([f.code for f in report.errors], [])
+
+    def test_a_control_character_does_block_it(self):
+        m = a_map()
+        m.name = "a\u202eb"
+        self.assertTrue(validate.check(m).errors)
+
+
 if __name__ == "__main__":
     unittest.main()

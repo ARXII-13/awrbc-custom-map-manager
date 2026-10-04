@@ -85,5 +85,47 @@ class TheDocumentShape(unittest.TestCase):
         self.assertEqual(identity.content_hash(again), GOLDEN_HASH)
 
 
+class TheNameRules(unittest.TestCase):
+    """Also duplicated, and also worth pinning.
+
+    What a map may be called decides what the archive accepts and what the
+    save editor refuses to import. Two copies quietly disagreeing means a map
+    one tool takes and the other rejects, which is a confusing thing to be on
+    the receiving end of.
+    """
+
+    def codes(self, name):
+        from awrbc.core import validate
+        m = golden_map()
+        m.name = name
+        return {f.code for f in validate.check(m).findings}
+
+    def test_an_ordinary_name_passes(self):
+        self.assertNotIn("name.control", self.codes("Twin Rivers"))
+        self.assertNotIn("name.long", self.codes("Twin Rivers"))
+
+    def test_a_line_break_is_an_error_in_both(self):
+        self.assertIn("name.control", self.codes("two\nlines"))
+
+    def test_a_bidi_override_is_an_error_in_both(self):
+        # Written as an escape on purpose. The character itself is invisible
+        # in a source file, which is the whole reason it is worth refusing.
+        self.assertIn("name.control", self.codes("a‮b"))
+
+    def test_the_long_and_absurd_limits_agree(self):
+        from awrbc.core import validate
+        self.assertEqual((validate.LONG_NAME, validate.MAX_NAME), (24, 200))
+        self.assertIn("name.long", self.codes("x" * 25))
+        self.assertIn("name.tooLong", self.codes("x" * 201))
+
+    def test_a_long_name_never_blocks_publishing(self):
+        """A warning in one copy and an error in the other would mean a map
+        the editor offers and the archive refuses."""
+        from awrbc.core import validate
+        m = golden_map()
+        m.name = "x" * 40
+        self.assertEqual([f.code for f in validate.check(m).errors], [])
+
+
 if __name__ == "__main__":
     unittest.main()
