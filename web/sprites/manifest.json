@@ -322,36 +322,615 @@
     ]
    }
   },
+  "2": {
+   "dirs": {
+    "E+NW": [
+     10,
+     3,
+     "terrain"
+    ],
+    "E+S+NW": [
+     11,
+     3,
+     "terrain"
+    ],
+    "E+S+W": [
+     12,
+     3,
+     "terrain"
+    ],
+    "E+S": [
+     13,
+     3,
+     "terrain"
+    ],
+    "E+SW+NW": [
+     14,
+     3,
+     "terrain"
+    ],
+    "E+SW": [
+     15,
+     3,
+     "terrain"
+    ],
+    "E+W+bridge": [
+     0,
+     4,
+     "terrain"
+    ],
+    "E+W": [
+     1,
+     4,
+     "terrain"
+    ],
+    "E+bridge": [
+     2,
+     4,
+     "terrain"
+    ],
+    "E": [
+     3,
+     4,
+     "terrain"
+    ],
+    "N+E+S+W": [
+     4,
+     4,
+     "terrain"
+    ],
+    "N+E+S": [
+     5,
+     4,
+     "terrain"
+    ],
+    "N+E+SW": [
+     6,
+     4,
+     "terrain"
+    ],
+    "N+E+W": [
+     7,
+     4,
+     "terrain"
+    ],
+    "N+E": [
+     8,
+     4,
+     "terrain"
+    ],
+    "N+S+W": [
+     9,
+     4,
+     "terrain"
+    ],
+    "N+S": [
+     10,
+     4,
+     "terrain"
+    ],
+    "N+SE+SW": [
+     11,
+     4,
+     "terrain"
+    ],
+    "N+SE": [
+     12,
+     4,
+     "terrain"
+    ],
+    "N+SW": [
+     13,
+     4,
+     "terrain"
+    ],
+    "N+W+SE": [
+     14,
+     4,
+     "terrain"
+    ],
+    "N+W": [
+     15,
+     4,
+     "terrain"
+    ],
+    "N": [
+     0,
+     5,
+     "terrain"
+    ],
+    "NE+NW": [
+     1,
+     5,
+     "terrain"
+    ],
+    "NE+SE+NW": [
+     2,
+     5,
+     "terrain"
+    ],
+    "NE+SE+SW+NW": [
+     3,
+     5,
+     "terrain"
+    ],
+    "NE+SE+SW": [
+     4,
+     5,
+     "terrain"
+    ],
+    "NE+SE": [
+     5,
+     5,
+     "terrain"
+    ],
+    "NE+SW+NW": [
+     6,
+     5,
+     "terrain"
+    ],
+    "NE+SW": [
+     7,
+     5,
+     "terrain"
+    ],
+    "NE": [
+     8,
+     5,
+     "terrain"
+    ],
+    "NE+overlay": [
+     9,
+     5,
+     "terrain"
+    ],
+    "NW": [
+     10,
+     5,
+     "terrain"
+    ],
+    "NW+overlay": [
+     11,
+     5,
+     "terrain"
+    ],
+    "S+NE+NW": [
+     12,
+     5,
+     "terrain"
+    ],
+    "S+NE": [
+     13,
+     5,
+     "terrain"
+    ],
+    "S+NW": [
+     14,
+     5,
+     "terrain"
+    ],
+    "S+W+NE": [
+     15,
+     5,
+     "terrain"
+    ],
+    "S+W": [
+     0,
+     6,
+     "terrain"
+    ],
+    "S": [
+     1,
+     6,
+     "terrain"
+    ],
+    "SE+NW": [
+     2,
+     6,
+     "terrain"
+    ],
+    "SE+SW+NW": [
+     3,
+     6,
+     "terrain"
+    ],
+    "SE+SW": [
+     4,
+     6,
+     "terrain"
+    ],
+    "SE+SW+overlay": [
+     5,
+     6,
+     "terrain"
+    ],
+    "SE": [
+     6,
+     6,
+     "terrain"
+    ],
+    "SE+overlay": [
+     7,
+     6,
+     "terrain"
+    ],
+    "SW+NW": [
+     8,
+     6,
+     "terrain"
+    ],
+    "SW": [
+     9,
+     6,
+     "terrain"
+    ],
+    "SW+overlay": [
+     10,
+     6,
+     "terrain"
+    ],
+    "W+NE+SE": [
+     11,
+     6,
+     "terrain"
+    ],
+    "W+NE": [
+     12,
+     6,
+     "terrain"
+    ],
+    "W+SE": [
+     13,
+     6,
+     "terrain"
+    ],
+    "W+bridge": [
+     14,
+     6,
+     "terrain"
+    ],
+    "W": [
+     15,
+     6,
+     "terrain"
+    ],
+    "clear+E+S+W": [
+     0,
+     7,
+     "terrain"
+    ],
+    "clear+E+S": [
+     1,
+     7,
+     "terrain"
+    ],
+    "clear+E+W": [
+     2,
+     7,
+     "terrain"
+    ],
+    "clear+E": [
+     3,
+     7,
+     "terrain"
+    ],
+    "clear+N+E+S+W": [
+     4,
+     7,
+     "terrain"
+    ],
+    "clear+N+E+S": [
+     5,
+     7,
+     "terrain"
+    ],
+    "clear+N+E+W": [
+     6,
+     7,
+     "terrain"
+    ],
+    "clear+N+E": [
+     7,
+     7,
+     "terrain"
+    ],
+    "clear+N+S+W": [
+     8,
+     7,
+     "terrain"
+    ],
+    "clear+N+S": [
+     9,
+     7,
+     "terrain"
+    ],
+    "clear+N+W": [
+     10,
+     7,
+     "terrain"
+    ],
+    "clear+N": [
+     11,
+     7,
+     "terrain"
+    ],
+    "clear+S+W": [
+     12,
+     7,
+     "terrain"
+    ],
+    "clear+S": [
+     13,
+     7,
+     "terrain"
+    ],
+    "clear+W": [
+     14,
+     7,
+     "terrain"
+    ],
+    "desert+E+S+W": [
+     15,
+     7,
+     "terrain"
+    ],
+    "desert+E+S": [
+     0,
+     8,
+     "terrain"
+    ],
+    "desert+E+W": [
+     1,
+     8,
+     "terrain"
+    ],
+    "desert+E": [
+     2,
+     8,
+     "terrain"
+    ],
+    "desert+N+E+S+W": [
+     3,
+     8,
+     "terrain"
+    ],
+    "desert+N+E+S": [
+     4,
+     8,
+     "terrain"
+    ],
+    "desert+N+E+W": [
+     5,
+     8,
+     "terrain"
+    ],
+    "desert+N+E": [
+     6,
+     8,
+     "terrain"
+    ],
+    "desert+N+S+W": [
+     7,
+     8,
+     "terrain"
+    ],
+    "desert+N+S": [
+     8,
+     8,
+     "terrain"
+    ],
+    "desert+N+W": [
+     9,
+     8,
+     "terrain"
+    ],
+    "desert+N": [
+     10,
+     8,
+     "terrain"
+    ],
+    "desert+S+W": [
+     11,
+     8,
+     "terrain"
+    ],
+    "desert+S": [
+     12,
+     8,
+     "terrain"
+    ],
+    "desert+W": [
+     13,
+     8,
+     "terrain"
+    ],
+    "": [
+     14,
+     8,
+     "terrain"
+    ],
+    "snow+E+S+W": [
+     15,
+     8,
+     "terrain"
+    ],
+    "snow+E+S": [
+     0,
+     9,
+     "terrain"
+    ],
+    "snow+E+W": [
+     1,
+     9,
+     "terrain"
+    ],
+    "snow+E": [
+     2,
+     9,
+     "terrain"
+    ],
+    "snow+N+E+S+W": [
+     3,
+     9,
+     "terrain"
+    ],
+    "snow+N+E+S": [
+     4,
+     9,
+     "terrain"
+    ],
+    "snow+N+E+W": [
+     5,
+     9,
+     "terrain"
+    ],
+    "snow+N+E": [
+     6,
+     9,
+     "terrain"
+    ],
+    "snow+N+S+W": [
+     7,
+     9,
+     "terrain"
+    ],
+    "snow+N+S": [
+     8,
+     9,
+     "terrain"
+    ],
+    "snow+N+W": [
+     9,
+     9,
+     "terrain"
+    ],
+    "snow+N": [
+     10,
+     9,
+     "terrain"
+    ],
+    "snow+S+W": [
+     11,
+     9,
+     "terrain"
+    ],
+    "snow+S": [
+     12,
+     9,
+     "terrain"
+    ],
+    "snow+W": [
+     13,
+     9,
+     "terrain"
+    ],
+    "waste+E+S+W": [
+     14,
+     9,
+     "terrain"
+    ],
+    "waste+E+S": [
+     15,
+     9,
+     "terrain"
+    ],
+    "waste+E+W": [
+     0,
+     10,
+     "terrain"
+    ],
+    "waste+E": [
+     1,
+     10,
+     "terrain"
+    ],
+    "waste+N+E+S+W": [
+     2,
+     10,
+     "terrain"
+    ],
+    "waste+N+E+S": [
+     3,
+     10,
+     "terrain"
+    ],
+    "waste+N+E+W": [
+     4,
+     10,
+     "terrain"
+    ],
+    "waste+N+E": [
+     5,
+     10,
+     "terrain"
+    ],
+    "waste+N+S+W": [
+     6,
+     10,
+     "terrain"
+    ],
+    "waste+N+S": [
+     7,
+     10,
+     "terrain"
+    ],
+    "waste+N+W": [
+     8,
+     10,
+     "terrain"
+    ],
+    "waste+N": [
+     9,
+     10,
+     "terrain"
+    ],
+    "waste+S+W": [
+     10,
+     10,
+     "terrain"
+    ],
+    "waste+S": [
+     11,
+     10,
+     "terrain"
+    ],
+    "waste+W": [
+     12,
+     10,
+     "terrain"
+    ]
+   }
+  },
   "33554432": [
-   14,
-   5,
+   1,
+   13,
    "terrain"
   ],
   "2097152": [
-   15,
-   5,
+   2,
+   13,
    "terrain"
   ],
   "1048576": {
    "parts": {
     "N|0,0": [
-     0,
-     6,
+     3,
+     13,
      "terrain"
     ],
     "E|0,0": [
-     1,
-     6,
+     4,
+     13,
      "terrain"
     ],
     "S|0,0": [
-     2,
-     6,
+     5,
+     13,
      "terrain"
     ],
     "W|0,0": [
-     3,
      6,
+     13,
      "terrain"
     ]
    }
@@ -359,83 +938,83 @@
   "32768": {
    "dirs": {
     "": [
-     4,
-     6,
+     7,
+     13,
      "terrain"
     ],
     "N": [
-     5,
-     6,
+     8,
+     13,
      "terrain"
     ],
     "E": [
-     6,
-     6,
+     9,
+     13,
      "terrain"
     ],
     "S": [
-     7,
-     6,
+     10,
+     13,
      "terrain"
     ],
     "W": [
-     8,
-     6,
+     11,
+     13,
      "terrain"
     ],
     "N+E": [
-     9,
-     6,
+     12,
+     13,
      "terrain"
     ],
     "N+S": [
-     10,
-     6,
+     13,
+     13,
      "terrain"
     ],
     "N+W": [
-     11,
-     6,
+     14,
+     13,
      "terrain"
     ],
     "E+S": [
-     12,
-     6,
+     15,
+     13,
      "terrain"
     ],
     "E+W": [
-     13,
-     6,
+     0,
+     14,
      "terrain"
     ],
     "S+W": [
+     1,
      14,
-     6,
      "terrain"
     ],
     "N+E+S": [
-     15,
-     6,
+     2,
+     14,
      "terrain"
     ],
     "N+E+W": [
-     0,
-     7,
+     3,
+     14,
      "terrain"
     ],
     "N+S+W": [
-     1,
-     7,
+     4,
+     14,
      "terrain"
     ],
     "E+S+W": [
-     2,
-     7,
+     5,
+     14,
      "terrain"
     ],
     "N+E+S+W": [
-     3,
-     7,
+     6,
+     14,
      "terrain"
     ]
    }
@@ -443,13 +1022,13 @@
   "65536": {
    "dirs": {
     "E+W": [
-     4,
      7,
+     14,
      "terrain"
     ],
     "N+S": [
-     5,
-     7,
+     8,
+     14,
      "terrain"
     ]
    }
@@ -457,183 +1036,183 @@
   "524288": {
    "parts": {
     "N|0,0": [
-     6,
-     7,
+     9,
+     14,
      "terrain"
     ],
     "N|1,0": [
-     7,
-     7,
+     10,
+     14,
      "terrain"
     ],
     "N|2,0": [
-     8,
-     7,
+     11,
+     14,
      "terrain"
     ],
     "N|0,1": [
-     9,
-     7,
+     12,
+     14,
      "terrain"
     ],
     "N|1,1": [
-     10,
-     7,
+     13,
+     14,
      "terrain"
     ],
     "N|2,1": [
-     11,
-     7,
+     14,
+     14,
      "terrain"
     ],
     "N|0,2": [
-     12,
-     7,
+     15,
+     14,
      "terrain"
     ],
     "N|1,2": [
-     13,
-     7,
+     0,
+     15,
      "terrain"
     ],
     "N|2,2": [
-     14,
-     7,
+     1,
+     15,
      "terrain"
     ],
     "E|0,0": [
+     2,
      15,
-     7,
      "terrain"
     ],
     "E|1,0": [
-     0,
-     8,
+     3,
+     15,
      "terrain"
     ],
     "E|2,0": [
-     1,
-     8,
+     4,
+     15,
      "terrain"
     ],
     "E|0,1": [
-     2,
-     8,
+     5,
+     15,
      "terrain"
     ],
     "E|1,1": [
-     3,
-     8,
+     6,
+     15,
      "terrain"
     ],
     "E|2,1": [
-     4,
-     8,
+     7,
+     15,
      "terrain"
     ],
     "E|0,2": [
-     5,
      8,
+     15,
      "terrain"
     ],
     "E|1,2": [
-     6,
-     8,
+     9,
+     15,
      "terrain"
     ],
     "E|2,2": [
-     7,
-     8,
+     10,
+     15,
      "terrain"
     ],
     "S|0,0": [
-     8,
-     8,
+     11,
+     15,
      "terrain"
     ],
     "S|1,0": [
-     9,
-     8,
+     12,
+     15,
      "terrain"
     ],
     "S|2,0": [
-     10,
-     8,
+     13,
+     15,
      "terrain"
     ],
     "S|0,1": [
-     11,
-     8,
+     14,
+     15,
      "terrain"
     ],
     "S|1,1": [
-     12,
-     8,
+     15,
+     15,
      "terrain"
     ],
     "S|2,1": [
-     13,
-     8,
+     0,
+     16,
      "terrain"
     ],
     "S|0,2": [
-     14,
-     8,
+     1,
+     16,
      "terrain"
     ],
     "S|1,2": [
-     15,
-     8,
+     2,
+     16,
      "terrain"
     ],
     "S|2,2": [
-     0,
-     9,
+     3,
+     16,
      "terrain"
     ],
     "W|0,0": [
-     1,
-     9,
+     4,
+     16,
      "terrain"
     ],
     "W|1,0": [
-     2,
-     9,
+     5,
+     16,
      "terrain"
     ],
     "W|2,0": [
-     3,
-     9,
+     6,
+     16,
      "terrain"
     ],
     "W|0,1": [
-     4,
-     9,
+     7,
+     16,
      "terrain"
     ],
     "W|1,1": [
-     5,
-     9,
+     8,
+     16,
      "terrain"
     ],
     "W|2,1": [
-     6,
      9,
+     16,
      "terrain"
     ],
     "W|0,2": [
-     7,
-     9,
+     10,
+     16,
      "terrain"
     ],
     "W|1,2": [
-     8,
-     9,
+     11,
+     16,
      "terrain"
     ],
     "W|2,2": [
-     9,
-     9,
+     12,
+     16,
      "terrain"
     ]
    }
@@ -641,183 +1220,183 @@
   "8388608": {
    "parts": {
     "N|0,0": [
-     10,
-     9,
+     13,
+     16,
      "terrain"
     ],
     "N|1,0": [
-     11,
-     9,
+     14,
+     16,
      "terrain"
     ],
     "N|2,0": [
-     12,
-     9,
+     15,
+     16,
      "terrain"
     ],
     "N|0,1": [
-     13,
-     9,
+     0,
+     17,
      "terrain"
     ],
     "N|1,1": [
-     14,
-     9,
+     1,
+     17,
      "terrain"
     ],
     "N|2,1": [
-     15,
-     9,
+     2,
+     17,
      "terrain"
     ],
     "N|0,2": [
-     0,
-     10,
+     3,
+     17,
      "terrain"
     ],
     "N|1,2": [
-     1,
-     10,
+     4,
+     17,
      "terrain"
     ],
     "N|2,2": [
-     2,
-     10,
+     5,
+     17,
      "terrain"
     ],
     "E|0,0": [
-     3,
-     10,
+     6,
+     17,
      "terrain"
     ],
     "E|1,0": [
-     4,
-     10,
+     7,
+     17,
      "terrain"
     ],
     "E|2,0": [
-     5,
-     10,
+     8,
+     17,
      "terrain"
     ],
     "E|0,1": [
-     6,
-     10,
+     9,
+     17,
      "terrain"
     ],
     "E|1,1": [
-     7,
      10,
+     17,
      "terrain"
     ],
     "E|2,1": [
-     8,
-     10,
+     11,
+     17,
      "terrain"
     ],
     "E|0,2": [
-     9,
-     10,
+     12,
+     17,
      "terrain"
     ],
     "E|1,2": [
-     10,
-     10,
+     13,
+     17,
      "terrain"
     ],
     "E|2,2": [
-     11,
-     10,
+     14,
+     17,
      "terrain"
     ],
     "S|0,0": [
-     12,
-     10,
+     15,
+     17,
      "terrain"
     ],
     "S|1,0": [
-     13,
-     10,
+     0,
+     18,
      "terrain"
     ],
     "S|2,0": [
-     14,
-     10,
+     1,
+     18,
      "terrain"
     ],
     "S|0,1": [
-     15,
-     10,
+     2,
+     18,
      "terrain"
     ],
     "S|1,1": [
-     0,
-     11,
+     3,
+     18,
      "terrain"
     ],
     "S|2,1": [
-     1,
-     11,
+     4,
+     18,
      "terrain"
     ],
     "S|0,2": [
-     2,
-     11,
+     5,
+     18,
      "terrain"
     ],
     "S|1,2": [
-     3,
-     11,
+     6,
+     18,
      "terrain"
     ],
     "S|2,2": [
-     4,
-     11,
+     7,
+     18,
      "terrain"
     ],
     "W|0,0": [
-     5,
-     11,
+     8,
+     18,
      "terrain"
     ],
     "W|1,0": [
-     6,
-     11,
+     9,
+     18,
      "terrain"
     ],
     "W|2,0": [
-     7,
-     11,
+     10,
+     18,
      "terrain"
     ],
     "W|0,1": [
-     8,
      11,
+     18,
      "terrain"
     ],
     "W|1,1": [
-     9,
-     11,
+     12,
+     18,
      "terrain"
     ],
     "W|2,1": [
-     10,
-     11,
+     13,
+     18,
      "terrain"
     ],
     "W|0,2": [
-     11,
-     11,
+     14,
+     18,
      "terrain"
     ],
     "W|1,2": [
-     12,
-     11,
+     15,
+     18,
      "terrain"
     ],
     "W|2,2": [
-     13,
-     11,
+     0,
+     19,
      "terrain"
     ]
    }
@@ -826,193 +1405,193 @@
  "properties": {
   "512": {
    "0": [
+    13,
     10,
-    3,
     "terrain"
    ],
    "1": [
-    11,
-    3,
+    14,
+    10,
     "terrain"
    ],
    "2": [
-    12,
-    3,
+    15,
+    10,
     "terrain"
    ],
    "3": [
-    13,
-    3,
+    0,
+    11,
     "terrain"
    ],
    "4": [
-    14,
-    3,
+    1,
+    11,
     "terrain"
    ],
    "neutral": [
-    15,
-    3,
+    2,
+    11,
     "terrain"
    ]
   },
   "1024": {
    "0": [
-    0,
-    4,
+    3,
+    11,
     "terrain"
    ],
    "1": [
-    1,
     4,
+    11,
     "terrain"
    ],
    "2": [
-    2,
-    4,
+    5,
+    11,
     "terrain"
    ],
    "3": [
-    3,
-    4,
+    6,
+    11,
     "terrain"
    ],
    "4": [
-    4,
-    4,
+    7,
+    11,
     "terrain"
    ],
    "neutral": [
-    5,
-    4,
+    8,
+    11,
     "terrain"
    ]
   },
   "2048": {
    "0": [
-    6,
-    4,
+    9,
+    11,
     "terrain"
    ],
    "1": [
-    7,
-    4,
+    10,
+    11,
     "terrain"
    ],
    "2": [
-    8,
-    4,
+    11,
+    11,
     "terrain"
    ],
    "3": [
-    9,
-    4,
+    12,
+    11,
     "terrain"
    ],
    "4": [
-    10,
-    4,
+    13,
+    11,
     "terrain"
    ],
    "neutral": [
+    14,
     11,
-    4,
     "terrain"
    ]
   },
   "4096": {
    "0": [
-    12,
-    4,
+    15,
+    11,
     "terrain"
    ],
    "1": [
-    13,
-    4,
+    0,
+    12,
     "terrain"
    ],
    "2": [
-    14,
-    4,
+    1,
+    12,
     "terrain"
    ],
    "3": [
-    15,
-    4,
+    2,
+    12,
     "terrain"
    ],
    "4": [
-    0,
-    5,
+    3,
+    12,
     "terrain"
    ],
    "neutral": [
-    1,
-    5,
+    4,
+    12,
     "terrain"
    ]
   },
   "8192": {
    "0": [
-    2,
     5,
+    12,
     "terrain"
    ],
    "1": [
-    3,
-    5,
+    6,
+    12,
     "terrain"
    ],
    "2": [
-    4,
-    5,
+    7,
+    12,
     "terrain"
    ],
    "3": [
-    5,
-    5,
+    8,
+    12,
     "terrain"
    ],
    "4": [
-    6,
-    5,
+    9,
+    12,
     "terrain"
    ],
    "neutral": [
-    7,
-    5,
+    10,
+    12,
     "terrain"
    ]
   },
   "134217728": {
    "0": [
-    8,
-    5,
+    11,
+    12,
     "terrain"
    ],
    "1": [
-    9,
-    5,
+    12,
+    12,
     "terrain"
    ],
    "2": [
-    10,
-    5,
+    13,
+    12,
     "terrain"
    ],
    "3": [
-    11,
-    5,
+    14,
+    12,
     "terrain"
    ],
    "4": [
+    15,
     12,
-    5,
     "terrain"
    ],
    "neutral": [
+    0,
     13,
-    5,
     "terrain"
    ]
   }

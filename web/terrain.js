@@ -8,7 +8,10 @@
 
 export const TERRAIN = {
   1:         { name: 'Plains',       color: '#a9cf75' },
-  2:         { name: 'Sea',          color: '#4577bd' },
+  // `onWater` for the same reason as reef below: sea art is its own
+  // surface, and laying the plains tile under it would put grass
+  // behind every shoreline.
+  2:         { name: 'Sea',          color: '#4577bd', onWater: true },
   // `base` is what gets filled before a sprite is blitted. Packs often draw
   // trees and rock as transparent overlays meant to sit on grass.
   4:         { name: 'Mountain',     color: '#9b8259', base: '#a9cf75', glyph: '^' },
