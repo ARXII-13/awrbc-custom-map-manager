@@ -264,5 +264,84 @@ class TheName(unittest.TestCase):
         self.assertTrue(validate.check(m).errors)
 
 
+class WhereAUnitCanStand(unittest.TestCase):
+    """A unit has to start somewhere its movement type can be.
+
+    The ids matter as much as the rules. 5 is the bomber and 6 the
+    battleship, which is the opposite of what the tables said until these
+    checks went in - eight real maps from a save show exactly four ids ever
+    sitting on water, 6, 7, 10 and 16, and those are the four ships.
+    """
+
+    BOMBER, BATTLESHIP, CRUISER = 5, 6, 7
+    INFANTRY, LANDER, MECH, SUB, TANK = 9, 10, 11, 16, 17
+
+    SEA, RIVER, SHOAL, REEF, BRIDGE, PLAINS = 2, 16, 32, 64, 256, 1
+
+    def placed(self, kind, terrain):
+        """One unit of `kind` standing on `terrain`, and what validation says."""
+        m = a_map(terrain={(5, 5): terrain},
+                  units=[{"x": 5, "y": 5, "type": kind, "team": 0,
+                          "hp": 100000000, "gas": 99, "ammo": 0}])
+        return codes(validate.check(m))
+
+    def test_a_ship_in_the_sea_is_fine(self):
+        for ship in (self.BATTLESHIP, self.CRUISER, self.SUB, self.LANDER):
+            self.assertNotIn("unit.aground", self.placed(ship, self.SEA))
+
+    def test_a_ship_on_land_is_refused(self):
+        self.assertIn("unit.aground", self.placed(self.BATTLESHIP, self.PLAINS))
+
+    def test_a_ship_on_a_shoal_is_refused(self):
+        self.assertIn("unit.aground", self.placed(self.CRUISER, self.SHOAL))
+
+    def test_a_lander_on_a_shoal_is_the_exception(self):
+        """Beaching is what a lander is for."""
+        self.assertNotIn("unit.aground", self.placed(self.LANDER, self.SHOAL))
+
+    def test_a_ship_in_a_river_is_refused(self):
+        self.assertIn("unit.aground", self.placed(self.SUB, self.RIVER))
+
+    def test_a_ship_on_a_reef_is_fine(self):
+        self.assertNotIn("unit.aground", self.placed(self.CRUISER, self.REEF))
+
+    def test_a_vehicle_in_the_sea_is_refused(self):
+        self.assertIn("unit.adrift", self.placed(self.TANK, self.SEA))
+
+    def test_a_vehicle_in_a_river_is_refused(self):
+        self.assertIn("unit.inRiver", self.placed(self.TANK, self.RIVER))
+
+    def test_infantry_may_wade(self):
+        self.assertNotIn("unit.inRiver", self.placed(self.INFANTRY, self.RIVER))
+        self.assertNotIn("unit.adrift", self.placed(self.INFANTRY, self.RIVER))
+
+    def test_a_mech_may_wade_too(self):
+        self.assertNotIn("unit.inRiver", self.placed(self.MECH, self.RIVER))
+
+    def test_infantry_still_cannot_stand_in_the_sea(self):
+        """Wading a river is not swimming."""
+        self.assertIn("unit.adrift", self.placed(self.INFANTRY, self.SEA))
+
+    def test_a_vehicle_may_cross_a_bridge(self):
+        """A bridge is the land it carries."""
+        self.assertNotIn("unit.inRiver", self.placed(self.TANK, self.BRIDGE))
+        self.assertNotIn("unit.adrift", self.placed(self.TANK, self.BRIDGE))
+
+    def test_aircraft_go_anywhere(self):
+        for terrain in (self.SEA, self.RIVER, self.PLAINS, self.SHOAL):
+            found = self.placed(self.BOMBER, terrain)
+            self.assertNotIn("unit.adrift", found)
+            self.assertNotIn("unit.aground", found)
+            self.assertNotIn("unit.inRiver", found)
+
+    def test_these_block_publishing(self):
+        """A ship that cannot move is not a design choice."""
+        m = a_map(terrain={(5, 5): self.PLAINS},
+                  units=[{"x": 5, "y": 5, "type": self.BATTLESHIP, "team": 0,
+                          "hp": 100000000, "gas": 99, "ammo": 0}])
+        self.assertTrue([f for f in validate.check(m).errors
+                         if f.code == "unit.aground"])
+
+
 if __name__ == "__main__":
     unittest.main()

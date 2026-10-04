@@ -15,7 +15,7 @@ is correct.
 from dataclasses import dataclass, field
 
 from . import autotile
-from .model import CAPTURABLE, Map
+from .model import CAPTURABLE, SEAPORT, Map
 
 RIVER = 16
 
@@ -167,6 +167,7 @@ def check(m: Map) -> Report:
     _check_river_width(m, r)
     _check_labels(m, r)
     _check_name(m, r)
+    _check_unit_terrain(m, r)
 
     return r
 
@@ -245,6 +246,83 @@ def _check_name(m: Map, r: Report) -> None:
         r.add("name.space", WARNING,
               "the name has space around it, which is invisible and easy to "
               "lose track of", "name")
+
+
+#: What a unit can stand on, by how it moves.
+#:
+#: Placement, not pathfinding. A unit that cannot reach the rest of the map is
+#: a design decision and the author's business. A unit standing somewhere its
+#: own movement type cannot be is a mistake - the game's own editor would not
+#: let anybody make one, so a map carrying it did not come from there.
+#:
+#: Ids are the unit table the editor shows in web/terrain.js.
+NAVY = frozenset([6, 7, 16])              # battleship, cruiser, submarine
+LANDER = 10                               # the one ship that beaches
+FOOT = frozenset([9, 11])                 # infantry, mech
+AIR = frozenset([4, 5, 8, 18])            # copters, bomber, fighter
+
+#: Water a ship floats in. A seaport is in here because that is where ships
+#: dock; it is also walkable, which is why it is not in the land-unit refusal
+#: below. A reef is water a ship sits in.
+AFLOAT = frozenset([autotile.SEA, autotile.REEF, SEAPORT])
+
+
+def _movement(kind):
+    """How a unit gets about: navy, lander, foot, air, or wheels and tracks."""
+    if kind in NAVY:
+        return "navy"
+    if kind == LANDER:
+        return "lander"
+    if kind in FOOT:
+        return "foot"
+    if kind in AIR:
+        return "air"
+    return "vehicle"
+
+
+def _check_unit_terrain(m: Map, r: Report) -> None:
+    """Every unit has to start somewhere its movement type can be.
+
+    Four rules, and the exceptions are most of the point:
+
+      - A ship belongs in water. A lander may also sit on a shoal, because
+        beaching is what a lander is for.
+      - Wheels and tracks stay out of deep water and out of rivers.
+      - Infantry and mech may stand in a river. They wade.
+      - Aircraft go anywhere, which is what flying means.
+
+    A bridge is the land it carries, so anything on wheels may start on one.
+    """
+    for x, y, u in m.iter_units():
+        kind = getattr(u, "type", None)
+        if kind is None:
+            continue
+        terrain = m.tiles[x][y].type
+        how = _movement(kind)
+
+        if how == "air":
+            continue
+
+        if how in ("navy", "lander"):
+            allowed = set(AFLOAT)
+            if how == "lander":
+                allowed.add(autotile.SHOAL)
+            if terrain not in allowed:
+                r.add("unit.aground", ERROR,
+                      "the ship at (%d,%d) is not in water%s"
+                      % (x, y, "" if how == "lander"
+                         else "; only a lander may sit on a shoal"),
+                      "units")
+            continue
+
+        if terrain in AFLOAT:
+            r.add("unit.adrift", ERROR,
+                  "the land unit at (%d,%d) is in deep water" % (x, y),
+                  "units")
+        elif terrain == autotile.RIVER and how != "foot":
+            r.add("unit.inRiver", ERROR,
+                  "the vehicle at (%d,%d) is in a river; only infantry and "
+                  "mech can wade" % (x, y), "units")
 
 
 def _check_labels(m: Map, r: Report) -> None:

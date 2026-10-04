@@ -53,7 +53,10 @@ export const NEUTRAL = { name: 'Neutral', color: '#b4b4b4' };
 // Sequential enum; see docs/id-tables.md for how the names were established.
 export const UNITS = {
   1:  'Anti-Air',      2:  'APC',          3:  'Artillery',
-  4:  'Battle Copter', 5:  'Battleship',   6:  'Bomber',
+  // 5 is the bomber and 6 the battleship. Checked against eight real
+  // maps from a save, one of them holding every unit: exactly four ids
+  // ever sit on water - 6, 7, 10, 16 - and those are the four ships.
+  4:  'Battle Copter', 5:  'Bomber',       6:  'Battleship',
   7:  'Cruiser',       8:  'Fighter',      9:  'Infantry',
   10: 'Lander',        11: 'Mech',         12: 'Medium Tank',
   13: 'Missile',       14: 'Recon',        15: 'Rocket',
@@ -63,7 +66,7 @@ export const UNITS = {
 
 // Short labels for drawing on a tile. Chosen to stay distinct at 2 characters.
 export const UNIT_ABBR = {
-  1: 'AA', 2: 'AP', 3: 'AR', 4: 'BC', 5: 'BS', 6: 'BM', 7: 'CR',
+  1: 'AA', 2: 'AP', 3: 'AR', 4: 'BC', 5: 'BM', 6: 'BS', 7: 'CR',
   8: 'FT', 9: 'IN', 10: 'LD', 11: 'ME', 12: 'MD', 13: 'MS', 14: 'RC',
   15: 'RK', 16: 'SU', 17: 'TK', 18: 'TC', 19: 'NT',
 };

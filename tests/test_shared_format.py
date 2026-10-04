@@ -127,5 +127,29 @@ class TheNameRules(unittest.TestCase):
         self.assertEqual([f.code for f in validate.check(m).errors], [])
 
 
+class TheUnitIds(unittest.TestCase):
+    """Which id is which unit, pinned.
+
+    5 and 6 were the wrong way round in both repositories' tables and in the
+    sprite pack, so a bomber drew as a battleship and the placement rules
+    refused the wrong unit. Eight real maps from a save settle it: exactly
+    four ids ever sit on water - 6, 7, 10 and 16 - and those are the ships.
+    """
+
+    def test_the_four_ships_are_the_four_ids_seen_on_water(self):
+        from awrbc.core import validate
+        ships = set(validate.NAVY) | {validate.LANDER}
+        self.assertEqual(ships, {6, 7, 10, 16})
+
+    def test_the_bomber_flies(self):
+        from awrbc.core import validate
+        self.assertIn(5, validate.AIR)
+        self.assertNotIn(5, validate.NAVY)
+
+    def test_infantry_and_mech_are_the_ones_that_wade(self):
+        from awrbc.core import validate
+        self.assertEqual(set(validate.FOOT), {9, 11})
+
+
 if __name__ == "__main__":
     unittest.main()
