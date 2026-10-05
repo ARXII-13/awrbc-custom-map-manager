@@ -35,6 +35,11 @@ jobs:
           # no Submit button, which is correct: edit-and-export is a complete
           # tool, and a button that cannot work is worse than none.
           INTAKE_URL: ${{ vars.INTAKE_URL }}
+          # Where maps are uploaded while there is no intake server: a form
+          # whoever runs the archive works through by hand. Ignored when
+          # INTAKE_URL is set, because the real path is better than the
+          # manual one and two routes would only ask people to choose.
+          SHARE_URL: ${{ vars.SHARE_URL }}
         run: |
           mkdir -p site
           cp -r web/* site/
@@ -60,6 +65,24 @@ jobs:
           PY
           else
             echo "::notice title=No intake server::INTAKE_URL is not set, so the editor deploys without a Submit button. Set it under Settings > Secrets and variables > Actions > Variables."
+          fi
+
+          if [ -n "$SHARE_URL" ]; then
+            python - "$SHARE_URL" <<'PY'
+          import io, sys
+          url = sys.argv[1].strip()
+          assert url.startswith('https://'), (
+              'SHARE_URL must be https - the editor refuses anything else, '
+              'so an http form would deploy a link that does nothing')
+          p = 'site/index.html'
+          s = io.open(p, encoding='utf-8').read()
+          before = s
+          s = s.replace('<meta name="awrbc-share" content="">',
+                        '<meta name="awrbc-share" content="%s">' % url)
+          assert s != before, 'the share meta tag was not found'
+          io.open(p, 'w', encoding='utf-8', newline='\n').write(s)
+          print('share form set to', url)
+          PY
           fi
 
       # The pack ships in the repository (decision #56), so there is nothing
