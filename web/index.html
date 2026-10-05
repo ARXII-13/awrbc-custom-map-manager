@@ -93,7 +93,8 @@
 <body>
 <header>
   <button id="new">New</button>
-  <label class="btn">Open<input id="file" type="file" accept=".json" hidden></label>
+  <label class="btn" title="A map .json, or an Export bundle .zip">Open<input
+    id="file" type="file" accept=".json,.zip" hidden></label>
   <button id="export">Export</button>
   <button id="bundle" title="Map JSON and a preview image, zipped for submitting">Export bundle</button>
   <button id="submit" hidden title="Send this map to the public archive">Submit</button>
@@ -172,7 +173,7 @@ import { UNITS, TEAMS, TERRAIN_PALETTE, STRUCTURES, NEUTRAL_STRUCTURES,
 import { loadPack, packLabel, spriteFor } from "./sprites.js";
 import { createEditor, emptyMap, stats } from "./edit.js";
 import { available as repairsFor } from "./fixes.js";
-import { zip } from "./zip.js";
+import { zip, mapFromBundle } from "./zip.js";
 import { intakeBase } from "./intake.js";
 import { attachSubmit } from "./submit-ui.js";
 
@@ -736,13 +737,22 @@ document.getElementById("new").onclick = () => {
   load(emptyMap(cols, rows, "Untitled"));
 };
 
-document.getElementById("file").onchange = (e) => {
+// Opens either half of what Export offers. The editor could write a bundle
+// and not read one back, so a map exported that way had no road home.
+document.getElementById("file").onchange = async (e) => {
   const f = e.target.files[0];
   if (!f) return;
-  f.text().then((t) => {
-    try { load(JSON.parse(t)); }
-    catch (err) { alert("Not a map JSON: " + err.message); }
-  });
+  e.target.value = "";               // so the same file can be picked twice
+  try {
+    const doc = f.name.toLowerCase().endsWith(".zip")
+      ? await mapFromBundle(await f.arrayBuffer())
+      : JSON.parse(await f.text());
+    load(doc);
+  } catch (err) {
+    alert(`Could not open ${f.name}:
+
+${err.message}`);
+  }
 };
 
 // Flags are omitted on purpose: `awrbc import` derives them from terrain, so

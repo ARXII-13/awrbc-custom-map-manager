@@ -8,7 +8,7 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 
-import { zip } from '../zip.js';
+import { mapFromBundle, unzip, zip } from '../zip.js';
 
 const LOCAL = 0x04034b50;
 const CENTRAL = 0x02014b50;
@@ -144,5 +144,114 @@ describe('a zip', () => {
     const a = await bytes(zip({ 'a.txt': 'x' }, when));
     const b = await bytes(zip({ 'a.txt': 'x' }, when));
     assert.deepEqual(Array.from(a), Array.from(b));
+  });
+});
+
+describe('reading one back', () => {
+  // The editor could write a bundle and not open one, so a map exported that
+  // way had no road home - Open took a bare .json only. These go through the
+  // writer and back, because a reader tested against hand-built bytes can
+  // agree with a writer that is wrong.
+
+  const aMap = {
+    schema: 1, name: 'Twin Rivers', author: 'debbie',
+    size: { cols: 12, rows: 10 }, fog: false, waterColor: 0,
+    terrain: [[1, 2], [2, 1]], cells: [{ x: 1, y: 1, team: 0 }], units: [],
+  };
+
+  const bundle = () => zip({
+    'map.json': JSON.stringify(aMap, null, 1),
+    'preview.png': new Uint8Array([0x89, 0x50, 0x4E, 0x47, 1, 2, 3]).buffer,
+  });
+
+  it('finds every file that was put in', async () => {
+    const got = await unzip(await bundle().arrayBuffer());
+    assert.deepEqual(Object.keys(got).sort(), ['map.json', 'preview.png']);
+  });
+
+  it('gives back exactly the bytes that went in', async () => {
+    const got = await unzip(await bundle().arrayBuffer());
+    assert.deepEqual([...got['preview.png']], [0x89, 0x50, 0x4E, 0x47, 1, 2, 3]);
+  });
+
+  it('round-trips the map itself', async () => {
+    const got = await mapFromBundle(await bundle().arrayBuffer());
+    assert.deepEqual(got, aMap);
+  });
+
+  it('survives a zip comment', async () => {
+    // Ours never has one; somebody else's might, and the end-of-central
+    // record is then not at the very end.
+    const raw = new Uint8Array(await bundle().arrayBuffer());
+    const commented = new Uint8Array(raw.length + 5);
+    commented.set(raw);
+    commented.set([0x68, 0x69, 0x21, 0x21, 0x21], raw.length);
+    // The comment length field has to agree, or it is a damaged zip.
+    const view = new DataView(commented.buffer);
+    view.setUint16(raw.length - 2, 5, true);
+    assert.deepEqual(await mapFromBundle(commented.buffer), aMap);
+  });
+
+  it('refuses something that is not a zip at all', async () => {
+    const junk = new TextEncoder().encode('this is a map, honest').buffer;
+    await assert.rejects(() => mapFromBundle(junk), /not a zip/);
+  });
+
+  it('refuses a zip with no map in it', async () => {
+    const other = await zip({ 'notes.txt': 'nothing to do with maps' })
+      .arrayBuffer();
+    await assert.rejects(() => mapFromBundle(other), /no map\.json/);
+  });
+
+  it('finds a map.json inside a folder', async () => {
+    // Some tools add one when re-zipping.
+    const nested = zip({ 'bundle/map.json': JSON.stringify(aMap) });
+    assert.deepEqual(await mapFromBundle(await nested.arrayBuffer()), aMap);
+  });
+});
+
+describe('a zip somebody else made', () => {
+  // Our own writer puts the same extra field in the local header and the
+  // central entry, so the two agree and a reader that confuses them still
+  // works - on our bundles. Other tools pad the local header (alignment,
+  // timestamps), and then the data does not start where the central entry
+  // implies. Built by hand here because our writer cannot produce it.
+
+  const aMap = { schema: 1, name: 'Padded', size: { cols: 2, rows: 2 } };
+
+  /** Our zip, with `pad` bytes of extra spliced into the local header. */
+  async function withLocalExtra(pad) {
+    const raw = new Uint8Array(
+      await zip({ 'map.json': JSON.stringify(aMap) }).arrayBuffer());
+    const view = new DataView(raw.buffer);
+
+    const nameLen = u16(raw, 26);
+    const extraLen = u16(raw, 28);
+    const dataAt = 30 + nameLen + extraLen;
+
+    const out = new Uint8Array(raw.length + pad);
+    out.set(raw.subarray(0, dataAt), 0);              // header
+    out.set(new Uint8Array(pad).fill(0xAA), dataAt);  // the padding
+    out.set(raw.subarray(dataAt), dataAt + pad);      // everything after
+
+    const edit = new DataView(out.buffer);
+    edit.setUint16(28, extraLen + pad, true);         // local extra length
+
+    // One entry, so only the central directory's own offset moves.
+    const end = out.length - 22;
+    edit.setUint32(end + 16, u32(raw, raw.length - 22 + 16) + pad, true);
+    return out.buffer;
+  }
+
+  it('reads it, because the data offset comes from the local header',
+     async () => {
+    assert.deepEqual(await mapFromBundle(await withLocalExtra(16)), aMap);
+  });
+
+  it('reads it whatever the padding is', async () => {
+    for (const pad of [1, 7, 64]) {
+      assert.deepEqual(await mapFromBundle(await withLocalExtra(pad)), aMap,
+                       `failed with ${pad} bytes of local extra`);
+    }
   });
 });
