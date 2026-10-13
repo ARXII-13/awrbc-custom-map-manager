@@ -289,6 +289,21 @@ export function createApp() {
       pr = await library.submit(outcome.branch, filesToCommit(outcome),
                                 outcome.title, outcome.body);
     } catch (e) {
+      // Already waiting for review is the submitter's situation, not a
+      // server fault, so it is answered as one: 409 with the pull request
+      // they already have. It used to arrive as a bare 502 "could not open
+      // the pull request", which gave somebody who had simply sent the same
+      // map twice nothing to act on - and no way back to a link they may
+      // never have seen.
+      if (e instanceof github.AlreadySubmitted) {
+        res.status(409).json({
+          error: 'that map is already waiting for review',
+          code: 'already-submitted',
+          pullRequest: e.pullRequest,
+          number: e.number,
+        });
+        return;
+      }
       res.status(502).json({
         error: `could not open the pull request: ${(e as Error).message}`,
         code: 'github' });

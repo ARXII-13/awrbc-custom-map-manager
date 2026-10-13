@@ -905,9 +905,21 @@ attachSubmit({
   // The pull request is the only handle an anonymous contributor has on their
   // submission, so it is kept before it is announced - the toast can be
   // dismissed or missed, the toolbar entry cannot.
-  onSubmitted(result, name) {
+  onSubmitted(result, name, opts) {
+    const already = opts && opts.already;
+    // The archive could not find the open pull request to point at. Rare, and
+    // not worth an error - but a toast offering a link to nowhere is worse
+    // than one that simply says what happened.
+    if (!result.pullRequest) {
+      toast(already
+        ? "That map is already waiting for review."
+        : "Submitted, but the pull request link did not come back.");
+      return;
+    }
     submissions.remember(result, name);
-    toast("Submitted. A pull request is open for review.", {
+    toast(already
+      ? "That map is already waiting for review - here is the pull request."
+      : "Submitted. A pull request is open for review.", {
       action: {
         href: result.pullRequest,
         label: result.number ? "Open #" + result.number : "Open",

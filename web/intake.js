@@ -82,11 +82,17 @@ export async function signOut(base, fetchImpl = fetch) {
  * their editor again.
  */
 export class SubmitRejected extends Error {
-  constructor(message, code, findings, folder = '') {
+  constructor(message, code, findings, folder = '',
+              pullRequest = '', number = 0) {
     super(message);
     this.name = 'SubmitRejected';
     this.code = code;
     this.findings = findings ?? [];
+    /** On `already-submitted`, the pull request this map already has. The
+     *  submitter has no account to look it up from, so a refusal that knows
+     *  the link is the one chance to hand it back. */
+    this.pullRequest = pullRequest;
+    this.number = number;
     /** On a `conflict`, the archive folder that already holds this name -
      *  so a caller can offer to revise it rather than making somebody read
      *  a path out of the message. */
@@ -128,7 +134,9 @@ export async function submit(base, { bundle, agree, update, fetchImpl = fetch })
       body?.error || `the server said ${res.status}`,
       body?.code || String(res.status),
       body?.findings,
-      body?.folder || '');
+      body?.folder || '',
+      body?.pullRequest || '',
+      body?.number || 0);
   }
   return body;
 }

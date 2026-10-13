@@ -163,9 +163,20 @@ export function attachSubmit({ base, button, label, signOut, bundle,
         await send(zip, doc.name, err.folder);
       }
     } catch (err) {
-      alert(err instanceof intake.SubmitRejected
-        ? intake.explain(err)
-        : 'Submission failed: ' + err.message);
+      // Already waiting for review is not a failure the submitter caused by
+      // doing anything wrong - most often they never saw the first pull
+      // request, or assumed it had not worked. So it is answered with the
+      // link rather than an apology, and recorded, which is how somebody who
+      // lost it gets it back.
+      if (err instanceof intake.SubmitRejected &&
+          err.code === 'already-submitted' && onSubmitted) {
+        onSubmitted({ pullRequest: err.pullRequest, number: err.number },
+                    doc.name, { already: true });
+      } else {
+        alert(err instanceof intake.SubmitRejected
+          ? intake.explain(err)
+          : 'Submission failed: ' + err.message);
+      }
     } finally {
       button.disabled = false;
       show();

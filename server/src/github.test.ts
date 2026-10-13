@@ -14,7 +14,7 @@
 import assert from 'node:assert/strict';
 import { afterEach, describe, it } from 'node:test';
 
-import { GitHubError, Library } from './github.js';
+import { AlreadySubmitted, GitHubError, Library } from './github.js';
 
 const TOKEN = 'ghp_notarealtoken';
 
@@ -187,12 +187,15 @@ describe('a whole submission', () => {
   it('stops at the first failure rather than carrying on', async () => {
     // Committing onto a branch that was never created is a pile of 404s, and
     // the pull request would open against nothing.
+    // A server fault rather than 422 "Reference already exists": that one is
+    // translated into AlreadySubmitted and has its own tests below, including
+    // that it also commits nothing.
     const seen = stub([
       { body: { object: { sha: 'head1' } } },
-      { status: 422, body: { message: 'Reference already exists' } },
+      { status: 403, body: { message: 'Resource not accessible' } },
     ]);
     await assert.rejects(() => library().submit('b', files, 't', 'b'),
-                         (e: GitHubError) => e.status === 422);
+                         (e: GitHubError) => e.status === 403);
     assert.equal(seen.length, 2,
                  'nothing was committed after the branch failed');
   });
@@ -233,5 +236,86 @@ describe('when GitHub says no', () => {
     // answer with nothing at all - where JSON.parse('') would throw.
     stub([{ body: undefined }]);
     await assert.doesNotReject(() => library().createBranch('b', 'sha'));
+  });
+});
+
+describe('a map that is already waiting for review', () => {
+  // Branch names come from the map, not the moment, so sending the same map
+  // twice asks for a ref that exists. That is somebody re-sending because
+  // they never saw the first pull request - not a server fault - and it has
+  // to arrive as something the editor can act on.
+  const refExists = {
+    status: 422,
+    body: { message: 'Reference already exists' },
+  };
+
+  it('reports it as itself, with the pull request already open', async () => {
+    stub([
+      { body: { object: { sha: 'abc123' } } },          // headSha
+      refExists,                                        // createBranch
+      { body: [{ html_url: 'https://gh/pull/7', number: 7 }] },  // lookup
+    ]);
+    const err = await library()
+      .submit('submit/daibi-v1-pat', {}, 'Add daibi', 'body')
+      .then(() => null, (e: unknown) => e);
+
+    assert.ok(err instanceof AlreadySubmitted, 'expected AlreadySubmitted');
+    assert.equal(err.branch, 'submit/daibi-v1-pat');
+    assert.equal(err.pullRequest, 'https://gh/pull/7');
+    assert.equal(err.number, 7);
+  });
+
+  it('commits nothing', async () => {
+    // Same reason the other branch failures stop here: the files would be
+    // going onto somebody's pull request that is already under review.
+    const seen = stub([
+      { body: { object: { sha: 'abc123' } } },
+      refExists,
+      { body: [] },
+    ]);
+    await library()
+      .submit('submit/x-v1-y', { 'maps/a/b/v1.json': Buffer.from('{}') },
+              't', 'b')
+      .catch(() => {});
+    assert.equal(seen.filter((c) => c.method === 'PUT').length, 0);
+  });
+
+  it('asks for the open pull request on that branch only', async () => {
+    const seen = stub([
+      { body: { object: { sha: 'abc123' } } },
+      refExists,
+      { body: [] },
+    ]);
+    await library().submit('submit/daibi-v1-pat', {}, 't', 'b').catch(() => {});
+    assert.match(seen[2]!.url, /state=open/);
+    assert.match(seen[2]!.url, /head=owner%3Asubmit%2Fdaibi-v1-pat/);
+  });
+
+  it('still reports it when the pull request cannot be found', async () => {
+    // Best effort: a failed lookup must not replace the error being
+    // explained with a worse one about the explanation.
+    stub([
+      { body: { object: { sha: 'abc123' } } },
+      refExists,
+      { status: 500, body: { message: 'nope' } },
+    ]);
+    const err = await library().submit('submit/x-v1-y', {}, 't', 'b')
+      .then(() => null, (e: unknown) => e);
+    assert.ok(err instanceof AlreadySubmitted);
+    assert.equal(err.pullRequest, '');
+  });
+
+  it('leaves any other branch failure as a server fault', async () => {
+    // Only 422 "Reference already exists" is about the submitter. A 403 is
+    // ours, and dressing it up as "already submitted" would send somebody
+    // looking for a pull request that was never opened.
+    stub([
+      { body: { object: { sha: 'abc123' } } },
+      { status: 403, body: { message: 'Resource not accessible' } },
+    ]);
+    const err = await library().submit('submit/x-v1-y', {}, 't', 'b')
+      .then(() => null, (e: unknown) => e);
+    assert.ok(err instanceof GitHubError, 'expected GitHubError');
+    assert.equal(err.status, 403);
   });
 });

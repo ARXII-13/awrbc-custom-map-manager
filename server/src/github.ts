@@ -21,6 +21,25 @@ export class GitHubError extends Error {
   }
 }
 
+/**
+ * The submitter already has this map awaiting review.
+ *
+ * Branch names are derived from the map, not from the moment - `submit/<slug>-
+ * v<n>-<author>` - so sending the same map twice asks GitHub to create a ref
+ * that is already there. That is a recoverable, ordinary thing for somebody to
+ * do, usually because they never saw the pull request link or assumed the
+ * first attempt failed. Reported as itself rather than folded into "could not
+ * open the pull request", which told them nothing they could act on.
+ */
+export class AlreadySubmitted extends Error {
+  constructor(readonly branch: string,
+              readonly pullRequest = '',
+              readonly number = 0) {
+    super('this map is already waiting for review');
+    this.name = 'AlreadySubmitted';
+  }
+}
+
 export interface Committer {
   name: string;
   email: string;
@@ -82,6 +101,25 @@ export class Library {
                     { ref: `refs/heads/${name}`, sha: fromSha });
   }
 
+  /** The open pull request for a branch, if there is one.
+   *
+   *  Best effort on purpose: it exists to put a link in an error message, so
+   *  a failure here must not replace the error being explained with a worse
+   *  one about the explanation. */
+  async openPullRequestFor(branch: string):
+      Promise<{ url: string; number: number } | null> {
+    const owner = this.repo.split('/')[0];
+    try {
+      const found = await this.call<{ html_url: string; number: number }[]>(
+        'GET', `/repos/${this.repo}/pulls?state=open&head=`
+               + encodeURIComponent(`${owner}:${branch}`));
+      const pr = found[0];
+      return pr ? { url: pr.html_url, number: pr.number } : null;
+    } catch {
+      return null;
+    }
+  }
+
   /**
    * Create a file on a branch.
    *
@@ -113,7 +151,20 @@ export class Library {
    *  costs nothing that matters. */
   async submit(branch: string, files: Record<string, Buffer>, title: string,
                body: string): Promise<{ url: string; number: number }> {
-    await this.createBranch(branch, await this.headSha());
+    try {
+      await this.createBranch(branch, await this.headSha());
+    } catch (e) {
+      // 422 "Reference already exists" is the only failure here that is about
+      // the submitter rather than about us, so it is the only one translated.
+      // Everything else stays a GitHubError and reads as a server fault,
+      // because that is what it is.
+      if (e instanceof GitHubError && e.status === 422 &&
+          /Reference already exists/i.test(e.message)) {
+        const pr = await this.openPullRequestFor(branch);
+        throw new AlreadySubmitted(branch, pr?.url ?? '', pr?.number ?? 0);
+      }
+      throw e;
+    }
     for (const [path, content] of Object.entries(files)) {
       await this.putFile(branch, path, content, title);
     }
