@@ -19,7 +19,7 @@ import * as intake from './intake.js';
  * being edited. The caller owns both, which is what keeps this portable.
  */
 export function attachSubmit({ base, button, label, signOut, bundle,
-                               currentDoc, stats }) {
+                               currentDoc, stats, onSubmitted }) {
   // No intake server configured: no Submit button. A checkout, or a deploy
   // without one, is edit-and-export only - which is a complete tool on its
   // own. A button that cannot work is worse than no button.
@@ -95,19 +95,23 @@ export function attachSubmit({ base, button, label, signOut, bundle,
       'history even if the file is later removed.');
   }
 
-  /** Send one bundle, and report the pull request.
+  /** Send one bundle, and hand the pull request to whoever is keeping them.
    *
    *  `update` names an existing folder when this is a revision of it. Whether
    *  that revision is allowed is the archive's decision, not this one: a map
-   *  published by somebody else is refused again, for a different reason. */
-  async function send(zip, update) {
+   *  published by somebody else is refused again, for a different reason.
+   *
+   *  Announced rather than asked. This was a `confirm()`, which destroyed the
+   *  pull request URL the moment it was dismissed - and for a contributor with
+   *  no account that URL is the only handle they have on their own submission.
+   *  `onSubmitted` is what keeps it. Where it is kept, and what is shown while
+   *  it is, are the caller's business and not this module's. */
+  async function send(zip, name, update) {
     const result = await intake.submit(base, {
       bundle: zip, agree: true, update,
     });
-    if (confirm('Submitted. A pull request is open for review:\n\n' +
-                result.pullRequest + '\n\nOpen it now?')) {
-      open(result.pullRequest, '_blank', 'noopener');
-    }
+    if (onSubmitted) onSubmitted(result, name);
+    return result;
   }
 
   /** Ask whether a name clash is a revision, and say what each answer means.
@@ -148,7 +152,7 @@ export function attachSubmit({ base, button, label, signOut, bundle,
       // screen by the time the question gets answered.
       const zip = await bundle();
       try {
-        await send(zip);
+        await send(zip, doc.name);
       } catch (err) {
         // A name clash is the one refusal with something to offer: most
         // often the submitter simply did not say this was a new version.
@@ -156,7 +160,7 @@ export function attachSubmit({ base, button, label, signOut, bundle,
             err.code !== 'conflict' || !err.folder) throw err;
         if (!confirmRevision(err.folder, doc.name)) throw err;
         button.textContent = 'Submitting revision…';
-        await send(zip, err.folder);
+        await send(zip, doc.name, err.folder);
       }
     } catch (err) {
       alert(err instanceof intake.SubmitRejected

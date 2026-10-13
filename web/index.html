@@ -31,6 +31,7 @@
   header {
     flex: none; display: flex; gap: 6px; align-items: center; flex-wrap: wrap;
     padding: 8px 12px; background: var(--panel); border-bottom: 1px solid var(--line);
+    position: relative;
   }
   #body { flex: 1; display: flex; min-height: 0; }
   #stage { flex: 1; position: relative; min-width: 0; }
@@ -47,6 +48,39 @@
   }
   h2:first-child { margin-top: 0; }
   .sub { color: var(--muted); font-size: 12px; }
+  /* The submitter's own history. There is no account behind this - it is
+     whatever this browser happens to remember, which is why it says so. */
+  #submissions-panel {
+    position: absolute; top: 100%; left: 12px; z-index: 20; margin-top: 4px;
+    min-width: 264px; max-width: 380px; max-height: 50vh; overflow-y: auto;
+    background: var(--panel); border: 1px solid var(--line);
+    border-radius: 8px; padding: 8px;
+    box-shadow: 0 10px 28px rgba(0, 0, 0, .38);
+  }
+  .srow {
+    display: flex; align-items: baseline; justify-content: space-between;
+    gap: 12px; padding: 4px 2px;
+  }
+  .srow a, .toast a { color: var(--ink); }
+  .sfoot {
+    display: flex; align-items: center; justify-content: space-between;
+    gap: 12px; margin-top: 6px; padding-top: 6px;
+    border-top: 1px solid var(--line);
+  }
+  /* Announcements. Questions stay as dialogs - these cannot ask anything. */
+  #toasts {
+    position: fixed; right: 16px; bottom: 16px; z-index: 50;
+    display: flex; flex-direction: column; gap: 8px;
+  }
+  .toast {
+    display: flex; align-items: center; gap: 10px; max-width: 390px;
+    background: var(--panel); border: 1px solid var(--line);
+    border-radius: 8px; padding: 8px 10px;
+    box-shadow: 0 10px 28px rgba(0, 0, 0, .38);
+  }
+  .toast .x {
+    border: none; background: none; padding: 0 2px; color: var(--muted);
+  }
   button, label.btn, input[type=text] {
     font: inherit; padding: 5px 10px; border-radius: 7px; cursor: pointer;
     border: 1px solid var(--line); background: var(--panel); color: var(--ink);
@@ -107,6 +141,12 @@
      title="Download this map as a bundle and open the form to send it in">Submit a map…</a>
   <span id="who" class="sub" hidden></span>
   <button id="signout" hidden title="Forget this sign-in in this browser">Sign out</button>
+  <!-- Shown once this browser has sent something, with or without an intake
+       server configured now: a contributor who submitted yesterday against a
+       server that is down today has not stopped wanting their link. -->
+  <button id="submissions" hidden
+          title="Pull requests for maps you have sent from this browser">Submissions</button>
+  <div id="submissions-panel" hidden></div>
   <span class="sep"></span>
   <button data-tool="paint" aria-pressed="true" title="Paint terrain (B)">Paint</button>
   <button data-tool="fill" aria-pressed="false" title="Flood fill (G)">Fill</button>
@@ -184,6 +224,8 @@ import { zip, mapFromBundle } from "./zip.js";
 import { intakeBase } from "./intake.js";
 import { attachSubmit } from "./submit-ui.js";
 import { attachShare } from "./share-ui.js";
+import { attachSubmissions } from "./submissions-ui.js";
+import { toast } from "./toast.js";
 
 const canvas = document.getElementById("c");
 const ctx = canvas.getContext("2d");
@@ -843,6 +885,13 @@ attachShare({
 
 // Submitting to the archive. The wiring lives in submit-ui.js; this hands it
 // what it needs and nothing more, so it ports to the framework app unchanged.
+// Independent of the Submit button: this is about maps already sent, so it is
+// wired whether or not there is an intake server to send more to.
+const submissions = attachSubmissions({
+  button: document.getElementById("submissions"),
+  panel: document.getElementById("submissions-panel"),
+});
+
 attachSubmit({
   // ?intake= wins (for development), then whatever the deploy wrote
   // into the meta tag. No fallback to localhost: a hosted editor that
@@ -853,6 +902,18 @@ attachSubmit({
   signOut: document.getElementById("signout"),
   currentDoc: exportDocument,
   stats,
+  // The pull request is the only handle an anonymous contributor has on their
+  // submission, so it is kept before it is announced - the toast can be
+  // dismissed or missed, the toolbar entry cannot.
+  onSubmitted(result, name) {
+    submissions.remember(result, name);
+    toast("Submitted. A pull request is open for review.", {
+      action: {
+        href: result.pullRequest,
+        label: result.number ? "Open #" + result.number : "Open",
+      },
+    });
+  },
   async bundle() {
     const out = exportDocument();
     const canvas = poster(out, PREVIEW_TILE);
