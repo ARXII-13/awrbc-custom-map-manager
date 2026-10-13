@@ -48,10 +48,17 @@
   }
   h2:first-child { margin-top: 0; }
   .sub { color: var(--muted); font-size: 12px; }
+  /* Account and archive controls, held to the right of the toolbar. The auto
+     margin does the pushing, so nothing needs a fixed width and the bar still
+     wraps on a narrow window instead of overflowing. */
+  #account {
+    margin-left: auto; display: flex; gap: 6px; align-items: center;
+    flex-wrap: wrap;
+  }
   /* The submitter's own history. There is no account behind this - it is
      whatever this browser happens to remember, which is why it says so. */
   #submissions-panel {
-    position: absolute; top: 100%; left: 12px; z-index: 20; margin-top: 4px;
+    position: absolute; top: 100%; right: 12px; z-index: 20; margin-top: 4px;
     min-width: 264px; max-width: 380px; max-height: 50vh; overflow-y: auto;
     background: var(--panel); border: 1px solid var(--line);
     border-radius: 8px; padding: 8px;
@@ -132,21 +139,6 @@
     id="file" type="file" accept=".json,.zip" hidden></label>
   <button id="export">Export</button>
   <button id="bundle" title="Map JSON and a preview image, zipped for submitting">Export bundle</button>
-  <button id="submit" hidden title="Send this map to the public archive">Submit</button>
-  <!-- The manual route, for while there is no intake server: export the
-       bundle and open the form it gets uploaded to. An anchor rather than a
-       button because a popup blocker will stop window.open once the bundle
-       has been awaited, and a link is not a popup. -->
-  <a id="share" class="btn" hidden target="_blank" rel="noopener noreferrer"
-     title="Download this map as a bundle and open the form to send it in">Submit a map…</a>
-  <span id="who" class="sub" hidden></span>
-  <button id="signout" hidden title="Forget this sign-in in this browser">Sign out</button>
-  <!-- Shown once this browser has sent something, with or without an intake
-       server configured now: a contributor who submitted yesterday against a
-       server that is down today has not stopped wanting their link. -->
-  <button id="submissions" hidden
-          title="Pull requests for maps you have sent from this browser">Submissions</button>
-  <div id="submissions-panel" hidden></div>
   <span class="sep"></span>
   <button data-tool="paint" aria-pressed="true" title="Paint terrain (B)">Paint</button>
   <button data-tool="fill" aria-pressed="false" title="Flood fill (G)">Fill</button>
@@ -159,6 +151,27 @@
   <button id="redo" disabled>Redo</button>
   <button id="fit">Fit</button>
   <button id="check" hidden>Check</button>
+  <!-- Everything about the account and the archive sits together, pushed to
+       the right by #account's auto margin. Editing a map and having somewhere
+       to send it are different jobs, and the left of this bar is the first
+       one. -->
+  <div id="account">
+    <button id="submit" hidden title="Send this map to the public archive">Submit</button>
+    <!-- The manual route, for while there is no intake server: export the
+         bundle and open the form it gets uploaded to. An anchor rather than a
+         button because a popup blocker will stop window.open once the bundle
+         has been awaited, and a link is not a popup. -->
+    <a id="share" class="btn" hidden target="_blank" rel="noopener noreferrer"
+       title="Download this map as a bundle and open the form to send it in">Submit a map…</a>
+    <span id="who" class="sub" hidden></span>
+    <button id="signout" hidden title="Forget this sign-in in this browser">Sign out</button>
+  <!-- Shown once this browser has sent something, with or without an intake
+       server configured now: a contributor who submitted yesterday against a
+       server that is down today has not stopped wanting their link. -->
+    <button id="submissions" hidden
+            title="Maps you have sent, and what became of them">Submissions</button>
+  </div>
+  <div id="submissions-panel" hidden></div>
 </header>
 
 <div id="body">
