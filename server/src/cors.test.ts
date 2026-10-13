@@ -148,3 +148,55 @@ describe('the headers a browser needs', () => {
     assert.equal(res.headers.get('access-control-allow-origin'), ALSO_OURS);
   });
 });
+
+describe('a request from an origin that is not on the list', () => {
+  // The headers above only decide what a browser lets a page *read*. The
+  // request still ran. That was survivable while the session cookie was
+  // SameSite=Lax and never travelled cross-site - the editor being on another
+  // site made it SameSite=None, so this is now the thing standing between a
+  // signed-in contributor and a pull request opened in their name by any page
+  // they happen to visit.
+  let server: Server;
+  let base: string;
+
+  before(async () => {
+    server = createApp(await Store.open(':memory:')).listen(0);
+    await new Promise((r) => server.once('listening', r));
+    base = `http://127.0.0.1:${(server.address() as AddressInfo).port}`;
+  });
+
+  after(() => { server.close(); });
+
+  it('is refused when it would change something', async () => {
+    const res = await fetch(`${base}/submit`, {
+      method: 'POST',
+      headers: { origin: 'https://not-the-editor.example' },
+    });
+    assert.equal(res.status, 403);
+    assert.equal((await res.json()).code, 'bad-origin');
+  });
+
+  it('is allowed to read', async () => {
+    // Reading is already governed by the missing CORS headers, and /health
+    // exists to be reachable from anywhere when something is wrong.
+    const res = await fetch(`${base}/health`, {
+      headers: { origin: 'https://not-the-editor.example' },
+    });
+    assert.equal(res.status, 200);
+  });
+
+  it('does not refuse a request that declares no origin', async () => {
+    // curl, a script, the tests. No browser, so no ambient session to abuse -
+    // and refusing these would break every non-browser caller for nothing.
+    const res = await fetch(`${base}/submit`, { method: 'POST' });
+    assert.notEqual(res.status, 403);
+  });
+
+  it('lets the editor through', async () => {
+    const res = await fetch(`${base}/submit`, {
+      method: 'POST',
+      headers: { origin: EDITOR },
+    });
+    assert.notEqual(res.status, 403);
+  });
+});

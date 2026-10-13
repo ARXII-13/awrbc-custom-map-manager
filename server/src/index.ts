@@ -141,7 +141,14 @@ export function createApp(store: Store) {
     name: 'awrbc',
     keys: [config.sessionSecret],
     httpOnly: true,
-    sameSite: 'lax',
+    // The editor is served from a different site than this API - GitHub Pages
+    // and this domain - so a Lax cookie would never be sent on its fetches
+    // and nobody would ever appear signed in. None requires Secure, which is
+    // the other reason INSECURE_COOKIES must not be set anywhere public.
+    //
+    // What Lax was doing for free, cors.ts now does on purpose: a
+    // state-changing request from an origin not on the list is refused.
+    sameSite: config.insecureCookies ? 'lax' : 'none',
     secure: !config.insecureCookies,
     maxAge: 7 * 24 * 3600 * 1000,
   }));

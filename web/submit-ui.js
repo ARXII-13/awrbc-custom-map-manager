@@ -19,7 +19,8 @@ import * as intake from './intake.js';
  * being edited. The caller owns both, which is what keeps this portable.
  */
 export function attachSubmit({ base, button, label, signOut, bundle,
-                               currentDoc, stats, onSubmitted }) {
+                               currentDoc, stats, onSubmitted, authorNote,
+                               onAuthChange }) {
   // No intake server configured: no Submit button. A checkout, or a deploy
   // without one, is edit-and-export only - which is a complete tool on its
   // own. A button that cannot work is worse than no button.
@@ -50,11 +51,30 @@ export function attachSubmit({ base, button, label, signOut, bundle,
     // Only offered while there is something to sign out of. Optional, so an
     // embedder that lays the toolbar out differently can leave it out.
     if (signOut) signOut.hidden = !who.signedIn;
+
+    // Signing in takes the Author field out of the decision: the archive
+    // publishes the name on the account that sent the map, because that is
+    // the one thing here that was actually checked. Said next to the field
+    // rather than left to be discovered from a pull request - a box whose
+    // value is quietly discarded is worse than no box.
+    if (authorNote) {
+      authorNote.hidden = !who.signedIn;
+      if (who.signedIn) {
+        authorNote.textContent =
+          'Submitting publishes as ' + who.user.username
+          + '. This field is still used when you export a file.';
+      }
+    }
   }
 
   async function refresh() {
+    const was = who.signedIn ? who.user.id : '';
     who = await intake.whoAmI(base);
     show();
+    // Only on a real change, so the first call after a page load does not
+    // count as somebody signing in and send everything looking again.
+    const now = who.signedIn ? who.user.id : '';
+    if (was !== now && onAuthChange) onAuthChange(who);
   }
 
   /** Reasons the archive would refuse this, checked before uploading.

@@ -62,6 +62,28 @@ export function corsFor(allowed: string[]) {
       res.status(204).end();
       return;
     }
+
+    // Everything above only governs what a browser will let a page *read*.
+    // The request still ran. That was harmless while the session cookie was
+    // SameSite=Lax and simply never travelled on a cross-site POST - but the
+    // editor is served from a different site than this API, so the cookie has
+    // to be SameSite=None for signing in to work at all, and the protection
+    // Lax was quietly providing has to be made explicit.
+    //
+    // So: a state-changing request that declares an origin we do not know is
+    // refused outright. `multipart/form-data` is CORS-safelisted, which means
+    // a form on any page can POST to /submit without a preflight; without
+    // this, such a page could open a pull request in the name of whoever is
+    // signed in.
+    //
+    // Only when an origin is present. A browser always sends one on a
+    // cross-site POST; curl and the tests send none, and they carry no
+    // ambient session to abuse.
+    if (req.method !== 'GET' && req.method !== 'HEAD' &&
+        typeof origin === 'string' && !allowed.includes(origin)) {
+      res.status(403).json({ error: 'origin not allowed', code: 'bad-origin' });
+      return;
+    }
     next();
   };
 }

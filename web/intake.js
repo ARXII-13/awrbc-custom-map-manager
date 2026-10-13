@@ -142,6 +142,34 @@ export async function submit(base, { bundle, agree, update, fetchImpl = fetch })
 }
 
 /**
+ * What this account has submitted, from the server.
+ *
+ * The browser's own list (submissions.js) is per-browser by nature, which was
+ * the best that could be done without an identity. With one, the server knows
+ * the whole history and it follows somebody to another machine - so this wins
+ * where it answers, and the local list stays the fallback for signed-out use
+ * and for a server that cannot be reached.
+ *
+ * Returns null rather than throwing when there is no answer: a Submissions
+ * panel that cannot reach the server should quietly show what it has, not
+ * replace itself with an error.
+ */
+export async function mySubmissions(base, fetchImpl = fetch) {
+  if (!base) return null;
+  try {
+    const res = await fetchImpl(`${base}/submissions`, {
+      credentials: 'include',
+      headers: { accept: 'application/json' },
+    });
+    if (!res.ok) return null;              // 401 when signed out
+    const body = await res.json();
+    return Array.isArray(body?.submissions) ? body : null;
+  } catch {
+    return null;
+  }
+}
+
+/**
  * One line per problem, for showing a person.
  *
  * Severity is dropped on purpose: everything in `findings` on a rejection is

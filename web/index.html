@@ -172,6 +172,11 @@
            placeholder="map name">
     <input type="text" id="author" style="width:100%;margin-top:6px"
            placeholder="your name">
+    <!-- Shown only while signed in, when this field stops deciding anything
+         about a submission: the archive publishes the name on the account
+         that sent it. The field still travels in an exported file, so it is
+         not disabled - just no longer the answer to "who made this". -->
+    <div id="author-note" class="sub" style="margin-top:4px" hidden></div>
     <div class="row">
       <input type="number" id="cols" min="1" step="1">
       <span>x</span>
@@ -890,6 +895,10 @@ attachShare({
 const submissions = attachSubmissions({
   button: document.getElementById("submissions"),
   panel: document.getElementById("submissions-panel"),
+  // With an account, the server holds the whole history and it follows the
+  // person to another machine. Without one, the browser's own list is still
+  // the fallback.
+  base: INTAKE,
 });
 
 attachSubmit({
@@ -900,11 +909,15 @@ attachSubmit({
   button: document.getElementById("submit"),
   label: document.getElementById("who"),
   signOut: document.getElementById("signout"),
+  authorNote: document.getElementById("author-note"),
   currentDoc: exportDocument,
   stats,
   // The pull request is the only handle an anonymous contributor has on their
   // submission, so it is kept before it is announced - the toast can be
   // dismissed or missed, the toolbar entry cannot.
+  // Sign-in state changed, so whose submissions these are may have changed
+  // with it.
+  onAuthChange() { submissions.refresh(); },
   onSubmitted(result, name, opts) {
     const already = opts && opts.already;
     // The archive could not find the open pull request to point at. Rare, and
