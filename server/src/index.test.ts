@@ -14,7 +14,8 @@ import type { AddressInfo } from 'node:net';
 import type { Server } from 'node:http';
 
 import { newState, stateMatches } from './discord.js';
-import { createApp, rateLimited, recordSubmission, resetLimits, safeNext }
+import { Store } from './db.js';
+import { createApp, limitFrom, safeNext }
   from './index.js';
 
 describe('the oauth state check', () => {
@@ -79,35 +80,33 @@ describe('the next parameter', () => {
 });
 
 describe('rate limiting', () => {
+  // The limiter is now a pure function of when this account last submitted,
+  // and the submissions table is where those times come from. Keeping it
+  // pure is what lets it be tested without a clock or a database.
+  const NOW = Date.parse('2026-10-13T12:00:00.000Z');
+  const ago = (ms: number) => new Date(NOW - ms).toISOString();
+
   it('allows the first submission', () => {
-    resetLimits();
-    assert.equal(rateLimited('u1'), null);
+    assert.equal(limitFrom([], NOW), null);
   });
 
   it('slows the second within a minute', () => {
-    resetLimits();
-    recordSubmission('u1');
-    assert.match(rateLimited('u1') ?? '', /minute/);
-  });
-
-  it('is per account', () => {
-    resetLimits();
-    recordSubmission('u1');
-    assert.equal(rateLimited('u2'), null);
+    assert.match(limitFrom([ago(10_000)], NOW) ?? '', /minute/);
   });
 
   it('forgets a submission after an hour', () => {
-    resetLimits();
-    const longAgo = Date.now() - 3_700_000;
-    recordSubmission('u1', longAgo);
-    assert.equal(rateLimited('u1'), null);
+    assert.equal(limitFrom([ago(3_700_000)], NOW), null);
   });
 
   it('caps the hour even when they are spread out', () => {
-    resetLimits();
-    const now = Date.now();
-    for (let i = 0; i < 10; i++) recordSubmission('u1', now - (i + 1) * 120_000);
-    assert.match(rateLimited('u1', now) ?? '', /hour/);
+    const times = Array.from({ length: 10 }, (_, i) => ago((i + 1) * 120_000));
+    assert.match(limitFrom(times, NOW) ?? '', /hour/);
+  });
+
+  it('ignores a timestamp it cannot read', () => {
+    // The column is text. Something unparseable should not be counted as a
+    // submission that just happened, which would lock the account out.
+    assert.equal(limitFrom(['not a date'], NOW), null);
   });
 });
 
@@ -116,10 +115,9 @@ describe('the http surface', () => {
   let base: string;
 
   before(async () => {
-    server = createApp().listen(0);
+    server = createApp(await Store.open(':memory:')).listen(0);
     await new Promise((r) => server.once('listening', r));
     base = `http://127.0.0.1:${(server.address() as AddressInfo).port}`;
-    resetLimits();
   });
 
   after(() => { server.close(); });

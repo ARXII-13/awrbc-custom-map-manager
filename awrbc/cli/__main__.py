@@ -399,6 +399,14 @@ def cmd_prepare(args, out):
     json.dump({
         "ok": True,
         "kind": placement.kind,
+        # The content hash and the name the map will be published under. The
+        # server records both: the hash is the join key between the archive
+        # and anything keeping opinions about a map (decision #7), and the
+        # name is what a submitter would recognise their own submission by.
+        # Taken from the built document rather than recomputed, so there is
+        # one answer to "which map is this" and it is this one.
+        "id": prepared["document"]["id"],
+        "name": prepared["document"]["name"],
         "path": placement.path,
         "folder": placement.folder,
         "version": placement.version,

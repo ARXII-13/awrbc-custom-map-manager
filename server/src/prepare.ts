@@ -29,6 +29,11 @@ export interface Rejection {
 export interface Prepared {
   ok: true;
   kind: string;
+  /** The map's content hash - its identity, and the key anything else keys
+   *  on (decision #7). Computed by the validator, never here. */
+  id: string;
+  /** The name it will be published under. */
+  name: string;
   path: string;
   folder: string;
   version: number;

@@ -146,6 +146,34 @@ export class Library {
     return { url: pr.html_url, number: pr.number };
   }
 
+  /**
+   * What GitHub currently says about recent pull requests.
+   *
+   * One call for the lot rather than one per submission: a person with twenty
+   * submissions should not cost twenty round trips, and the rate limit is
+   * shared with everything else this token does.
+   *
+   * Bounded at the most recent `per_page`. Anything older than that window is
+   * simply absent from the result - the caller falls back to what it last
+   * recorded, and says how old that is, rather than guessing.
+   */
+  async pullRequestStates(perPage = 100):
+      Promise<Map<number, 'open' | 'merged' | 'closed'>> {
+    const prs = await this.call<{
+      number: number; state: string; merged_at: string | null;
+    }[]>('GET', `/repos/${this.repo}/pulls`
+               + `?state=all&per_page=${perPage}&sort=created&direction=desc`);
+    const out = new Map<number, 'open' | 'merged' | 'closed'>();
+    for (const pr of prs) {
+      // `state` only ever says open or closed; merged is a closed pull
+      // request that landed, and the two are not the same outcome to the
+      // person who submitted it.
+      out.set(pr.number,
+              pr.merged_at ? 'merged' : pr.state === 'open' ? 'open' : 'closed');
+    }
+    return out;
+  }
+
   /** Branch, commit each file, open the pull request. A submission is two
    *  files, so committing them one call at a time is simpler than a tree and
    *  costs nothing that matters. */

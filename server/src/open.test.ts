@@ -24,8 +24,9 @@ process.env['EDITOR_URL'] = 'http://127.0.0.1:8731/';
 // that the token is still demanded. The endpoint tests never reach GitHub -
 // they are refused for the licence or the missing file long before that.
 
-const { anonymousFrom, createApp, missingConfig, resetLimits } =
+const { anonymousFrom, createApp, missingConfig } =
   await import('./index.js');
+const { Store } = await import('./db.js');
 
 describe('who an anonymous submitter is', () => {
   it('is keyed on the address, with no name attached', () => {
@@ -64,8 +65,7 @@ describe('the open endpoint', () => {
   let base: string;
 
   before(async () => {
-    resetLimits();
-    server = createApp().listen(0);
+    server = createApp(await Store.open(':memory:')).listen(0);
     await new Promise((r) => server.once('listening', r));
     base = `http://127.0.0.1:${(server.address() as AddressInfo).port}`;
   });

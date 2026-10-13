@@ -17,6 +17,11 @@ services:
       # the Secure flag or no session survives. Never set this deployed; the
       # .env.example says so too, in the one other place somebody would look.
       INSECURE_COOKIES: "1"
+    volumes:
+      # The submissions database. Named here rather than left to the image's
+      # VOLUME, so `docker compose down` does not quietly strand it under a
+      # generated name nobody will recognise six months from now.
+      - ./data:/data
     ports:
       - "5000:5000"
     restart: unless-stopped

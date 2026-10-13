@@ -20,6 +20,7 @@ import { randomBytes } from 'node:crypto';
 import { corsFor, parseOrigins } from './cors.js';
 import * as discord from './discord.js';
 import * as github from './github.js';
+import { Store, type Submission } from './db.js';
 import { available, filesToCommit, prepare, PrepareFailed } from './prepare.js';
 
 const env = (name: string, fallback = '') => process.env[name] ?? fallback;
@@ -32,6 +33,9 @@ export const config = {
   publicUrl: env('PUBLIC_URL', 'http://127.0.0.1:5000'),
   editorUrl: env('EDITOR_URL', 'http://127.0.0.1:8731/'),
   awrbc: env('AWRBC_COMMAND', 'awrbc'),
+  // A file, on a volume that outlives the container. Inside the image it
+  // would be destroyed by every deploy, silently and completely.
+  dbPath: env('DB_PATH', '/data/awrbc.db'),
   // A fresh key per restart signs everybody out, which is the right failure
   // for a missing setting. A hardcoded default is the kind of thing that
   // survives into production and lets anyone forge a session.
@@ -81,30 +85,24 @@ export function anonymousFrom(req: { ip?: string | undefined }) {
   return { id: `ip:${req.ip ?? 'unknown'}`, username: '' };
 }
 
-/** One a minute, ten an hour, per account. In memory, so it resets on restart
- *  and does not survive two processes - honest for one small instance, and
- *  the first thing to replace when there is a database. A speed bump, not a
- *  wall. */
+/** One a minute, ten an hour, per account. A speed bump, not a wall.
+ *
+ *  Counted from the submissions themselves rather than a tally beside them:
+ *  two records of one fact is two things that can disagree, and the tally
+ *  would be the one that is wrong. It also now survives a restart, which the
+ *  in-memory version it replaces did not - that limit reset every deploy. */
 const PER_MINUTE = 1;
 const PER_HOUR = 10;
-const recent = new Map<string, number[]>();
 
-export function rateLimited(userId: string, now = Date.now()): string | null {
-  const seen = (recent.get(userId) ?? []).filter((t) => now - t < 3_600_000);
-  recent.set(userId, seen);
-  if (seen.filter((t) => now - t < 60_000).length >= PER_MINUTE) {
+export function limitFrom(times: string[], now = Date.now()): string | null {
+  const ms = times.map((t) => Date.parse(t)).filter(Number.isFinite);
+  if (ms.filter((t) => now - t < 60_000).length >= PER_MINUTE) {
     return 'one submission a minute, please';
   }
-  if (seen.length >= PER_HOUR) return 'ten submissions an hour, please';
+  if (ms.filter((t) => now - t < 3_600_000).length >= PER_HOUR) {
+    return 'ten submissions an hour, please';
+  }
   return null;
-}
-
-export function recordSubmission(userId: string, now = Date.now()): void {
-  recent.set(userId, [...(recent.get(userId) ?? []), now]);
-}
-
-export function resetLimits(): void {
-  recent.clear();
 }
 
 /** What is missing, so a misconfigured deploy says so rather than failing at
@@ -130,7 +128,7 @@ export function safeNext(value: unknown): string {
          !value.startsWith('//') ? value : '';
 }
 
-export function createApp() {
+export function createApp(store: Store) {
   const app = express();
   const upload = multer({
     storage: multer.memoryStorage(),
@@ -238,7 +236,8 @@ export function createApp() {
   app.post('/submit', signedIn, upload.single('file'), async (req, res) => {
     const user = req.session?.user ?? anonymousFrom(req);
 
-    const slow = rateLimited(user.id);
+    const hourAgo = new Date(Date.now() - 3_600_000).toISOString();
+    const slow = limitFrom(await store.submissionTimesSince(user.id, hourAgo));
     if (slow) {
       res.status(429).json({ error: slow, code: 'rate-limited' });
       return;
@@ -310,7 +309,32 @@ export function createApp() {
       return;
     }
 
-    recordSubmission(user.id);
+    // Recorded after the pull request exists, not before: a row claiming a
+    // submission that was never opened would show the contributor a link to
+    // nothing, and would count against their rate limit for an hour.
+    //
+    // A failure here must not fail the submission. The pull request is open
+    // either way and that is the thing that matters; losing the row costs
+    // this person their list, which is worth a log line and not a 500 on a
+    // map that was accepted.
+    try {
+      await store.recordSubmission({
+        discordId: user.id,
+        username: user.username,
+        mapName: outcome.name,
+        folder: outcome.folder,
+        version: outcome.version,
+        contentHash: outcome.id,
+        branch: outcome.branch,
+        prNumber: pr.number,
+        prUrl: pr.url,
+        createdAt: new Date().toISOString(),
+      });
+    } catch (e) {
+      console.error(`could not record submission ${pr.number}:`,
+                    (e as Error).message);
+    }
+
     res.json({
       ok: true,
       pullRequest: pr.url,
@@ -319,6 +343,70 @@ export function createApp() {
       kind: outcome.kind,
       warnings: outcome.warnings,
       hasPreview: outcome.hasPreview,
+    });
+  });
+
+  /**
+   * What this account has submitted, and where each one got to.
+   *
+   * The rows are ours; the outcomes are GitHub's. Asked fresh on each call
+   * and cached only as a fallback - a `state` stored as though it were a fact
+   * would drift from the pull request it describes, and the copy people read
+   * would be the wrong one (decision #49).
+   *
+   * `asOf` is returned rather than hidden: a list that cannot say how old it
+   * is invites being believed when it should not be.
+   */
+  app.get('/submissions', signedIn, async (req, res) => {
+    const user = req.session?.user;
+    if (!user) {
+      // Only reachable with OPEN_SUBMISSIONS on, where `signedIn` lets
+      // everyone through. There is no account to list anything for.
+      res.json({ submissions: [], asOf: null, live: false });
+      return;
+    }
+
+    const mine = await store.submissionsFor(user.id);
+    const numbers = mine.map((m) => m.prNumber);
+
+    let states = new Map<number, 'open' | 'merged' | 'closed'>();
+    let live = false;
+    try {
+      const library = new github.Library(config.libraryRepo,
+                                         config.githubToken);
+      states = await library.pullRequestStates();
+      live = true;
+      const checkedAt = new Date().toISOString();
+      await store.cachePrStates(
+        numbers.filter((n) => states.has(n))
+               .map((n) => ({ prNumber: n, state: states.get(n)!, checkedAt })));
+    } catch {
+      // GitHub unreachable, or the token is unhappy. Answer from what was
+      // last seen rather than failing the page - a stale list with its age
+      // on it is more use than an error.
+    }
+
+    const cached = await store.cachedPrStates(numbers);
+    res.json({
+      live,
+      asOf: live ? new Date().toISOString() : null,
+      submissions: mine.map((m) => {
+        const known = states.get(m.prNumber);
+        const fallback = cached.get(m.prNumber);
+        return {
+          mapName: m.mapName,
+          folder: m.folder,
+          version: m.version,
+          prNumber: m.prNumber,
+          pullRequest: m.prUrl,
+          createdAt: m.createdAt,
+          // Never seen is not the same as open, and saying "open" about a
+          // pull request nobody has looked up is how a list starts lying.
+          state: known ?? fallback?.state ?? 'unknown',
+          stateAsOf: known ? new Date().toISOString()
+                           : fallback?.checkedAt ?? null,
+        };
+      }),
     });
   });
 
@@ -372,7 +460,18 @@ if (isMain) {
     console.error('Install the tool: pip install -e . (or set AWRBC_COMMAND)');
     process.exit(1);
   }
+  let store: Store;
+  try {
+    store = await Store.open(config.dbPath);
+  } catch (e) {
+    // Same reasoning as the validator check above: a database that cannot be
+    // opened is not something to find out at somebody's first submission.
+    console.error(`fatal: cannot open ${config.dbPath}: ${(e as Error).message}`);
+    console.error('DB_PATH must be on a writable volume that outlives the '
+                  + 'container.');
+    process.exit(1);
+  }
   const port = Number(process.env.PORT ?? 5000);
-  createApp().listen(port, () => console.log(`intake on :${port}`));
+  createApp(store).listen(port, () => console.log(`intake on :${port}`));
 }
 /* c8 ignore stop */

@@ -16,7 +16,7 @@
 # package too, and a Docker build cannot reach above its context.
 
 # --- build the TypeScript ----------------------------------------------
-FROM node:22-slim AS build
+FROM node:24-slim AS build
 WORKDIR /app
 
 COPY server/package.json server/package-lock.json ./
@@ -27,7 +27,11 @@ COPY server/src ./src
 RUN npm run build && npm prune --omit=dev
 
 # --- the thing that runs -----------------------------------------------
-FROM node:22-slim
+# Node 24 for `node:sqlite`, which is built in and so keeps a dependency out
+# of the process holding the push token. It is still flagged experimental, so
+# the base image is pinned to a major version rather than tracking latest, and
+# db.ts is the only file that imports it.
+FROM node:24-slim
 WORKDIR /app
 
 # Python for the validator. --no-install-recommends keeps this to what is
@@ -52,6 +56,17 @@ COPY server/package.json ./
 
 # Not root. This holds a token that can write to the archive.
 RUN useradd --create-home --uid 10001 intake
+
+# The database lives here, and the directory has to be mounted from the host:
+# the accounts-to-submissions join is the one thing in this system that cannot
+# be rebuilt from anywhere else, and a path inside the image is destroyed by
+# every deploy - silently, because nothing fails when a new empty file is
+# created. Created and owned here so the volume works without the host having
+# to know which uid this runs as.
+RUN mkdir -p /data && chown intake:intake /data
+VOLUME ["/data"]
+ENV DB_PATH=/data/awrbc.db
+
 USER intake
 
 ENV NODE_ENV=production

@@ -13,6 +13,7 @@ import type { AddressInfo } from 'node:net';
 import type { Server } from 'node:http';
 
 import { parseOrigins } from './cors.js';
+import { Store } from './db.js';
 
 // Configure, then import. `config` in index.ts is a module-level const, built
 // the first time that module is imported - so a `process.env` assignment
@@ -74,7 +75,7 @@ describe('the headers a browser needs', () => {
   let base: string;
 
   before(async () => {
-    server = createApp().listen(0);
+    server = createApp(await Store.open(':memory:')).listen(0);
     await new Promise((r) => server.once('listening', r));
     base = `http://127.0.0.1:${(server.address() as AddressInfo).port}`;
   });
