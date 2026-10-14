@@ -57,6 +57,10 @@ export function attachSubmissions({ button, panel, base, storage,
   // server is asked again.
   let rows = [];
   let fromServer = false;
+  // Whether the states shown came from GitHub just now, or from the last
+  // time anyone managed to ask. The server reports both; showing a status
+  // without its age is the thing it reports them for.
+  let live = false;
 
   function localRows() {
     return load(storage).map((i) => ({
@@ -93,6 +97,13 @@ export function attachSubmissions({ button, panel, base, storage,
         item.state ? '' : (item.kind === 'revised' ? 'revision' : ''),
         when(item.createdAt),
       ].filter(Boolean).join(' · ');
+      // A status nobody could check just now is marked as such. Without
+      // this, a cached "waiting for review" is indistinguishable from one
+      // confirmed a second ago - and the older it is, the more confidently
+      // wrong it looks.
+      if (item.state && !live && item.stateAsOf) {
+        sub.textContent += ' (as of ' + when(item.stateAsOf) + ')';
+      }
       row.appendChild(sub);
       panel.appendChild(row);
     }
@@ -105,7 +116,8 @@ export function attachSubmissions({ button, panel, base, storage,
     // lifetimes and somebody deciding whether to write a link down deserves
     // to know which one they are looking at.
     note.textContent = fromServer
-      ? 'From your account.'
+      ? (live ? 'From your account.'
+              : 'From your account - could not reach GitHub just now.')
       : 'Kept in this browser only.';
     foot.appendChild(note);
 
@@ -122,17 +134,17 @@ export function attachSubmissions({ button, panel, base, storage,
   /** Ask the server, fall back to this browser. */
   async function refresh() {
     const mine = await intake.mySubmissions(base);
-    if (mine && mine.submissions.length) {
+    if (mine) {
+      // Signed in. An empty list is then the server's answer and not a
+      // failure to look - it refuses with 401 when there is no account, so
+      // reaching here at all means somebody is signed in.
       rows = mine.submissions;
       fromServer = true;
-    } else if (mine) {
-      // Signed in with nothing submitted yet. Still the server's answer, so
-      // an empty list here is the truth rather than a failure to look.
-      rows = [];
-      fromServer = true;
+      live = mine.live === true;
     } else {
       rows = localRows();
       fromServer = false;
+      live = false;
     }
     render();
   }

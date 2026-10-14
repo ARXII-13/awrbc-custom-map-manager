@@ -27,6 +27,7 @@ process.env['EDITOR_URL'] = 'http://127.0.0.1:8731/';
 const { anonymousFrom, createApp, missingConfig } =
   await import('./index.js');
 const { Store } = await import('./db.js');
+type Store = Awaited<ReturnType<typeof Store.open>>;
 
 describe('who an anonymous submitter is', () => {
   it('is keyed on the address, with no name attached', () => {
@@ -113,5 +114,85 @@ describe('the open endpoint', () => {
   it('still answers JSON rather than an HTML error page', async () => {
     const res = await fetch(`${base}/no-such-endpoint`);
     assert.match(res.headers.get('content-type') ?? '', /application\/json/);
+  });
+});
+
+describe('listing submissions with nobody signed in', () => {
+  // `signedIn` lets anonymous requests through on an open server, so this
+  // route is reachable without an account. It has to refuse rather than
+  // answer with an empty list: the editor treats a 200 as the server's
+  // record and prefers it to its own, so an empty one erases the only copy
+  // of the pull request links an anonymous contributor will ever have.
+  let server: Server;
+  let base: string;
+
+  before(async () => {
+    server = createApp(await Store.open(':memory:')).listen(0);
+    await new Promise((r) => server.once('listening', r));
+    base = `http://127.0.0.1:${(server.address() as AddressInfo).port}`;
+  });
+
+  after(() => { server.close(); });
+
+  it('refuses rather than returning an empty list', async () => {
+    const res = await fetch(`${base}/submissions`);
+    assert.equal(res.status, 401);
+    assert.equal((await res.json() as { code: string }).code,
+                 'unauthenticated');
+  });
+});
+
+describe('when the database is having a bad day', () => {
+  // Express 4 does not await a route handler, so a rejected promise inside
+  // one answers nobody and, by default, takes the process with it. A locked
+  // database, a full disk or a read-only volume all arrive this way, and
+  // none of them should cost a reply - least of all an unparseable one, to a
+  // client that only reads JSON.
+  let server: Server;
+  let base: string;
+
+  const broken = {
+    async submissionTimesSince(): Promise<string[]> {
+      throw new Error('SQLITE_BUSY: database is locked');
+    },
+    async submissionsFor(): Promise<never[]> {
+      throw new Error('SQLITE_BUSY: database is locked');
+    },
+    async recordSubmission(): Promise<void> {},
+    async cachePrStates(): Promise<void> {},
+    async cachedPrStates(): Promise<Map<number, unknown>> { return new Map<number, unknown>(); },
+    async version(): Promise<number> { return 0; },
+    async findByHash(): Promise<null> { return null; },
+    async close(): Promise<void> {},
+  } as unknown as Store;
+
+  let unhandled: unknown = null;
+  const onUnhandled = (e: unknown) => { unhandled = e; };
+
+  before(async () => {
+    process.on('unhandledRejection', onUnhandled);
+    server = createApp(broken).listen(0);
+    await new Promise((r) => server.once('listening', r));
+    base = `http://127.0.0.1:${(server.address() as AddressInfo).port}`;
+  });
+
+  after(() => {
+    server.close();
+    process.off('unhandledRejection', onUnhandled);
+  });
+
+  it('answers a submission with JSON instead of hanging', async () => {
+    const form = new FormData();
+    form.set('agree', 'true');
+    const res = await fetch(`${base}/submit`, { method: 'POST', body: form,
+                                                signal: AbortSignal.timeout(4000) });
+    assert.equal(res.status, 500);
+    assert.match(res.headers.get('content-type') ?? '', /json/);
+  });
+
+  it('leaves no unhandled rejection behind', async () => {
+    await new Promise((r) => setTimeout(r, 50));
+    assert.equal(unhandled, null,
+                 'a rejected handler must reach the error middleware');
   });
 });

@@ -45,11 +45,17 @@ export function corsFor(allowed: string[]) {
   return (req: Request, res: Response, next: NextFunction): void => {
     const origin = req.headers.origin;
 
+    // Set whichever way this goes, and before the decision: the response
+    // differs by origin either way, and it is the *refused* case that a cache
+    // most needs told - storing a reply with no allow-origin header and then
+    // handing it to the editor breaks sign-in in a way that looks like
+    // nothing is wrong. `vary` appends rather than replacing, so an existing
+    // Vary from anywhere else survives.
+    res.vary('Origin');
+
     if (typeof origin === 'string' && allowed.includes(origin)) {
       res.setHeader('Access-Control-Allow-Origin', origin);
       res.setHeader('Access-Control-Allow-Credentials', 'true');
-      // Without this, a cache can serve one origin's response to another.
-      res.setHeader('Vary', 'Origin');
       res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
       res.setHeader('Access-Control-Allow-Headers', 'content-type, accept');
       res.setHeader('Access-Control-Max-Age', '600');

@@ -265,13 +265,13 @@ describe('a map that is already waiting for review', () => {
     assert.equal(err.number, 7);
   });
 
-  it('commits nothing', async () => {
-    // Same reason the other branch failures stop here: the files would be
-    // going onto somebody's pull request that is already under review.
+  it('commits nothing when a pull request really is open', async () => {
+    // The files would be going onto somebody's pull request that is already
+    // under review.
     const seen = stub([
       { body: { object: { sha: 'abc123' } } },
       refExists,
-      { body: [] },
+      { body: [{ html_url: 'https://gh/pull/7', number: 7 }] },
     ]);
     await library()
       .submit('submit/x-v1-y', { 'maps/a/b/v1.json': Buffer.from('{}') },
@@ -291,18 +291,29 @@ describe('a map that is already waiting for review', () => {
     assert.match(seen[2]!.url, /head=owner%3Asubmit%2Fdaibi-v1-pat/);
   });
 
-  it('still reports it when the pull request cannot be found', async () => {
-    // Best effort: a failed lookup must not replace the error being
-    // explained with a worse one about the explanation.
-    stub([
-      { body: { object: { sha: 'abc123' } } },
-      refExists,
-      { status: 500, body: { message: 'nope' } },
+  it('does not claim a map is waiting when no pull request is open', async () => {
+    // A branch with nothing pointing at it is wreckage from a half-finished
+    // submission, or a closed pull request GitHub kept the branch for.
+    // Saying "already waiting for review" there was a dead end: the branch
+    // name comes from the map, so every retry hit the same refusal with no
+    // link and nothing in the archive.
+    const seen = stub([
+      { body: { object: { sha: 'abc123' } } },   // headSha
+      refExists,                                 // createBranch
+      { body: [] },                              // no open pull request
+      { body: {} },                              // deleteBranch
+      { body: { object: { sha: 'abc123' } } },   // headSha again
+      { body: {} },                              // createBranch again
+      { body: {} },                              // putFile
+      { body: { html_url: 'https://gh/pull/9', number: 9 } },
     ]);
-    const err = await library().submit('submit/x-v1-y', {}, 't', 'b')
-      .then(() => null, (e: unknown) => e);
-    assert.ok(err instanceof AlreadySubmitted);
-    assert.equal(err.pullRequest, '');
+    const pr = await library().submit('submit/x-v1-y',
+                                      { 'maps/a/b/v1.json': Buffer.from('{}') },
+                                      't', 'b');
+    assert.equal(pr.number, 9, 'the submission should go through');
+    assert.ok(seen.some((c) => c.method === 'DELETE'
+                               && /submit\/x-v1-y$/.test(c.url)),
+              'the orphaned branch should be cleared');
   });
 
   it('leaves any other branch failure as a server fault', async () => {

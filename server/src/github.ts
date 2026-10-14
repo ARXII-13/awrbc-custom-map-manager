@@ -101,6 +101,14 @@ export class Library {
                     { ref: `refs/heads/${name}`, sha: fromSha });
   }
 
+  /** Remove a branch. Only ever called on one with no open pull request:
+   *  a submission that half-happened, or one whose pull request was closed.
+   *  Nothing points at it and nothing in the archive came from it. */
+  async deleteBranch(name: string): Promise<void> {
+    await this.call('DELETE',
+                    `/repos/${this.repo}/git/refs/heads/${encodeURI(name)}`);
+  }
+
   /** The open pull request for a branch, if there is one.
    *
    *  Best effort on purpose: it exists to put a link in an error message, so
@@ -189,9 +197,27 @@ export class Library {
       if (e instanceof GitHubError && e.status === 422 &&
           /Reference already exists/i.test(e.message)) {
         const pr = await this.openPullRequestFor(branch);
-        throw new AlreadySubmitted(branch, pr?.url ?? '', pr?.number ?? 0);
+        if (pr) throw new AlreadySubmitted(branch, pr.url, pr.number);
+
+        // A branch with no open pull request is not a submission waiting for
+        // review - it is wreckage. Either this call failed partway last time
+        // (the branch is created before anything is committed to it, so a
+        // timeout on a commit or on opening the pull request leaves exactly
+        // this), or the pull request was closed and GitHub kept the branch.
+        //
+        // Reporting it as "already waiting for review" was a dead end: the
+        // name is derived from the map, the version and the author, so every
+        // retry of that map produced the same branch and the same refusal,
+        // with no link to follow and nothing in the archive. The only ways
+        // out were renaming the map or a maintainer deleting the branch.
+        //
+        // So: clear it and carry on. Nothing points at it, and anything it
+        // held was never reviewed or merged.
+        await this.deleteBranch(branch);
+        await this.createBranch(branch, await this.headSha());
+      } else {
+        throw e;
       }
-      throw e;
     }
     for (const [path, content] of Object.entries(files)) {
       await this.putFile(branch, path, content, title);

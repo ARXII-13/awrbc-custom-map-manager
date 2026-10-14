@@ -4,12 +4,12 @@
   "private": true,
   "description": "Discord sign-in and map upload for the AWRBC map library",
   "type": "module",
-  "engines": { "node": ">=20" },
+  "engines": { "node": ">=22.5" },
   "scripts": {
     "build": "tsc",
     "start": "node dist/index.js",
     "dev": "tsc --watch",
-    "test": "node --test dist/*.test.js",
+    "test": "npm run build && node --test dist/*.test.js",
     "check": "tsc --noEmit"
   },
   "dependencies": {

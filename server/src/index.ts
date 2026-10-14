@@ -20,7 +20,7 @@ import { randomBytes } from 'node:crypto';
 import { corsFor, parseOrigins } from './cors.js';
 import * as discord from './discord.js';
 import * as github from './github.js';
-import { Store, type Submission } from './db.js';
+import { Store } from './db.js';
 import { available, filesToCommit, prepare, PrepareFailed } from './prepare.js';
 
 const env = (name: string, fallback = '') => process.env[name] ?? fallback;
@@ -128,6 +128,22 @@ export function safeNext(value: unknown): string {
          !value.startsWith('//') ? value : '';
 }
 
+/**
+ * Hand a rejected handler to Express instead of to nobody.
+ *
+ * Express 4 does not await a route handler, so a promise that rejects inside
+ * one is an unhandled rejection: the client is left holding a connection that
+ * never answers, and node's default is to take the process down with it. The
+ * JSON error middleware at the bottom of this file - written so that a client
+ * which only parses JSON never meets an HTML error page - is unreachable from
+ * an async handler without this, because it only ever sees `next(err)`.
+ *
+ * Every `await` in a route is a candidate: a locked database, a full disk, a
+ * read-only volume, GitHub timing out. None of those should cost a reply.
+ */
+const wrap = (fn: express.RequestHandler): express.RequestHandler =>
+  (req, res, next) => { Promise.resolve(fn(req, res, next)).catch(next); };
+
 export function createApp(store: Store) {
   const app = express();
   const upload = multer({
@@ -177,7 +193,7 @@ export function createApp(store: Store) {
       state));
   });
 
-  app.get('/auth/callback', async (req, res) => {
+  app.get('/auth/callback', wrap(async (req, res) => {
     const expected = req.session?.oauthState;
     // Cleared before anything else, so a state cannot be replayed even if the
     // exchange below fails.
@@ -206,7 +222,7 @@ export function createApp(store: Store) {
     const next = req.session!.afterLogin;
     req.session!.afterLogin = undefined;
     res.redirect(next || config.editorUrl);
-  });
+  }));
 
   app.post('/auth/logout', (req, res) => {
     req.session = null;
@@ -240,7 +256,7 @@ export function createApp(store: Store) {
     next();
   };
 
-  app.post('/submit', signedIn, upload.single('file'), async (req, res) => {
+  app.post('/submit', signedIn, upload.single('file'), wrap(async (req, res) => {
     const user = req.session?.user ?? anonymousFrom(req);
 
     const hourAgo = new Date(Date.now() - 3_600_000).toISOString();
@@ -351,7 +367,7 @@ export function createApp(store: Store) {
       warnings: outcome.warnings,
       hasPreview: outcome.hasPreview,
     });
-  });
+  }));
 
   /**
    * What this account has submitted, and where each one got to.
@@ -364,12 +380,17 @@ export function createApp(store: Store) {
    * `asOf` is returned rather than hidden: a list that cannot say how old it
    * is invites being believed when it should not be.
    */
-  app.get('/submissions', signedIn, async (req, res) => {
+  app.get('/submissions', signedIn, wrap(async (req, res) => {
     const user = req.session?.user;
     if (!user) {
-      // Only reachable with OPEN_SUBMISSIONS on, where `signedIn` lets
-      // everyone through. There is no account to list anything for.
-      res.json({ submissions: [], asOf: null, live: false });
+      // Reachable with OPEN_SUBMISSIONS on, where `signedIn` lets everyone
+      // through. There is no account, so there is no list - and this has to
+      // be a refusal rather than an empty one. An empty 200 reads to the
+      // editor as "the server says you have submitted nothing", which is a
+      // better answer than its own records, so it replaces them: the
+      // anonymous contributor's only copy of their pull request links is
+      // erased by the server agreeing it knows nothing.
+      res.status(401).json({ error: 'sign in first', code: 'unauthenticated' });
       return;
     }
 
@@ -415,7 +436,7 @@ export function createApp(store: Store) {
         };
       }),
     });
-  });
+  }));
 
   // An unknown route answers JSON too. Express's default is an HTML page,
   // and a client that only ever parses JSON reads that as a transport
