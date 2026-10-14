@@ -80,8 +80,11 @@ export async function prepare(
   update: string | undefined,
   options: Options = {},
 ): Promise<Outcome> {
-  const argv = ['prepare', '-', '--author-id', author.id,
-                '--author-name', author.username];
+  // The account id is not passed. The validator writes what lands in a
+  // public repo, and an identifier it never receives is one it cannot
+  // publish (decision #44). The id stays here and in the database, which
+  // holds it against the pull request number.
+  const argv = ['prepare', '-', '--author-name', author.username];
   if (update) argv.push('--update', update);
   if (options.catalog) argv.push('--catalog', options.catalog);
 

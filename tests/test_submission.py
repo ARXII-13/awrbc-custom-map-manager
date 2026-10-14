@@ -168,13 +168,24 @@ class WhenNobodySignedIn(unittest.TestCase):
         self.assertIn("no sign-in", body)
         self.assertNotIn("Discord", body)
 
-    def test_a_signed_in_pull_request_still_names_the_account(self):
+    def test_a_signed_in_pull_request_names_the_account_not_the_id(self):
+        """The display name identifies the submitter to a reviewer; the
+        account id must not appear at all.
+
+        It used to, because before the intake server had a database the pull
+        request was the only durable place to record which account sent a
+        map. That made decision #44 false the moment anyone signed in - this
+        body is world-readable and squash-merge writes it into git history,
+        where an id published once cannot be unpublished. The endpoint's
+        database holds the account against the pull request number instead.
+        """
         _, doc = a_map(name="Daibi")
         got = submit.prepare(a_bundle(doc, a_preview()), {}, USER)
         _, body = submit.pull_request_text(got, USER)
         self.assertIn("debbie", body)
-        self.assertIn("Discord", body)
         self.assertNotIn("no sign-in", body)
+        self.assertNotIn(USER["id"], body)
+        self.assertNotIn("Discord", body)
 
     def test_the_claimed_name_still_has_to_match_to_revise(self):
         """Claim against claim is weak, and weaker than nothing is worse: it

@@ -9,8 +9,11 @@
  * is breached.
  *
  * The Discord id never reaches the archive (decision #44). It lives in the
- * session and in the pull request body for a reviewer; what gets committed is
- * a display name.
+ * session and in the intake server's database, which holds it against the
+ * pull request number - that is how a maintainer gets from a submission back
+ * to an account. It is not passed to the validator and is not written into
+ * the pull request, because both of those end up in a public repository.
+ * What gets committed is a display name.
  */
 import { randomBytes, timingSafeEqual } from 'node:crypto';
 

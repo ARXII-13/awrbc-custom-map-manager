@@ -190,10 +190,19 @@ def pull_request_text(prepared, author):
     # Who the caller vouched for, if anyone. An open server vouches for
     # nobody, and a reviewer has to know which of the two they are reading:
     # the name below is then only what the submitter typed.
+    #
+    # The account id is deliberately absent. It used to be printed here,
+    # because before the intake server had a database the pull request was
+    # the only durable place a reviewer could see which account sent a map -
+    # a display name is self-chosen and can collide or change, an id cannot.
+    # That made decision #44 false the moment anyone signed in: git history
+    # is permanent and world-readable, squash-merge composes the commit
+    # message from this body, and an id published once cannot be unpublished.
+    # The endpoint's database now holds the account against the pull request
+    # number, which is the same lookup without the publishing.
     vouched = (author.get("username") or "").strip()
     if vouched:
-        who = ("Submitted through the map editor by **%s** (Discord `%s`)."
-               % (vouched, author.get("id")))
+        who = "Submitted through the map editor by **%s**." % vouched
     else:
         who = ("Submitted through the map editor with **no sign-in**, so the "
                "author below is the submitter's own claim and nothing has "

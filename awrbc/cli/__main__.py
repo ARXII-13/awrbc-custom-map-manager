@@ -371,7 +371,11 @@ def cmd_prepare(args, out):
         with open(args.file, "rb") as fh:
             blob = fh.read()
 
-    author = {"id": args.author_id or "", "username": args.author_name or ""}
+    # No account id: this half of the system writes repo content, and the
+    # one thing it must never learn is an identifier it could publish
+    # (decision #44). Ownership is the endpoint's to settle, not this
+    # layer's - `plan` says as much where it takes the name on trust.
+    author = {"id": "", "username": args.author_name or ""}
 
     if args.catalog:
         with open(args.catalog, encoding="utf-8") as fh:
@@ -557,7 +561,6 @@ def build_parser():
         "prepare", parents=[common],
         help="decide what a submission would become, as JSON (writes nothing)"))
     pre.add_argument("file", help="bundle zip or map JSON; - for stdin")
-    pre.add_argument("--author-id", help="the submitter's account id")
     pre.add_argument("--author-name", help="the name to publish")
     pre.add_argument("--update", metavar="FOLDER",
                      help="publish as the next version of an existing map")
