@@ -101,6 +101,29 @@ export class Library {
                     { ref: `refs/heads/${name}`, sha: fromSha });
   }
 
+  /**
+   * Is there already a map folder at this path on the default branch?
+   *
+   * Asked of the repository rather than of the index, because the index is
+   * built on merge and published, so it trails main by a deploy (decision
+   * #57). The tree has no such lag, and this is the one question where being
+   * a minute behind gives the wrong answer rather than a slightly old one:
+   * placing a revision as a new map writes over a path that already exists.
+   */
+  async folderExists(folder: string): Promise<boolean> {
+    try {
+      await this.call('GET',
+                      `/repos/${this.repo}/contents/${encodeURI(folder)}`
+                      + `?ref=${encodeURIComponent(this.branch)}`);
+      return true;
+    } catch (e) {
+      if (e instanceof GitHubError && e.status === 404) return false;
+      // Anything else is our problem, not an answer. Saying "no" here would
+      // let a submission through on the strength of a failed lookup.
+      throw e;
+    }
+  }
+
   /** Remove a branch. Only ever called on one with no open pull request:
    *  a submission that half-happened, or one whose pull request was closed.
    *  Nothing points at it and nothing in the archive came from it. */

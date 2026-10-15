@@ -330,3 +330,28 @@ describe('a map that is already waiting for review', () => {
     assert.equal(err.status, 403);
   });
 });
+
+describe('asking the repository whether a map folder is there', () => {
+  // The index is published on merge and trails main by a deploy, so it
+  // cannot answer this. A map merged a minute ago reads as absent, gets
+  // planned as a new map at v1, and the commit then lands on a path that
+  // already exists.
+  it('says yes when the folder is on the default branch', async () => {
+    const seen = stub([{ body: [{ name: 'v1.json' }] }]);
+    assert.equal(await library().folderExists('maps/2p/daibi'), true);
+    assert.match(seen[0]!.url, /\/contents\/maps\/2p\/daibi\?ref=main$/);
+  });
+
+  it('says no on a 404', async () => {
+    stub([{ status: 404, body: { message: 'Not Found' } }]);
+    assert.equal(await library().folderExists('maps/2p/nothing'), false);
+  });
+
+  it('refuses to answer when the lookup itself failed', async () => {
+    // "No" here would let a submission through on a failed lookup, which is
+    // the outcome this exists to prevent.
+    stub([{ status: 500, body: { message: 'boom' } }]);
+    await assert.rejects(() => library().folderExists('maps/2p/daibi'),
+                         (e: GitHubError) => e.status === 500);
+  });
+});

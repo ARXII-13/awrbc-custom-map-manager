@@ -307,6 +307,36 @@ export function createApp(store: Store) {
     }
 
     const library = new github.Library(config.libraryRepo, config.githubToken);
+
+    // The index is published on merge, so it trails main by a deploy
+    // (decision #57). Everything it is read for tolerates that except one
+    // question: whether this map is already in the archive.
+    //
+    // Answered from a stale index, a map merged a minute ago looks absent,
+    // so this is planned as a new map at v1 - over a path that already
+    // exists. The commit then fails, because putFile deliberately cannot
+    // overwrite, and the submitter gets "could not open the pull request"
+    // for a map that is simply already there.
+    //
+    // So the tree is asked instead, and only when the index said new: a
+    // revision was planned against an entry the index did have, and a
+    // duplicate was refused before reaching here.
+    if (outcome.kind === 'new') {
+      const already = await library.folderExists(outcome.folder);
+      if (already) {
+        res.status(409).json({
+          error: `the archive already has a map at ${outcome.folder}. `
+                 + 'It was published very recently, so the index this '
+                 + 'checked against had not caught up. Submit again in a '
+                 + 'minute to send it as a new version, or rename your map '
+                 + 'to publish it separately.',
+          code: 'index-behind',
+          folder: outcome.folder,
+        });
+        return;
+      }
+    }
+
     let pr;
     try {
       pr = await library.submit(outcome.branch, filesToCommit(outcome),
