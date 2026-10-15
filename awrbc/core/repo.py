@@ -21,11 +21,20 @@ import urllib.request
 from . import archive
 from .errors import AwrbcError
 
-#: Where the published archive lives. Overridable so a fork, a branch, or a
-#: local checkout can be used instead - which is also how this gets tested
-#: without touching the network.
+#: Where the map files live. Overridable so a fork, a branch, or a local
+#: checkout can be used instead - which is also how this gets tested without
+#: touching the network.
 DEFAULT_BASE = ("https://raw.githubusercontent.com/"
                 "ARXII-13/awrbc-custom-map-library/main")
+
+#: Where the index lives, which is no longer the same place (decision #57).
+#: It is built from the map files on merge and published, rather than
+#: committed beside them - so it is not in the tree that DEFAULT_BASE serves.
+#:
+#: Separate rather than derived: the two can move independently, and a fork
+#: pointing DEFAULT_BASE at its own maps is a different thing from one that
+#: has built and published an index of them.
+DEFAULT_CATALOG_BASE = "https://arxii-13.github.io/awrbc-custom-map-library"
 
 CATALOG = "catalog.json"
 
@@ -65,13 +74,25 @@ def _get(url):
         return r.read()
 
 
-def fetch_catalog(base=DEFAULT_BASE, max_age=MAX_AGE, refresh=False):
+def fetch_catalog(base=None, max_age=MAX_AGE, refresh=False):
     """The archive index. Returns ``(maps, staleness)``.
 
     ``staleness`` is None when the catalog was just fetched, or the cache's age
     in seconds when the network failed and a cached copy was used instead. The
     caller decides whether to mention it; this does not print.
+
+    ``base`` defaults to where the index is *published*, not to where the maps
+    are served from. A caller that passes a raw-content base - a fork, a
+    branch - is asking for an index that is no longer committed there, so the
+    two defaults are deliberately different.
+
+    One consequence worth knowing: the published index lags a merge by a
+    deploy. For searching and browsing that is nothing. For deciding whether a
+    submission is a new map or a revision it is not, and the intake endpoint
+    settles that against the repository tree instead.
     """
+    if base is None:
+        base = DEFAULT_CATALOG_BASE
     path = os.path.join(cache_root(), CATALOG)
     age = None
     if os.path.exists(path):

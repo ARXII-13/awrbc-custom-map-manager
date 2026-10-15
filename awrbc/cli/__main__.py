@@ -444,7 +444,8 @@ def _catalog_for(args):
     """The archive index, from a local checkout if given, else the network."""
     if getattr(args, "library", None):
         return repo.load_local(args.library)
-    return repo.fetch_catalog(args.base, refresh=getattr(args, "refresh", False))
+    return repo.fetch_catalog(args.catalog_base,
+                              refresh=getattr(args, "refresh", False))
 
 
 def _warn_stale(out, stale):
@@ -503,7 +504,8 @@ def cmd_prepare(args, out):
     else:
         # --refresh matters most here: the server asks whether a submission
         # duplicates something, and an hour-stale catalog answers that wrong.
-        index, _ = repo.fetch_catalog(args.base, refresh=args.refresh)
+        index, _ = repo.fetch_catalog(args.catalog_base,
+                                      refresh=args.refresh)
 
     try:
         prepared = submission.prepare(blob, index, author, update=args.update)
@@ -632,7 +634,16 @@ def build_parser():
     def archive_flags(p):
         """Where to read the published archive from."""
         p.add_argument("--base", default=repo.DEFAULT_BASE,
-                       help="archive URL (default: the public library)")
+                       help="where map files are served from "
+                            "(default: the public library)")
+        # Separate because the index is no longer committed beside the maps
+        # (decision #57): it is built on merge and published, so it is not in
+        # the tree --base serves. A fork overriding one usually means to
+        # override both, but they are not the same URL and pretending they
+        # are would send every lookup to a 404.
+        p.add_argument("--catalog-base", default=repo.DEFAULT_CATALOG_BASE,
+                       help="where the built index is published "
+                            "(default: the public library's)")
         p.add_argument("--library",
                        help="a local checkout to read instead of the network")
         p.add_argument("--refresh", action="store_true",
