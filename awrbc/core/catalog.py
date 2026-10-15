@@ -1,16 +1,22 @@
 """The archive's index.
 
-``catalog.json`` is a generated file. It exists so a client can search the
-library without cloning it and so ``publish`` can tell a new map from a revision
-without reading every file in the repo.
+``catalog.json`` exists so a client can search the library without cloning it,
+and so ``publish`` can tell a new map from a revision without reading every
+file in the repo. Directory listing is the thing HTTP does not give you, and
+this is the answer to it.
 
-It is never authoritative. Everything in it is recomputed from the map files,
-CI regenerates it on merge, and a mismatch is the catalog's fault. The one
-exception is ``added``: when a version first appeared is not recoverable from
-its contents, so a rebuild carries the old date forward and only dates entries
-it has never seen. Losing the catalog would therefore lose submission dates -
-which is a real cost, and the reason it is committed rather than built on
-demand.
+**Built and published, not committed** (decision #57). It is derived from
+every map in the archive, so a copy in the repository was one file each
+submission had to agree about. CI builds it on merge with ``--build-into``
+and publishes it; anything working against a checkout builds its own, which
+costs a directory walk and cannot be out of step with the maps beside it.
+
+It is never authoritative. Everything in it is recomputed from the map files
+and a mismatch is the index's fault - with one exception. When a version
+first appeared is not recoverable from its contents, so it is stored beside
+the map in ``meta.json``, keyed by version and only ever appended to. That is
+what made the index safe to throw away: the one fact it held that nothing
+else could rebuild no longer lives in it.
 """
 import datetime
 import json

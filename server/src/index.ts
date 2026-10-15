@@ -1,9 +1,10 @@
 /**
  * The intake endpoint.
  *
- * Discord sign-in, and an upload that becomes a pull request. No database, no
- * ratings, no server-side rendering - those are in docs/app-architecture.md
- * and are not built.
+ * Discord sign-in, and an upload that becomes a pull request, with a small
+ * database behind it holding accounts and what they submitted (decision #59).
+ * No ratings and no server-side rendering - those are in
+ * docs/app-architecture.md and are not built.
  *
  * Everything secret lives here and nowhere else: the Discord client secret,
  * the GitHub bot token, the session key. The editor is static and holds none

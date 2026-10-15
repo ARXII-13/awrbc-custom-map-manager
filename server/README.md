@@ -1,8 +1,9 @@
 # The intake endpoint
 
-Discord sign-in, and an upload that becomes a pull request on the map library.
-That is all it does: no database, no ratings, no server-side rendering. Those
-are in `docs/app-architecture.md` and are not built.
+Discord sign-in, and an upload that becomes a pull request on the map library,
+with a small SQLite database behind it holding accounts and what they
+submitted (decision #59). No ratings and no server-side rendering; those are
+in `docs/app-architecture.md` and are not built.
 
 It exists so a contributor never needs a GitHub account, let alone git. They
 upload a map; a bot does the branch, the commit and the pull request.
@@ -45,11 +46,18 @@ not be on `PATH`.
 
 ```bash
 docker build -f server/Dockerfile -t awrbc-intake .   # from the repo root
-docker run --rm -p 5000:5000 --env-file server/.env awrbc-intake
+docker run -d --name awrbc-intake --restart unless-stopped   -p 5000:5000 -v /srv/awrbc-data:/data   --env-file server/.env awrbc-intake
 ```
 
 Built from the repository root rather than from `server/`, because the image
 needs the Python package too and a build cannot reach above its context.
+
+**The volume is not optional.** `DB_PATH` defaults to `/data/awrbc.db`, which
+the image declares as a volume. Run without `-v` and the database is created
+inside the container: `--rm` then deletes it on exit, and a redeploy starts
+with an empty one. Nothing fails when that happens, which is what makes it
+worth saying twice - the server comes up healthy, serving an archive that has
+forgotten every account and every submission.
 
 A container rather than a platform's build pack, because this process is two
 runtimes and nothing serverless fits: it spawns `awrbc` per upload, so it needs
@@ -69,9 +77,9 @@ CORS, and getting it wrong looks like the editor never being able to sign in.
 Then set the `INTAKE_URL` repository variable to `PUBLIC_URL` so the deployed
 editor grows a Submit button.
 
-**Not yet run anywhere.** The image has not been built on this machine — Docker
-was not available when it was written. What has been checked is that the files
-it copies are enough: installing `pyproject.toml`, `README.md` and `awrbc/`
+**Running.** Built and deployed on a Linux host behind a Cloudflare tunnel,
+with the data directory mounted from the host beside the checkout. What was
+checked before that: installing `pyproject.toml`, `README.md` and `awrbc/`
 into a clean environment gives a working `awrbc`, and the bridge suite passes
 against that install. The container itself is unproven until someone builds it.
 
@@ -108,7 +116,7 @@ Both halves local, which needs no domain, no certificate and no tunnel:
 python web/serve.py 8731 127.0.0.1
 
 # another: the intake server
-cd server && OPEN_SUBMISSIONS=1 INSECURE_COOKIES=1 \
+cd server && OPEN_SUBMISSIONS=1 INSECURE_COOKIES=1   DB_PATH=./awrbc.db \
   PUBLIC_URL=http://127.0.0.1:5000 \
   EDITOR_URL=http://127.0.0.1:8731/ \
   AWRBC_COMMAND="python -m awrbc" \
@@ -121,6 +129,10 @@ Then open `http://127.0.0.1:8731/index.html?intake=http://127.0.0.1:5000`. The
 Submit button appears and reads `as whoever you put in Author`. Drop
 `OPEN_SUBMISSIONS`, fill in the Discord variables instead, and it says "Sign in
 to submit" and runs the signed-in flow.
+
+`DB_PATH` is set here because it defaults to `/data/awrbc.db`, which exists
+in the container and not on a development machine; the server exits rather
+than starting with nowhere to keep anything.
 
 `INSECURE_COOKIES=1` only matters for the signed-in flow — the session cookie
 is `Secure` otherwise and a browser silently drops it over plain HTTP. Open
@@ -181,9 +193,20 @@ credentials anyway and which would let any site read authenticated replies; and
 a reflection of whatever `Origin` arrived, which would let any page act as a
 signed-in user.
 
-If the editor and the server are on different registrable domains rather than
-different subdomains, the session cookie also needs `SameSite=None; Secure`,
-which this does not currently set.
+The editor and the server **are** on different registrable domains - GitHub
+Pages and the API's own domain - so the session cookie is `SameSite=None;
+Secure`. A `Lax` cookie is not sent on a cross-site `fetch` at all, so nobody
+would ever appear signed in however well the OAuth round trip went.
+
+That removes what `Lax` was quietly doing for free, so `cors.ts` now refuses a
+state-changing request whose `Origin` is present and not on the allowlist.
+Returning no CORS headers is not enough on its own: the browser stops the page
+*reading* the reply, but the request has already run, and `multipart/form-data`
+is CORS-safelisted so a form anywhere could POST to `/submit` without a
+preflight.
+
+`INSECURE_COOKIES=1` drops both `Secure` and `SameSite=None` for local HTTP
+development. It must never be set anywhere reachable.
 
 ## Endpoints
 
@@ -194,12 +217,25 @@ which this does not currently set.
 | `GET /auth/me` | Who is signed in |
 | `POST /auth/logout` | Clears it |
 | `POST /submit` | `file` (bundle zip or map JSON), `agree=true`, optional `update=2p/slug` |
+| `GET /submissions` | What this account has sent, and what became of each pull request |
+| `GET /health` | Whether it is configured, and what is missing. Answers 200 even when it is not |
 
 A successful submit returns the pull request URL.
 
+`/submissions` reports each pull request's state as GitHub last gave it, with
+`live` and `asOf` saying how fresh that is. A pull request never looked up
+reads `unknown` rather than `open`: the difference matters, and a list that
+cannot say how old it is invites being believed.
+
 ## What it refuses, and why
 
-- **Not signed in** — 401. Attribution and rate limiting both need an identity.
+- **Not signed in** — 401, unless `OPEN_SUBMISSIONS` is set. Attribution and
+  rate limiting both want an identity; an open server gives up the first and
+  falls back to the client address for the second.
+- **A map already waiting for review** — 409 `already-submitted`, with the
+  pull request it already has. Branch names come from the map, so sending the
+  same one twice asks GitHub for a ref that exists; that used to surface as a
+  bare 502.
 - **No licence confirmation** — 400. The checkbox *is* the grant of rights;
   without it the archive has no right to redistribute the map, and that cannot
   be retrofitted later.
@@ -236,15 +272,17 @@ hop.
 
 ## What is honestly missing
 
-- **Rate limits are in memory.** They reset on restart and do not survive more
-  than one process. That is a speed bump, not a wall, and the first thing to
-  replace when there is a database.
+- **Rate limits are counted from the submissions themselves**, in the
+  database, so they survive a restart - they used to be an in-memory map that
+  reset on every deploy, which made the limit advisory. Still a speed bump
+  rather than a wall: one a minute, ten an hour, per account.
 - **No ban list.** Moderation is the pull request, and a human closing it.
 - **No preview provenance.** `preview.check_png` can show an image is a plain
   PNG of the right dimensions; it cannot show the editor drew it. The fix is
   rendering server-side, which is in the architecture and not built.
-- **One instance only.** Sessions are cookies so that is fine, but the rate
-  limiter is not shared.
+- **One instance only.** Sessions are cookies so that is fine, but SQLite is
+  one writer on one machine. That is also the condition that would send this
+  to Postgres: a second instance, or a host with a disposable filesystem.
 
 ## Tests
 
