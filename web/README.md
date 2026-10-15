@@ -52,6 +52,12 @@ python -m awrbc export 0 -o ALL.json
 | `fixes.js` | Repairs offered after validation - wide rivers, broken structures. |
 | `zip.js` | A store-only zip writer, for Export bundle. No dependency. |
 | `index.html` | The viewer shell - loading, pan, zoom, hover, stats. |
+| `intake.js` | Talking to the intake endpoint: sign-in state, submit, submissions. No DOM. |
+| `submit-ui.js` | The Submit button: the licence confirmation, the revision question, what happens after. |
+| `submissions-ui.js` | The Submissions panel. Prefers the server's list when signed in, this browser's otherwise. |
+| `submissions.js` | What this browser remembers about maps it has sent. A convenience, not a record - localStorage only. |
+| `share-ui.js` | The manual route, for a deploy with no intake server: export a bundle and open the form. |
+| `toast.js` | Announcements that do not block. Questions stay as dialogs; these cannot ask anything. |
 
 `render.js` is deliberately free of editing state, so anything that needs a
 picture of a map can use it unchanged. `drawMap(ctx, doc, opts)` is the
