@@ -263,7 +263,7 @@ def cmd_verify(args, out):
                 continue
         fail(rel, "generated file is out of date; run `awrbc catalog`")
 
-    if args.changed is not None:
+    if args.changed is not None and _is_submission(args.changed):
         for p in _submission_rules(args.changed):
             fail(p["path"], p["error"])
         for p in _meta_rules(root, touched):
@@ -331,6 +331,22 @@ def _meta_rules(root, folders):
             out.append({"path": folder + "/" + catalog.META,
                         "error": "dates v%s, which is not here" % version})
     return out
+
+
+def _is_submission(changed):
+    """Does this pull request publish a map?
+
+    Not everything that arrives is a submission: a workflow, the README, the
+    contributor terms. The rules below are about somebody sending a map, and
+    applying them to a maintainer changing repository infrastructure refuses
+    every such pull request for touching a file outside maps/ - which is the
+    entire point of that pull request.
+    """
+    for raw in changed:
+        p = raw.strip().replace("\\", "/")
+        if p.startswith(archive.ROOT + "/") and                 catalog.VERSION_JSON.match(p.rsplit("/", 1)[-1]):
+            return True
+    return False
 
 
 def _submission_rules(changed):

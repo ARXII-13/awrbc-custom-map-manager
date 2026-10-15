@@ -634,6 +634,23 @@ class WhatAPullRequestIsJudgedOn(PublishCase):
         self.assertNotEqual(code, 0)
         self.assertIn("which is not here", out)
 
+    def test_a_pull_request_that_is_not_a_submission_is_left_alone(self):
+        """A workflow, the README, the contributor terms.
+
+        The submission rules refuse anything outside maps/, which is exactly
+        what a maintainer changing repository infrastructure is doing - so
+        applying them to every pull request made those impossible to merge.
+        """
+        self.submitted()
+        code, out = self.verify("README.md", ".github/workflows/catalog.yml")
+        self.assertEqual(code, 0, out)
+
+    def test_touching_a_map_is_what_makes_it_a_submission(self):
+        changed = self.submitted()
+        code, out = self.verify(*changed, "README.md")
+        self.assertNotEqual(code, 0)
+        self.assertIn("should only touch", out)
+
     def test_the_whole_archive_is_still_checked_on_main(self):
         """Without --changed there is no submission to be answerable for, so
         everything is fair game - that is where a bad merge shows up."""
