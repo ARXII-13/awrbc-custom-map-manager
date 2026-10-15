@@ -244,11 +244,29 @@ def cmd_verify(args, out):
                                                keep_dates_from=catalog.load(root))
     for p in parse_problems:
         fail(p["path"], p["error"])
+    # A pull request is judged on what it touched, not on the whole archive.
+    #
+    # The index is rebuilt on merge and is stale in every pull request by
+    # definition - complaining about it made the check impossible to satisfy,
+    # because the submission rules below also refuse a pull request that
+    # contains it. A folder README is the opposite: it travels with the map,
+    # so it must be current, and only for the map being submitted.
+    #
+    # On main (no --changed) everything is still checked, which is where a
+    # bad merge would show up.
+    touched = _folders_touched(args.changed) if args.changed is not None         else None
     for rel in catalog.stale(root, files):
+        if touched is not None:
+            if rel == catalog.FILENAME:
+                continue
+            if rel.rsplit("/", 1)[0] not in touched:
+                continue
         fail(rel, "generated file is out of date; run `awrbc catalog`")
 
     if args.changed is not None:
         for p in _submission_rules(args.changed):
+            fail(p["path"], p["error"])
+        for p in _meta_rules(root, touched):
             fail(p["path"], p["error"])
 
     if args.json:
@@ -265,7 +283,54 @@ def cmd_verify(args, out):
 
 #: Files CI generates. A pull request that edits one is either confused or
 #: trying to make the index disagree with the maps.
-GENERATED = ("catalog.json", "README.md")
+#: Files CI generates at the root of the archive. A pull request that adds
+#: one is either confused or trying to make the index disagree with the maps.
+#:
+#: A folder README is generated too but is *not* here: it belongs to one map,
+#: travels in the submission that creates it, and is checked for being current
+#: rather than for being absent. Listing it made every submission impossible -
+#: stale if left out, refused if put in.
+GENERATED = ("catalog.json",)
+
+
+def _folders_touched(changed):
+    """The map folders a submission touches, as repo-relative paths."""
+    out = set()
+    for raw in changed:
+        p = raw.strip().replace("\\", "/")
+        if p.startswith(archive.ROOT + "/") and "/" in p:
+            out.add(p.rsplit("/", 1)[0])
+    return out
+
+
+def _meta_rules(root, folders):
+    """``meta.json`` has to describe the versions actually present.
+
+    It holds the one fact nothing else can recompute - when each version
+    arrived (decision #57) - so a submission that forgets it, or dates a
+    version that does not exist, has quietly lost or invented provenance.
+    """
+    out = []
+    for folder in sorted(folders or ()):
+        present = {str(archive.parse(rel).version)
+                   for rel in catalog.map_files(root)
+                   if rel.rsplit("/", 1)[0] == folder}
+        if not present:
+            continue                    # no map here; not a submission
+        meta = catalog.read_meta(root, folder)
+        added = meta.get("added")
+        if not isinstance(added, dict):
+            out.append({"path": folder + "/" + catalog.META,
+                        "error": "missing or unreadable; it records when each "
+                                 "version arrived and nothing else does"})
+            continue
+        for version in sorted(present - set(added)):
+            out.append({"path": folder + "/" + catalog.META,
+                        "error": "no date for v%s" % version})
+        for version in sorted(set(added) - present):
+            out.append({"path": folder + "/" + catalog.META,
+                        "error": "dates v%s, which is not here" % version})
+    return out
 
 
 def _submission_rules(changed):
