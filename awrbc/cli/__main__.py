@@ -121,6 +121,19 @@ def cmd_publish(args, out):
         json.dump(built, fh, indent=1, ensure_ascii=False)
         fh.write("\n")
 
+    # Provenance beside the map (decision #57). Written here as well as by the
+    # intake endpoint, because `publish` is the other way a map reaches the
+    # archive, and a folder without it has lost the one fact that cannot be
+    # recomputed. Merged with whatever is already there, so publishing v2 does
+    # not restamp v1 with today.
+    meta_path = os.path.join(os.path.dirname(target), catalog.META)
+    existing = catalog.read_meta(root, placement.folder).get("added")
+    added = dict(existing) if isinstance(existing, dict) else {}
+    added[str(placement.version)] = catalog.today()
+    with open(meta_path, "w", encoding="utf-8") as fh:
+        json.dump(catalog.meta_document(added), fh, indent=1)
+        fh.write("\n")
+
     # The preview goes down with the map rather than waiting for a catalog run,
     # so what the contributor pushes is what a reviewer sees in the pull
     # request. `awrbc catalog` regenerates it along with everything else.

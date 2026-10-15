@@ -76,11 +76,24 @@ class Preparing(unittest.TestCase):
         _, doc = a_map(name="Daibi", **kw)
         return submit.prepare(a_bundle(doc, a_preview()), catalog or {}, USER)
 
-    def test_a_good_map_becomes_two_files(self):
+    def test_a_good_map_becomes_three_files(self):
+        """The map, its preview, and when it arrived.
+
+        meta.json is the third because a map file cannot say when it was
+        submitted and nothing else in the repo records it (decision #57).
+        """
         got = self.prepared()
         self.assertEqual(got["placement"].path, "maps/2p/daibi/v1.json")
         self.assertEqual(sorted(got["files"]),
-                         ["maps/2p/daibi/v1.json", "maps/2p/daibi/v1.png"])
+                         ["maps/2p/daibi/meta.json",
+                          "maps/2p/daibi/v1.json",
+                          "maps/2p/daibi/v1.png"])
+
+    def test_the_date_is_recorded_beside_the_map(self):
+        got = self.prepared()
+        meta = json.loads(got["files"]["maps/2p/daibi/meta.json"])
+        self.assertEqual(sorted(meta["added"]), ["1"])
+        self.assertRegex(meta["added"]["1"], r"^\d{4}-\d{2}-\d{2}$")
 
     def test_the_author_is_the_session_not_the_file(self):
         """A file is a claim; a signed-in account is not."""
@@ -127,7 +140,8 @@ class Preparing(unittest.TestCase):
         _, doc = a_map(name="Daibi")
         got = submit.prepare(json.dumps(doc).encode("utf-8"), {}, USER)
         self.assertFalse(got["has_preview"])
-        self.assertEqual(list(got["files"]), ["maps/2p/daibi/v1.json"])
+        self.assertEqual(sorted(got["files"]),
+                         ["maps/2p/daibi/meta.json", "maps/2p/daibi/v1.json"])
 
 
 class WhenNobodySignedIn(unittest.TestCase):
@@ -223,6 +237,22 @@ class RevisingAfterANameClash(unittest.TestCase):
             "author": author,
             "versions": [{"version": 1, "cols": 14, "rows": 10, "players": 2,
                           "hash": archive.map_hash(schema.from_json(other))}]}}
+
+    def test_a_revision_keeps_the_first_version_s_date(self):
+        """meta.json is rewritten whole on every submission, because a commit
+        replaces a file - so a revision has to carry forward what is already
+        there. If it did not, publishing v2 would silently restamp v1 with
+        today, and the only record of when the map first arrived would be
+        gone (decision #57)."""
+        theirs = self.theirs()
+        theirs["maps/2p/daibi"]["versions"][0]["added"] = "2026-01-01"
+        _, doc = a_map(name="Daibi")
+        got = submit.prepare(a_bundle(doc, a_preview()), theirs, USER,
+                             update="maps/2p/daibi")
+        meta = json.loads(got["files"]["maps/2p/daibi/meta.json"])
+        self.assertEqual(meta["added"]["1"], "2026-01-01")
+        self.assertIn("2", meta["added"])
+        self.assertNotEqual(meta["added"]["2"], "")
 
     def test_the_clash_carries_the_folder(self):
         _, doc = a_map(name="Daibi")

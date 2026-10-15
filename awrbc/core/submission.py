@@ -21,7 +21,7 @@ import json
 import re
 import zipfile
 
-from . import archive, preview, schema, validate
+from . import archive, catalog as catalog_mod, preview, schema, validate
 
 #: Bigger than any real bundle - a 64x64 map is about 20 KB of JSON and the
 #: preview a few hundred. Past this, something is wrong or hostile.
@@ -151,6 +151,22 @@ def prepare(blob, catalog, author, update=None):
 
     files = {placement.path: (json.dumps(built, indent=1, ensure_ascii=False)
                               + "\n").encode("utf-8")}
+
+    # Provenance, beside the map (decision #57). The whole file is written
+    # rather than a patch, because a commit replaces a file - so dates already
+    # recorded for earlier versions must be carried forward, and they come
+    # from the index, which got them from this same file last time.
+    #
+    # Append-only in effect: an existing version's date is copied unchanged
+    # and only the version being published gains one, so a submission cannot
+    # rewrite when somebody else's revision arrived.
+    entry = (catalog or {}).get(placement.folder) or {}
+    added = {str(v["version"]): v["added"]
+             for v in entry.get("versions", []) if v.get("added")}
+    added[str(placement.version)] = catalog_mod.today()
+    files[placement.folder + "/" + catalog_mod.META] = (
+        json.dumps(catalog_mod.meta_document(added), indent=1) + "\n"
+    ).encode("utf-8")
     if image is not None:
         files[archive.version_path(
             placement.folder,

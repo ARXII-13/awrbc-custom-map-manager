@@ -15,12 +15,23 @@ demand.
 import datetime
 import json
 import os
+import re
 
 from . import archive, derive, schema
 
 SCHEMA_VERSION = 1
 
 FILENAME = "catalog.json"
+
+
+def today():
+    """Today, UTC, as an ISO date.
+
+    Public because provenance is written in two places now: here when a
+    catalog entry is first dated, and in `submission.prepare` when the
+    meta.json beside a map is written. Both have to agree on what day it is.
+    """
+    return datetime.date.today().isoformat()
 
 
 def _today():
@@ -85,6 +96,16 @@ def add(catalog, m, doc, path, added=None):
     return catalog
 
 
+#: The only JSON under ``maps/`` that is a map. A folder also holds
+#: ``meta.json``, which is about the submission rather than the map, and
+#: feeding that to the schema reports it as a map that will not parse.
+VERSION_JSON = re.compile(r"^v[1-9][0-9]*\.json$")
+
+#: Submission provenance, beside the map it describes. Holds the one fact a
+#: map file cannot: when each version arrived. See decision #57.
+META = "meta.json"
+
+
 def map_files(root):
     """Every map file in a library checkout, as repo-relative POSIX paths.
 
@@ -95,11 +116,60 @@ def map_files(root):
     found = []
     for dirpath, _, filenames in os.walk(base):
         for name in filenames:
-            if not name.endswith(".json"):
+            if not VERSION_JSON.match(name):
                 continue
             rel = os.path.relpath(os.path.join(dirpath, name), root)
             found.append(rel.replace(os.sep, "/"))
     return sorted(found)
+
+
+def read_meta(root, folder):
+    """One folder's ``meta.json``, or ``{}``.
+
+    Unreadable reads as absent on purpose: a corrupt provenance file must not
+    make the archive unbuildable. What is lost is a submission date, and
+    `build` says so by falling back rather than failing.
+    """
+    path = os.path.join(root, *folder.split("/"), META)
+    if not os.path.exists(path):
+        return {}
+    try:
+        with open(path, encoding="utf-8") as fh:
+            doc = json.load(fh)
+    except Exception:                                   # noqa: BLE001
+        return {}
+    return doc if isinstance(doc, dict) else {}
+
+
+def meta_document(added):
+    """``meta.json`` as it should be written. ``added`` is {version: date}."""
+    return {"schema": SCHEMA_VERSION,
+            "added": {str(k): v for k, v in sorted(
+                added.items(), key=lambda kv: int(kv[0]))}}
+
+
+def meta_dates(root):
+    """``{path: added}`` taken from the map folders themselves.
+
+    This is where submission dates live now (decision #57). It is the one
+    thing in a catalog entry that is not recomputed from the map file, so it
+    has to be stored somewhere - and beside the map, keyed by version and only
+    ever appended to, two submissions cannot collide over it.
+    """
+    dates = {}
+    for path in map_files(root):
+        folder = path.rsplit("/", 1)[0]
+        got = read_meta(root, folder).get("added")
+        if not isinstance(got, dict):
+            continue
+        for version, when in got.items():
+            try:
+                rel = archive.version_path(folder, int(version))
+            except (TypeError, ValueError):
+                continue
+            if isinstance(when, str) and when:
+                dates[rel] = when
+    return dates
 
 
 def previous_dates(catalog):
@@ -120,7 +190,11 @@ def build(root, keep_dates_from=None):
     rather than raised: one bad map must not make the whole catalog
     unbuildable, or a single bad merge takes the archive offline.
     """
+    # meta.json first, then whatever a previous catalog recorded. The
+    # fallback is what lets this change ship before the catalog is gone: an
+    # archive that has not grown meta.json files yet keeps its dates.
     dates = previous_dates(keep_dates_from)
+    dates.update(meta_dates(root))
     catalog, problems = {}, []
     for path in map_files(root):
         try:

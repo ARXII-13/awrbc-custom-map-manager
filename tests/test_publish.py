@@ -374,20 +374,47 @@ class Catalog(PublishCase):
         self.assertFalse(os.path.exists(
             os.path.join(self.library, catalog.FILENAME)))
 
+    def test_publishing_records_the_date_beside_the_map(self):
+        """When a version appeared is not in the map file, so it is written
+        next to it - meta.json, keyed by version (decision #57)."""
+        src, _ = self.source(name="Daibi")
+        self.publish(src)
+        meta = catalog.read_meta(self.library, "maps/2p/daibi")
+        self.assertEqual(sorted(meta["added"]), ["1"])
+        self.assertRegex(meta["added"]["1"], r"^\d{4}-\d{2}-\d{2}$")
+
     def test_rebuilding_keeps_submission_dates(self):
-        """When a version appeared is not in the file, so it can only be kept."""
+        """A rebuild takes dates from meta.json, not from the catalog it is
+        replacing - which is what lets the catalog be thrown away."""
+        src, _ = self.source(name="Daibi")
+        self.publish(src)
+        path = os.path.join(self.library, "maps", "2p", "daibi", catalog.META)
+        with open(path, "w", encoding="utf-8") as fh:
+            json.dump(catalog.meta_document({"1": "2020-01-01"}), fh)
+
+        self.run_cli("catalog", "--library", self.library)
+        rebuilt = catalog.load(self.library)
+        self.assertEqual(rebuilt["maps/2p/daibi"]["versions"][0]["added"],
+                         "2020-01-01")
+
+    def test_an_archive_with_no_meta_still_keeps_its_dates(self):
+        """The fallback that lets this ship before the catalog is gone: an
+        existing archive has catalog dates and no meta.json yet, and a
+        rebuild must not restamp every map with today."""
         src, _ = self.source(name="Daibi")
         self.publish(src)
         self.run_cli("catalog", "--library", self.library)
+        os.remove(os.path.join(self.library, "maps", "2p", "daibi",
+                               catalog.META))
         index = catalog.load(self.library)
-        index["maps/2p/daibi"]["versions"][0]["added"] = "2020-01-01"
+        index["maps/2p/daibi"]["versions"][0]["added"] = "2019-05-05"
         with open(os.path.join(self.library, catalog.FILENAME), "wb") as fh:
             fh.write(catalog.payload_bytes(index))
 
         self.run_cli("catalog", "--library", self.library)
         rebuilt = catalog.load(self.library)
         self.assertEqual(rebuilt["maps/2p/daibi"]["versions"][0]["added"],
-                         "2020-01-01")
+                         "2019-05-05")
 
     def test_one_unreadable_file_does_not_sink_the_catalog(self):
         src, _ = self.source(name="Daibi")
