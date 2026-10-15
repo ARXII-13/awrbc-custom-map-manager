@@ -119,27 +119,37 @@ class Resolving(unittest.TestCase):
 
 
 class ReadingACheckout(unittest.TestCase):
+    """A checkout has no committed index any more (decision #57), so reading
+    one means building it from the map files that are there."""
+
     def setUp(self):
+        from awrbc.core import schema
+        from .test_archive import a_map
+
         self.tmp = tempfile.mkdtemp()
         self.addCleanup(shutil.rmtree, self.tmp, ignore_errors=True)
-        os.makedirs(os.path.join(self.tmp, "maps", "2p", "daibi"))
-        with open(os.path.join(self.tmp, "catalog.json"), "w",
-                  encoding="utf-8") as fh:
-            json.dump({"schema": 1, "maps": CATALOG}, fh)
-        with open(os.path.join(self.tmp, "maps", "2p", "daibi", "v1.json"),
-                  "w", encoding="utf-8") as fh:
-            json.dump({"schema": 1, "name": "Daibi"}, fh)
+        folder = os.path.join(self.tmp, "maps", "2p", "daibi")
+        os.makedirs(folder)
+        # A real map, because the index is built by parsing these rather
+        # than by reading a file that describes them.
+        _, doc = a_map(name="Daibi", teams=2)
+        doc = schema.build_document(schema.from_json(doc), author="arxii")
+        with open(os.path.join(folder, "v1.json"), "w", encoding="utf-8") as fh:
+            json.dump(doc, fh)
 
-    def test_the_catalog_loads(self):
+    def test_the_index_is_built_from_the_maps(self):
         index, stale = repo.load_local(self.tmp)
         self.assertIn("maps/2p/daibi", index)
+        self.assertEqual(index["maps/2p/daibi"]["name"], "Daibi")
         self.assertIsNone(stale)
 
     def test_a_map_loads(self):
         doc = repo.fetch_map("maps/2p/daibi", 1, root=self.tmp)
         self.assertEqual(doc["name"], "Daibi")
 
-    def test_a_checkout_with_no_catalog_says_so(self):
+    def test_a_directory_that_is_not_an_archive_says_so(self):
+        """No maps/ at all. Previously this was "no catalog.json", which
+        stopped meaning anything once there is never one."""
         with self.assertRaises(ArchiveUnreachable):
             repo.load_local(os.path.join(self.tmp, "maps"))
 

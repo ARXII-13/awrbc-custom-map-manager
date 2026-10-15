@@ -126,12 +126,20 @@ def fetch_catalog(base=None, max_age=MAX_AGE, refresh=False):
 
 
 def load_local(root):
-    """The catalog from a checkout on disk, for working offline."""
-    path = os.path.join(root, CATALOG)
-    if not os.path.exists(path):
-        raise ArchiveUnreachable("no %s in %s" % (CATALOG, root))
-    with open(path, encoding="utf-8") as fh:
-        return json.load(fh).get("maps", {}), None
+    """An index of a checkout on disk, for working offline.
+
+    Built from the map files rather than read from a committed index, because
+    there is no longer one to read (decision #57). Walking a local directory
+    costs nothing next to the network call this exists to avoid, and it
+    cannot be out of date with the maps beside it - which the committed file
+    could be, and which is most of why it is gone.
+    """
+    from . import catalog as catalog_mod
+    maps_dir = os.path.join(root, archive.ROOT)
+    if not os.path.isdir(maps_dir):
+        raise ArchiveUnreachable("no %s/ in %s" % (archive.ROOT, root))
+    index, _problems = catalog_mod.build(root)
+    return index, None
 
 
 def _terms(entry, folder):

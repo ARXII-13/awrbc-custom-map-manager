@@ -89,7 +89,12 @@ def cmd_publish(args, out):
             sys.stderr.write("error: %-18s %s\n" % (f.code, f.message))
         raise ValidationFailed(report)
 
-    index = catalog.load(root) if not args.rescan else catalog.build(root)[0]
+    # Built from the map files, always. There is no committed index to read
+    # any more (decision #57), and this is what decides whether a map is a
+    # duplicate and whether its slug is taken - the two questions it would be
+    # worst to answer from a file that is simply missing. --rescan stays as a
+    # no-op, because it is in people's fingers and did this by hand before.
+    index = catalog.build(root)[0]
     placement = archive.plan(m, index, update=args.update,
                              author=doc.get("author"))
     if not placement.ok:
@@ -413,8 +418,9 @@ def cmd_catalog(args, out):
         return EXIT_OK if not problems else ValidationFailed.exit_code
     drifted = catalog.stale(root, files) if args.check else []
     written = [] if args.check else catalog.write_generated(root, files)
-    count = len(catalog.load(root)) if args.check else \
-        len(json.loads(files[catalog.FILENAME].decode("utf-8"))["maps"])
+    # From what was just built, not from a committed index: there is none
+    # to read, so --check reported an empty archive full of maps.
+    count = len(json.loads(files[catalog.FILENAME].decode("utf-8"))["maps"])
 
     if args.json:
         json.dump({"count": count, "problems": problems,

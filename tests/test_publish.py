@@ -59,6 +59,15 @@ class PublishCase(unittest.TestCase):
         path = os.path.join(self.tmp, filename)
         return path, write_map(path, **kw)
 
+    def index(self):
+        """The archive index, built from the map files.
+
+        There is no committed catalog.json to read any more (decision #57);
+        it is built on merge and published. Everything that used to open that
+        file now builds one, and so do these tests.
+        """
+        return catalog.build(self.library)[0]
+
     def read_published(self, rel):
         with open(os.path.join(self.library, *rel.split("/")),
                   encoding="utf-8") as fh:
@@ -361,7 +370,7 @@ class Catalog(PublishCase):
         self.publish(src)
         code, text = self.run_cli("catalog", "--library", self.library)
         self.assertEqual(code, 0, text)
-        index = catalog.load(self.library)
+        index = self.index()
         self.assertIn("maps/2p/daibi", index)
         entry = index["maps/2p/daibi"]
         self.assertEqual(entry["name"], "Daibi")
@@ -393,28 +402,9 @@ class Catalog(PublishCase):
             json.dump(catalog.meta_document({"1": "2020-01-01"}), fh)
 
         self.run_cli("catalog", "--library", self.library)
-        rebuilt = catalog.load(self.library)
+        rebuilt = self.index()
         self.assertEqual(rebuilt["maps/2p/daibi"]["versions"][0]["added"],
                          "2020-01-01")
-
-    def test_an_archive_with_no_meta_still_keeps_its_dates(self):
-        """The fallback that lets this ship before the catalog is gone: an
-        existing archive has catalog dates and no meta.json yet, and a
-        rebuild must not restamp every map with today."""
-        src, _ = self.source(name="Daibi")
-        self.publish(src)
-        self.run_cli("catalog", "--library", self.library)
-        os.remove(os.path.join(self.library, "maps", "2p", "daibi",
-                               catalog.META))
-        index = catalog.load(self.library)
-        index["maps/2p/daibi"]["versions"][0]["added"] = "2019-05-05"
-        with open(os.path.join(self.library, catalog.FILENAME), "wb") as fh:
-            fh.write(catalog.payload_bytes(index))
-
-        self.run_cli("catalog", "--library", self.library)
-        rebuilt = catalog.load(self.library)
-        self.assertEqual(rebuilt["maps/2p/daibi"]["versions"][0]["added"],
-                         "2019-05-05")
 
     def test_one_unreadable_file_does_not_sink_the_catalog(self):
         src, _ = self.source(name="Daibi")
@@ -427,16 +417,23 @@ class Catalog(PublishCase):
         code, text = self.run_cli("catalog", "--library", self.library)
         self.assertEqual(code, ValidationFailed.exit_code)
         self.assertIn("unreadable", text)
-        self.assertIn("maps/2p/daibi", catalog.load(self.library))
+        self.assertIn("maps/2p/daibi", self.index())
 
     def test_rebuilding_twice_gives_an_identical_file(self):
-        """A regeneration commit should show real changes or nothing at all."""
+        """Two builds of an unchanged archive are byte for byte the same.
+
+        It mattered when the index was committed, so a regeneration commit
+        showed real changes or nothing. It still matters now it is published:
+        a byte-unstable build means every deploy looks like a change, and
+        nobody can tell a real one from noise.
+        """
         src, _ = self.source()
         self.publish(src)
-        self.run_cli("catalog", "--library", self.library)
-        path = os.path.join(self.library, catalog.FILENAME)
+        out = os.path.join(self.tmp, "site")
+        self.run_cli("catalog", "--library", self.library, "--build-into", out)
+        path = os.path.join(out, catalog.FILENAME)
         first = open(path, encoding="utf-8").read()
-        self.run_cli("catalog", "--library", self.library)
+        self.run_cli("catalog", "--library", self.library, "--build-into", out)
         self.assertEqual(first, open(path, encoding="utf-8").read())
 
     def test_it_generates_a_readme_but_never_a_preview(self):
@@ -572,10 +569,13 @@ class WhatAPullRequestIsJudgedOn(PublishCase):
         self.assertEqual(code, 0, out)
         self.assertIn("0 problems", out)
 
-    def test_a_stale_index_is_not_the_submission_s_problem(self):
+    def test_the_index_is_never_the_submission_s_problem(self):
+        """There is no index in the tree to be stale (decision #57), and a
+        submission is not answerable for one that is published elsewhere."""
         changed = self.submitted()
-        # Exactly what a merge would fix, and what no contributor can.
-        os.remove(os.path.join(self.library, catalog.FILENAME))
+        self.assertFalse(
+            os.path.exists(os.path.join(self.library, catalog.FILENAME)),
+            "`awrbc catalog` should not write an index into the checkout")
         code, out = self.verify(*changed)
         self.assertEqual(code, 0, out)
 
@@ -653,9 +653,12 @@ class WhatAPullRequestIsJudgedOn(PublishCase):
 
     def test_the_whole_archive_is_still_checked_on_main(self):
         """Without --changed there is no submission to be answerable for, so
-        everything is fair game - that is where a bad merge shows up."""
+        every folder README is fair game - that is where a bad merge shows
+        up, and it is the check that survived the index leaving."""
         self.submitted()
-        os.remove(os.path.join(self.library, catalog.FILENAME))
+        readme = os.path.join(self.library, "maps", "2p", "daibi", "README.md")
+        with open(readme, "a", encoding="utf-8") as fh:
+            fh.write("drifted" + chr(10))
         code, out = self.run_cli("verify", "--library", self.library)
         self.assertNotEqual(code, 0)
         self.assertIn("out of date", out)

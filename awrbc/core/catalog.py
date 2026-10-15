@@ -289,10 +289,19 @@ def payload_bytes(catalog):
             + "\n").encode("utf-8")
 
 
+#: Generated, but not committed (decision #57). It is built from every map in
+#: the archive and published, so writing it into the checkout would put back
+#: the one file every submission has to agree about. `--build-into` is how it
+#: is produced; these two skip it.
+NOT_COMMITTED = (FILENAME,)
+
+
 def write_generated(root, files):
     """Write the generated files, returning the paths that actually changed."""
     changed = []
     for rel, data in sorted(files.items()):
+        if rel in NOT_COMMITTED:
+            continue
         target = os.path.join(root, *rel.split("/"))
         if os.path.exists(target):
             with open(target, "rb") as fh:
@@ -308,12 +317,15 @@ def write_generated(root, files):
 def stale(root, files):
     """Generated files that are missing or out of step with the map beside them.
 
-    ``catalog.json`` carries a generation date, so it differs on any day it is
-    rebuilt whether or not anything changed. Comparing it byte for byte would
-    make every check fail the next morning, so it is compared on content.
+    The index is not among them: it is published rather than committed, so an
+    archive with no catalog.json in it is correct rather than out of date.
+    Reporting it stale is how `verify` on main failed the moment the file was
+    removed, which is the check working from a premise that had changed.
     """
     out = []
     for rel, data in sorted(files.items()):
+        if rel in NOT_COMMITTED:
+            continue
         target = os.path.join(root, *rel.split("/"))
         if not os.path.exists(target):
             out.append(rel)
