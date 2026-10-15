@@ -364,6 +364,12 @@ def cmd_catalog(args, out):
     What CI runs on merge, and with --check what it runs on a pull request: the
     generated files are committed, so they can be out of step with the maps
     beside them and something has to notice.
+
+    `--build-into` is the third mode and the one the index is heading for
+    (decision #57): write it somewhere else and publish it from there, so it
+    stops being a file in the repository that every submission has to agree
+    about. Nothing in the checkout is touched, which is what lets the job
+    that runs it need no write access to the branch.
     """
     root = args.library or os.environ.get("AWRBC_LIBRARY")
     if not root or not os.path.isdir(root):
@@ -371,6 +377,24 @@ def cmd_catalog(args, out):
 
     files, problems = catalog.regenerate(root,
                                          keep_dates_from=catalog.load(root))
+
+    if args.build_into:
+        os.makedirs(args.build_into, exist_ok=True)
+        target = os.path.join(args.build_into, catalog.FILENAME)
+        with open(target, "wb") as fh:
+            fh.write(files[catalog.FILENAME])
+        built = json.loads(files[catalog.FILENAME].decode("utf-8"))
+        if args.json:
+            json.dump({"count": len(built["maps"]), "problems": problems,
+                       "written": [target]}, out, indent=2)
+            out.write("\n")
+        else:
+            for p_ in problems:
+                out.write("  %s\n    %s\n" % (p_["path"], p_["error"]))
+            out.write("%d map%s into %s\n"
+                      % (len(built["maps"]),
+                         "" if len(built["maps"]) == 1 else "s", target))
+        return EXIT_OK if not problems else ValidationFailed.exit_code
     drifted = catalog.stale(root, files) if args.check else []
     written = [] if args.check else catalog.write_generated(root, files)
     count = len(catalog.load(root)) if args.check else \
@@ -625,6 +649,10 @@ def build_parser():
     cat.add_argument("--library", help="checkout of awrbc-custom-map-library")
     cat.add_argument("--check", action="store_true",
                      help="report without writing")
+    cat.add_argument("--build-into", metavar="DIR",
+                     help="write catalog.json there and touch nothing in the "
+                          "checkout; for publishing the index rather than "
+                          "committing it")
 
     se = archive_flags(sub.add_parser("search", parents=[common],
                                       help="find maps in the archive"))
