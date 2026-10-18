@@ -183,13 +183,6 @@
     <h2>Map</h2>
     <input type="text" id="name" style="width:100%" value="Untitled"
            placeholder="map name">
-    <input type="text" id="author" style="width:100%;margin-top:6px"
-           placeholder="your name">
-    <!-- Shown only while signed in, when this field stops deciding anything
-         about a submission: the archive publishes the name on the account
-         that sent it. The field still travels in an exported file, so it is
-         not disabled - just no longer the answer to "who made this". -->
-    <div id="author-note" class="sub" style="margin-top:4px" hidden></div>
     <div class="row">
       <input type="number" id="cols" min="1" step="1">
       <span>x</span>
@@ -330,12 +323,9 @@ function load(json) {
   ed = createEditor(doc, refresh);
   document.getElementById("name").value = doc.name || "Untitled";
   document.getElementById("tags").value = (doc.tags || []).join(", ");
-  // A map that already names an author keeps it - opening someone else's map
-  // must not quietly relabel it as yours. A new or anonymous one picks up the
-  // name this browser remembers.
-  const carried = doc.author && doc.author !== "anonymous" ? doc.author : "";
-  doc.author = carried || rememberedAuthor();
-  authorBox.value = doc.author;
+  // A map that already names an author keeps it. There is no field to type
+  // one into any more: submitting publishes the account that sent it, and
+  // opening someone else's map must not quietly relabel it as yours.
   buildPalette();
   refresh();
   fit();
@@ -734,22 +724,11 @@ document.getElementById("check").onclick = () => {
 };
 document.getElementById("name").oninput = (e) => { doc.name = e.target.value; };
 
-// Your name does not change between maps, so remember it. Without this the
-// author field is one more thing to retype per map, and what actually happens
-// is that nobody fills it in and every map is published by "anonymous".
-const AUTHOR_KEY = "awrbc.author";
-const authorBox = document.getElementById("author");
-
-function rememberedAuthor() {
-  // Private windows and blocked site data make this throw rather than return
-  // null, and an editor that will not load is worse than one that forgets.
-  try { return localStorage.getItem(AUTHOR_KEY) || ""; } catch { return ""; }
-}
-
-authorBox.oninput = (e) => {
-  doc.author = e.target.value.trim();
-  try { localStorage.setItem(AUTHOR_KEY, doc.author); } catch { /* ignore */ }
-};
+// There is no author field. Who made a map is settled by the account that
+// submits it, so a box asking for a name was collecting something the
+// archive then ignored - and inviting people to type one that would be
+// quietly replaced. A map opened from a file keeps whatever author it
+// carries; a new one is published under the submitter's account.
 
 // Tags are the author's own labels. Anything the map can answer for itself -
 // how many armies, whether units are predeployed - is derived at export and
@@ -922,7 +901,6 @@ attachSubmit({
   button: document.getElementById("submit"),
   label: document.getElementById("who"),
   signOut: document.getElementById("signout"),
-  authorNote: document.getElementById("author-note"),
   currentDoc: exportDocument,
   stats,
   // The pull request is the only handle an anonymous contributor has on their
