@@ -57,6 +57,7 @@ export function attachSubmissions({ button, panel, base, storage,
   // server is asked again.
   let rows = [];
   let fromServer = false;
+  let truncated = false;
   // Whether the states shown came from GitHub just now, or from the last
   // time anyone managed to ask. The server reports both; showing a status
   // without its age is the thing it reports them for.
@@ -101,7 +102,10 @@ export function attachSubmissions({ button, panel, base, storage,
       // this, a cached "waiting for review" is indistinguishable from one
       // confirmed a second ago - and the older it is, the more confidently
       // wrong it looks.
-      if (item.state && !live && item.stateAsOf) {
+      // Per row, not per response: a fetch can cover some submissions and
+      // not others, so one stale row does not make the rest suspect and one
+      // fresh row does not vouch for the rest.
+      if (item.state && item.fresh === false && item.stateAsOf) {
         sub.textContent += ' (as of ' + when(item.stateAsOf) + ')';
       }
       row.appendChild(sub);
@@ -117,8 +121,11 @@ export function attachSubmissions({ button, panel, base, storage,
     // to know which one they are looking at.
     note.textContent = fromServer
       ? (live ? 'From your account.'
-              : 'From your account - could not reach GitHub just now.')
+              : 'From your account - some statuses could not be checked just now.')
       : 'Kept in this browser only.';
+    if (fromServer && truncated) {
+      note.textContent += ' Showing the most recent only.';
+    }
     foot.appendChild(note);
 
     if (!fromServer) {
@@ -141,6 +148,7 @@ export function attachSubmissions({ button, panel, base, storage,
       rows = mine.submissions;
       fromServer = true;
       live = mine.live === true;
+      truncated = mine.truncated === true;
     } else {
       rows = localRows();
       fromServer = false;

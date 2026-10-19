@@ -64,8 +64,14 @@ export function toast(message, { action, ms = 9000, doc = document } = {}) {
   close.onclick = remove;
   // Reading stops the clock. A toast carrying a link is worth more than the
   // few seconds a timer would give someone who is still looking at it.
+  //
+  // `ms: 0` means stay until dismissed, so hovering one must not start a
+  // clock it never had: the sticky toast would have removed itself 2.5s
+  // after the first time anybody moved a mouse across it.
   el.onmouseenter = () => { if (timer) { clearTimeout(timer); timer = 0; } };
-  el.onmouseleave = () => { timer = setTimeout(remove, 2500); };
-  if (ms) timer = setTimeout(remove, ms);
+  if (ms) {
+    el.onmouseleave = () => { timer = setTimeout(remove, 2500); };
+    timer = setTimeout(remove, ms);
+  }
   return remove;
 }

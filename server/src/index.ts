@@ -425,7 +425,7 @@ export function createApp(store: Store) {
       return;
     }
 
-    const mine = await store.submissionsFor(user.id);
+    const { items: mine, truncated } = await store.submissionsFor(user.id);
     const numbers = mine.map((m) => m.prNumber);
 
     let states = new Map<number, 'open' | 'merged' | 'closed'>();
@@ -434,7 +434,13 @@ export function createApp(store: Store) {
       const library = new github.Library(config.libraryRepo,
                                          config.githubToken);
       states = await library.pullRequestStates();
-      live = true;
+      // Only as live as the window it covers. pullRequestStates asks for the
+      // most recent pull requests repo-wide, so a submission older than that
+      // is simply absent and falls back to whatever was last cached - which
+      // may be months stale. Saying `live` regardless was the response
+      // asserting a freshness it did not have, which is the one thing `asOf`
+      // exists to stop.
+      live = numbers.every((n) => states.has(n));
       const checkedAt = new Date().toISOString();
       await store.cachePrStates(
         numbers.filter((n) => states.has(n))
@@ -449,6 +455,7 @@ export function createApp(store: Store) {
     res.json({
       live,
       asOf: live ? new Date().toISOString() : null,
+      truncated,
       submissions: mine.map((m) => {
         const known = states.get(m.prNumber);
         const fallback = cached.get(m.prNumber);
@@ -462,6 +469,8 @@ export function createApp(store: Store) {
           // Never seen is not the same as open, and saying "open" about a
           // pull request nobody has looked up is how a list starts lying.
           state: known ?? fallback?.state ?? 'unknown',
+          // Per row, because the fetch can cover some and not others.
+          fresh: known !== undefined,
           stateAsOf: known ? new Date().toISOString()
                            : fallback?.checkedAt ?? null,
         };

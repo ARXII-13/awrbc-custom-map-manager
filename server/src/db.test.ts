@@ -47,7 +47,8 @@ describe('recording a submission', () => {
   it('reads back what went in', async () => {
     const db = await open();
     await db.recordSubmission(sub());
-    const [got] = await db.submissionsFor('1234');
+    const { items } = await db.submissionsFor('1234');
+    const got = items[0];
     assert.equal(got!.mapName, 'daibi');
     assert.equal(got!.prNumber, 7);
     assert.equal(got!.contentHash, 'abc123');
@@ -59,7 +60,7 @@ describe('recording a submission', () => {
     const db = await open();
     await db.recordSubmission(sub());
     await db.recordSubmission(sub({ mapName: 'daibi renamed' }));
-    const all = await db.submissionsFor('1234');
+    const { items: all } = await db.submissionsFor('1234');
     assert.equal(all.length, 1);
     assert.equal(all[0]!.mapName, 'daibi renamed');
     await db.close();
@@ -69,8 +70,8 @@ describe('recording a submission', () => {
     const db = await open();
     await db.recordSubmission(sub());
     await db.recordSubmission(sub({ discordId: '9999', prNumber: 8 }));
-    assert.equal((await db.submissionsFor('1234')).length, 1);
-    assert.equal((await db.submissionsFor('9999')).length, 1);
+    assert.equal((await db.submissionsFor('1234')).items.length, 1);
+    assert.equal((await db.submissionsFor('9999')).items.length, 1);
     await db.close();
   });
 
@@ -78,7 +79,7 @@ describe('recording a submission', () => {
     const db = await open();
     await db.recordSubmission(sub({ prNumber: 1, createdAt: '2026-10-01T00:00:00.000Z' }));
     await db.recordSubmission(sub({ prNumber: 2, createdAt: '2026-10-05T00:00:00.000Z' }));
-    const all = await db.submissionsFor('1234');
+    const { items: all } = await db.submissionsFor('1234');
     assert.deepEqual(all.map((s) => s.prNumber), [2, 1]);
     await db.close();
   });

@@ -165,13 +165,22 @@ export class Store {
           s.createdAt || nowIso());
   }
 
-  /** One person's submissions, newest first. */
-  async submissionsFor(discordId: string, limit = 50): Promise<Submission[]> {
+  /** One person's submissions, newest first.
+   *
+   *  Asks for one more than it will return, so the caller can say the list
+   *  is partial rather than quietly stopping at the limit - a submission
+   *  that simply vanishes off the end is worse than one labelled missing.
+   */
+  async submissionsFor(discordId: string, limit = 50):
+      Promise<{ items: Submission[]; truncated: boolean }> {
     const rows = this.db.prepare(
       `SELECT * FROM submissions WHERE discord_id = ?
        ORDER BY created_at DESC, id DESC LIMIT ?`,
-    ).all(discordId, limit) as Record<string, unknown>[];
-    return rows.map(toSubmission);
+    ).all(discordId, limit + 1) as Record<string, unknown>[];
+    return {
+      items: rows.slice(0, limit).map(toSubmission),
+      truncated: rows.length > limit,
+    };
   }
 
   /**
