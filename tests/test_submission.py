@@ -76,18 +76,53 @@ class Preparing(unittest.TestCase):
         _, doc = a_map(name="Daibi", **kw)
         return submit.prepare(a_bundle(doc, a_preview()), catalog or {}, USER)
 
-    def test_a_good_map_becomes_three_files(self):
-        """The map, its preview, and when it arrived.
+    def test_a_good_map_becomes_four_files(self):
+        """The map, its preview, when it arrived, and the folder README.
 
-        meta.json is the third because a map file cannot say when it was
-        submitted and nothing else in the repo records it (decision #57).
+        meta.json because a map file cannot say when it was submitted and
+        nothing else records it; the README because `verify` checks it is
+        current for the map being submitted and a missing one counts as out
+        of date (decision #57).
         """
         got = self.prepared()
         self.assertEqual(got["placement"].path, "maps/2p/daibi/v1.json")
         self.assertEqual(sorted(got["files"]),
-                         ["maps/2p/daibi/meta.json",
+                         ["maps/2p/daibi/README.md",
+                          "maps/2p/daibi/meta.json",
                           "maps/2p/daibi/v1.json",
                           "maps/2p/daibi/v1.png"])
+
+    def test_the_folder_readme_travels_with_the_submission(self):
+        """A submission carries its own README, built the way `awrbc catalog`
+        builds it.
+
+        `verify --changed` checks the README of the map being submitted is
+        current, and a missing file counts as out of date - so a submission
+        without one cannot pass. The first real submission failed on exactly
+        that, having sent the map, the preview and meta.json and nothing else.
+        """
+        from awrbc.core import catalog, preview
+        got = self.prepared()
+        readme = got["files"]["maps/2p/daibi/README.md"].decode("utf-8")
+        self.assertIn("Daibi", readme)
+
+        # The same bytes `awrbc catalog` would write, or the check that
+        # compares them will call this stale the moment it lands.
+        # The date prepare actually stamped, not one invented here: the
+        # README carries it, so a different one compares unequal for a
+        # reason that has nothing to do with what is being tested.
+        added = json.loads(got["files"]["maps/2p/daibi/meta.json"])["added"]["1"]
+        index = {}
+        catalog.add(index, got["map"], got["document"],
+                    got["placement"].path, added)
+        expected = preview.readme(index["maps/2p/daibi"], previews={1})
+        self.assertEqual(readme, expected)
+
+    def test_a_submission_with_no_preview_says_so_in_its_readme(self):
+        _, doc = a_map(name="Daibi")
+        got = submit.prepare(json.dumps(doc).encode("utf-8"), {}, USER)
+        readme = got["files"]["maps/2p/daibi/README.md"].decode("utf-8")
+        self.assertNotIn("v1.png", readme)
 
     def test_the_date_is_recorded_beside_the_map(self):
         got = self.prepared()
@@ -141,7 +176,9 @@ class Preparing(unittest.TestCase):
         got = submit.prepare(json.dumps(doc).encode("utf-8"), {}, USER)
         self.assertFalse(got["has_preview"])
         self.assertEqual(sorted(got["files"]),
-                         ["maps/2p/daibi/meta.json", "maps/2p/daibi/v1.json"])
+                         ["maps/2p/daibi/README.md",
+                          "maps/2p/daibi/meta.json",
+                          "maps/2p/daibi/v1.json"])
 
 
 class WhenNobodySignedIn(unittest.TestCase):

@@ -17,6 +17,7 @@ not invent a second opinion about what a valid map is; that is ``validate`` and
 The browser is not trusted. It may have run the same checks for a nicer error
 message; that is a convenience, not a gate.
 """
+import copy
 import json
 import re
 import zipfile
@@ -166,6 +167,28 @@ def prepare(blob, catalog, author, update=None):
     added[str(placement.version)] = catalog_mod.today()
     files[placement.folder + "/" + catalog_mod.META] = (
         json.dumps(catalog_mod.meta_document(added), indent=1) + "\n"
+    ).encode("utf-8")
+
+    # The folder README travels with the submission as well. Verify checks it
+    # is current for the map being submitted (decision #57), and a missing
+    # file counts as out of date - so a submission without one cannot pass,
+    # which is how the first real one failed.
+    #
+    # Built from the catalog entry, exactly as `awrbc catalog` builds it, so
+    # the two cannot disagree. Earlier versions are assumed to have previews:
+    # nothing here can see the repository to check, every map submitted
+    # through the editor has one, and a wrong guess is caught by the same
+    # staleness check rather than reaching the archive.
+    folded = {}
+    if catalog and placement.folder in catalog:
+        folded[placement.folder] = copy.deepcopy(catalog[placement.folder])
+    catalog_mod.add(folded, m, built, placement.path,
+                    added[str(placement.version)])
+    entry = folded[placement.folder]
+    seen = {v["version"] for v in entry.get("versions", [])}
+    files[placement.folder + "/README.md"] = preview.readme(
+        entry,
+        previews=seen if image is not None else seen - {placement.version},
     ).encode("utf-8")
     if image is not None:
         files[archive.version_path(
